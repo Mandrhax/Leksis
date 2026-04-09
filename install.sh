@@ -142,13 +142,23 @@ install_docker() {
 }
 
 check_gpu() {
-  if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
-    GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
+  # Always initialize so set -u never complains
+  GPU_AVAILABLE=false
+  GPU_NAME=""
+
+  if ! command -v nvidia-smi &>/dev/null; then
+    warn "nvidia-smi not found. Ollama will run in CPU-only mode."
+    return 0
+  fi
+
+  # nvidia-smi exists — try to query an actual GPU (may fail on driver-only installs)
+  GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || true)
+
+  if [[ -n "$GPU_NAME" ]]; then
     success "NVIDIA GPU detected: ${GPU_NAME}"
     GPU_AVAILABLE=true
   else
-    warn "No NVIDIA GPU detected. Ollama will run in CPU-only mode."
-    GPU_AVAILABLE=false
+    warn "nvidia-smi found but no physical GPU detected. Ollama will run in CPU-only mode."
   fi
 }
 
@@ -193,7 +203,7 @@ cmd_install() {
   header "Step 2/8 — Configuration"
 
   INSTALL_DIR=$(ask "Installation directory" "/opt/leksis")
-  REPO_URL=$(ask "GitHub repository URL" "https://github.com/yourorg/leksis.git")
+  REPO_URL=$(ask "GitHub repository URL" "https://github.com/Mandrhax/Leksis.git")
   APP_URL=$(ask "Public URL of the application (no trailing slash)" "https://leksis.example.com")
   ADMIN_EMAIL=$(ask "Admin email address" "")
   ADMIN_NAME=$(ask "Admin display name" "Admin")
