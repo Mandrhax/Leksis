@@ -204,7 +204,9 @@ cmd_install() {
 
   INSTALL_DIR=$(ask "Installation directory" "/opt/leksis")
   REPO_URL=$(ask "GitHub repository URL" "https://github.com/Mandrhax/Leksis.git")
-  APP_URL=$(ask "Public URL of the application (no trailing slash)" "https://leksis.example.com")
+  # Auto-detect the server's primary IP address as default
+  SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
+  APP_URL=$(ask "Public URL of the application (no trailing slash)" "http://${SERVER_IP}:3000")
   ADMIN_EMAIL=$(ask "Admin email address" "")
   ADMIN_NAME=$(ask "Admin display name" "Admin")
 
