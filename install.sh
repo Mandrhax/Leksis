@@ -82,17 +82,19 @@ wait_healthy() {
   local elapsed=0
   info "Waiting for $service to be healthy..."
   while [[ $elapsed -lt $max_wait ]]; do
-    status=$(docker compose ps --format json "$service" 2>/dev/null \
-      | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('Health',''))" 2>/dev/null || echo "")
+    # docker inspect returns the health status reliably
+    status=$(docker inspect --format='{{.State.Health.Status}}' "leksis-${service}" 2>/dev/null || echo "")
     if [[ "$status" == "healthy" ]]; then
       success "$service is healthy."
       return 0
     fi
     sleep 5
     elapsed=$((elapsed + 5))
-    echo -ne "  Waiting... (${elapsed}s / ${max_wait}s)\r" >&2
+    printf "  Waiting... (%ds / %ds)\r" "$elapsed" "$max_wait" >&2
   done
+  echo "" >&2
   error "$service did not become healthy within ${max_wait}s."
+  docker compose logs --tail=20 "$service" >&2 || true
   return 1
 }
 
@@ -105,20 +107,38 @@ check_root() {
 }
 
 install_docker() {
-  if command -v docker &>/dev/null && docker compose version &>/dev/null; then
+  if command -v docker &>/dev/null && docker compose version &>/dev/null 2>&1; then
     success "Docker $(docker --version | cut -d' ' -f3 | tr -d ',') with Compose v2 is already installed."
     return 0
   fi
 
-  warn "Docker not found. Installing..."
-  curl -fsSL https://get.docker.com | sh
-  systemctl enable --now docker
+  warn "Docker not found. Installing via get.docker.com..."
+  curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+  sh /tmp/get-docker.sh
+  rm -f /tmp/get-docker.sh
 
-  if ! docker compose version &>/dev/null; then
-    error "Docker Compose v2 is not available after installation. Please install it manually."
+  # Enable and start the Docker daemon (ignore error if already running)
+  systemctl enable docker 2>/dev/null || true
+  systemctl start docker 2>/dev/null || true
+
+  # Give the daemon a moment to fully start
+  sleep 3
+
+  # Install docker-compose-plugin explicitly if 'docker compose' is not available
+  if ! docker compose version &>/dev/null 2>&1; then
+    info "Installing docker-compose-plugin..."
+    apt-get install -y docker-compose-plugin 2>/dev/null || \
+      apt-get install -y docker-compose 2>/dev/null || true
+    sleep 2
+  fi
+
+  # Final check
+  if ! docker compose version &>/dev/null 2>&1; then
+    error "Docker Compose v2 could not be installed. Please install it manually and re-run this script."
     exit 1
   fi
-  success "Docker installed successfully."
+
+  success "Docker $(docker --version | cut -d' ' -f3 | tr -d ',') installed successfully."
 }
 
 check_gpu() {
