@@ -8,7 +8,7 @@
 # uninstall  — Clean removal of all Leksis components
 #
 # Run from a server via curl (stdin-safe):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/leksis/main/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/main/install.sh)
 # ============================================================
 set -euo pipefail
 
@@ -20,10 +20,10 @@ if [[ ! -t 0 ]]; then
   echo "ERROR: stdin is not a terminal — interactive prompts will not work."
   echo ""
   echo "Run this script with:"
-  echo "  bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/leksis/main/install.sh)"
+  echo "  bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/main/install.sh)"
   echo ""
   echo "Or download it first:"
-  echo "  curl -fsSL https://raw.githubusercontent.com/Mandrhax/leksis/main/install.sh -o install.sh"
+  echo "  curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/main/install.sh -o install.sh"
   echo "  chmod +x install.sh && sudo ./install.sh"
   echo ""
   exit 1
