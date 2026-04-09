@@ -215,6 +215,11 @@ cmd_install() {
   OLLAMA_REWRITE_MODEL=$(ask "  Rewrite model" "qwen2.5:14b")
 
   echo ""
+  info "Ollama runtime settings:"
+  OLLAMA_KEEP_ALIVE=$(ask "  Keep models in VRAM (-1 = forever, 5m = 5 min, 0 = unload immediately)" "-1")
+  OLLAMA_SCHED_SPREAD=$(ask "  GPU scheduling spread (number of GPUs to spread across, false = disable)" "4")
+
+  echo ""
   info "PostgreSQL password (leave empty to auto-generate):"
   POSTGRES_PASSWORD=$(ask_secret "  Password")
   if [[ -z "$POSTGRES_PASSWORD" ]]; then
@@ -250,6 +255,8 @@ OLLAMA_BASE_URL=http://ollama:11434
 OLLAMA_MODEL=${OLLAMA_MODEL}
 OLLAMA_OCR_MODEL=${OLLAMA_OCR_MODEL}
 OLLAMA_REWRITE_MODEL=${OLLAMA_REWRITE_MODEL}
+OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE}
+OLLAMA_SCHED_SPREAD=${OLLAMA_SCHED_SPREAD}
 EOF
   chmod 600 "$INSTALL_DIR/.env"
   success ".env written with restricted permissions (600)."

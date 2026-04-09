@@ -31,6 +31,10 @@ services:
     volumes:
       # Persistent model storage — models survive updates
       - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:--1}
+      OLLAMA_SCHED_SPREAD: ${OLLAMA_SCHED_SPREAD:-4}
+      OLLAMA_MAX_LOADED_MODELS: "3"
     ports:
       # Expose on host for direct access / model management
       - "11434:11434"
