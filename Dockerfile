@@ -42,6 +42,9 @@ ENV NEXTAUTH_URL=http://localhost:3000
 
 RUN npm run build
 
+# Ensure public dir exists (Next.js doesn't require it but COPY would fail without it)
+RUN mkdir -p /app/public
+
 
 # ── Stage 3: Production runner ────────────────────────────────
 FROM node:22-slim AS runner
