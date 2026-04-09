@@ -5,15 +5,16 @@
 #         Alpine uses musl and would need extra system packages.
 # ============================================================
 
-# ── Stage 1: Install production dependencies ─────────────────
+# ── Stage 1: Install ALL dependencies (including devDeps for build) ──
 FROM node:22-slim AS deps
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-# Install production deps only — no devDependencies
-RUN npm ci --omit=dev
+# Install all dependencies — devDeps are needed by next build
+# (TypeScript, PostCSS, Tailwind v4, etc.)
+RUN npm ci
 
 
 # ── Stage 2: Build the Next.js application ───────────────────
@@ -21,7 +22,7 @@ FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Reuse deps from stage 1
+# Reuse all deps from stage 1
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy all source files
