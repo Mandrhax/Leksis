@@ -1,0 +1,307 @@
+@import "tailwindcss";
+
+/* ── Design tokens Material Design 3 ── */
+@theme {
+  --color-background:                  var(--c-bg, #f7f9fb);
+  --color-on-background:               var(--c-on-bg, #2a3439);
+  --color-surface:                     var(--c-bg, #f7f9fb);
+  --color-surface-dim:                 #cfdce3;
+  --color-surface-bright:              #f7f9fb;
+  --color-surface-variant:             #d9e4ea;
+  --color-surface-tint:                #565e74;
+  --color-surface-container-lowest:    #ffffff;
+  --color-surface-container-low:       #f0f4f7;
+  --color-surface-container:           #e8eff3;
+  --color-surface-container-high:      #e1e9ee;
+  --color-surface-container-highest:   #d9e4ea;
+  --color-on-surface:                  #2a3439;
+  --color-on-surface-variant:          #566166;
+  --color-inverse-surface:             #0b0f10;
+  --color-inverse-on-surface:          #9a9d9f;
+  --color-primary:                     #565e74;
+  --color-primary-dim:                 #4a5268;
+  --color-primary-fixed:               #dae2fd;
+  --color-primary-fixed-dim:           #ccd4ee;
+  --color-primary-container:           #dae2fd;
+  --color-on-primary:                  #f7f7ff;
+  --color-on-primary-fixed:            #373f54;
+  --color-on-primary-fixed-variant:    #535b71;
+  --color-on-primary-container:        #4a5167;
+  --color-inverse-primary:             #dae2fd;
+  --color-secondary:                   #506076;
+  --color-secondary-dim:               #44546a;
+  --color-secondary-fixed:             #d3e4fe;
+  --color-secondary-fixed-dim:         #c5d6f0;
+  --color-secondary-container:         #d3e4fe;
+  --color-on-secondary:                #f7f9ff;
+  --color-on-secondary-fixed:          #314055;
+  --color-on-secondary-fixed-variant:  #4d5d73;
+  --color-on-secondary-container:      #435368;
+  --color-tertiary:                    #605c78;
+  --color-tertiary-dim:                #54506b;
+  --color-tertiary-fixed:              #e3dbfd;
+  --color-tertiary-fixed-dim:          #d4cdee;
+  --color-tertiary-container:          #e3dbfd;
+  --color-on-tertiary:                 #fcf7ff;
+  --color-on-tertiary-fixed:           #3e3a54;
+  --color-on-tertiary-fixed-variant:   #5b5672;
+  --color-on-tertiary-container:       #514d68;
+  --color-error:                       #9f403d;
+  --color-error-dim:                   #4e0309;
+  --color-error-container:             #fe8983;
+  --color-on-error:                    #fff7f6;
+  --color-on-error-container:          #752121;
+  --color-outline:                     #717c82;
+  --color-outline-variant:             #a9b4b9;
+
+  --font-headline: "Manrope", sans-serif;
+  --font-body:     "Inter", sans-serif;
+  --font-label:    "Inter", sans-serif;
+
+  --radius:    0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+}
+
+/* ── CSS custom properties (pour les classes CSS non-Tailwind) ── */
+:root {
+  --c-primary:               #565e74;
+  --c-primary-dim:           #4a5268;
+  --c-primary-hover:         #5f6895;
+  --c-on-primary:            #f7f7ff;
+  --c-on-surface:            #2a3439;
+  --c-on-surface-variant:    #566166;
+  --c-surface-container:     #e8eff3;
+  --c-surface-container-low: #f0f4f7;
+  --c-outline-variant:       rgba(113, 124, 130, 0.1);
+  --c-icon-btn-hover:        rgba(212, 221, 238, 0.5);
+  --radius-full:             0.75rem;
+  --c-bg:                    #f7f9fb;
+  --c-on-bg:                 #2a3439;
+}
+
+/* ── Mode sombre ── */
+html.dark {
+  color-scheme: dark;
+  background-color: #0f1112 !important;
+}
+
+html.dark body {
+  background-color: #0f1112 !important;
+  color: #dde3e6 !important;
+}
+
+.dark {
+  /* Tailwind token overrides */
+  --color-background:                  #0f1112;
+  --color-on-background:               #dde3e6;
+  --color-surface:                     #0f1112;
+  --color-surface-dim:                 #0a0d0e;
+  --color-surface-bright:              #343a3d;
+  --color-surface-variant:             #3c4347;
+  --color-surface-container-lowest:    #0b0f10;
+  --color-surface-container-low:       #141a1d;
+  --color-surface-container:           #1d2326;
+  --color-surface-container-high:      #252b2d;
+  --color-surface-container-highest:   #2d3437;
+  --color-on-surface:                  #dde3e6;
+  --color-on-surface-variant:          #a3adb3;
+  --color-primary:                     #b4c5fb;
+  --color-primary-dim:                 #9eb0e8;
+  --color-primary-container:           #3d4559;
+  --color-on-primary:                  #1f2840;
+  --color-on-primary-container:        #c8d6ff;
+  --color-secondary-container:         #364558;
+  --color-on-secondary-container:      #c2d4eb;
+  --color-error:                       #f2a8a5;
+  --color-outline:                     #8e9ba0;
+  --color-outline-variant:             #3c4347;
+
+  /* CSS custom vars (utilisées dans .icon-btn, .action-btn, .toolbar, etc.) */
+  --c-bg:                    #0f1112;
+  --c-on-bg:                 #dde3e6;
+  --c-primary:               #b4c5fb;
+  --c-primary-dim:           #9eb0e8;
+  --c-primary-hover:         #c4d3ff;
+  --c-on-primary:            #1f2840;
+  --c-on-surface:            #dde3e6;
+  --c-on-surface-variant:    #a3adb3;
+  --c-surface-container:     #1d2326;
+  --c-surface-container-low: #141a1d;
+  --c-outline-variant:       rgba(60, 67, 71, 0.6);
+  --c-icon-btn-hover:        rgba(180, 197, 251, 0.1);
+}
+
+/* ── Base ── */
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--c-bg);
+  color: var(--c-on-bg);
+}
+
+h1, h2, h3 {
+  font-family: 'Manrope', sans-serif;
+}
+
+.translation-text {
+  font-size: 0.9375rem;
+  line-height: 1.625;
+}
+
+/* ── Buttons ── */
+.icon-btn {
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  transition: background-color 150ms ease;
+}
+
+.icon-btn:hover {
+  background-color: var(--c-icon-btn-hover);
+}
+
+.text-button {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--c-on-surface-variant);
+  font-weight: 500;
+}
+
+.action-btn {
+  padding: 0.625rem 1.25rem;
+  background-color: var(--c-primary);
+  color: var(--c-on-primary);
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+  transition: background-color 150ms ease;
+}
+
+.action-btn:hover:not(:disabled) {
+  background-color: var(--c-primary-hover);
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Toolbar flotante ── */
+.toolbar {
+  background-color: var(--c-surface-container-low);
+  padding: 0.75rem 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid var(--c-outline-variant);
+  box-shadow: 0 20px 40px rgba(42, 52, 57, 0.06);
+}
+
+.boundaries {
+  background-color: var(--c-surface-container);
+  padding: 0.125rem;
+  border-radius: 9999px;
+}
+
+.formal-btn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: 0.3125rem 1rem;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--c-primary-dim);
+  transition: all 150ms ease;
+  cursor: pointer;
+}
+
+.formal-btn:hover:not(:disabled) {
+  border-color: var(--c-primary);
+  color: var(--c-on-surface);
+}
+
+.formal-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.formal-btn.active {
+  background-color: var(--c-primary);
+  border-color: var(--c-primary);
+  color: var(--c-on-primary);
+}
+
+/* ── Tone buttons (AI Rewrite) ── */
+.tone-btn {
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: 0.3rem 0.875rem;
+  border: 1px solid rgba(113, 124, 130, 0.2);
+  background: none;
+  color: var(--c-primary-dim);
+  transition: all 150ms ease;
+  cursor: pointer;
+}
+
+.tone-btn:hover {
+  border-color: var(--c-primary);
+  color: var(--c-on-surface);
+}
+
+.tone-btn.active {
+  background-color: var(--c-primary);
+  border-color: var(--c-primary);
+  color: var(--c-on-primary);
+}
+
+/* ── Language dropdown ── */
+.lang-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.star-btn {
+  flex-shrink: 0;
+  font-size: 1rem;
+  cursor: pointer;
+  color: transparent;
+  transition: color 150ms ease;
+  user-select: none;
+  padding: 2px;
+  margin-left: 4px;
+  border-radius: 4px;
+}
+
+.lang-row:hover .star-btn {
+  color: #b0b8c8;
+}
+
+.lang-row:hover .star-btn:hover {
+  color: var(--c-on-surface-variant);
+}
+
+.star-btn.star-active {
+  color: #f59e0b;
+}
+
+/* ── Tabs ── */
+.tab-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.tab-btn.active {
+  color: var(--c-on-surface);
+  border-bottom-color: var(--c-primary);
+}
+
+.tab-btn:hover:not(.active) {
+  color: var(--c-primary-dim);
+}

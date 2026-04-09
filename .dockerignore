@@ -1,0 +1,44 @@
+# Dependencies — reinstalled from package-lock.json inside the builder stage
+node_modules
+
+# Next.js build output — built inside Docker
+.next
+out
+
+# Environment files — never bake secrets into the image
+.env
+.env.*
+
+# Git metadata
+.git
+.gitignore
+
+# Development tools
+.vscode
+.idea
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript build cache
+*.tsbuildinfo
+next-env.d.ts
+
+# Scripts — not needed inside the container
+scripts
+
+# Test artifacts
+coverage
+__tests__
+*.test.ts
+*.spec.ts
+
+# Legacy folder — not deployed
+Leksis_old

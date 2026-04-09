@@ -1,0 +1,100 @@
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: leksis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: leksis
+      POSTGRES_USER: leksis_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Persistent data — survives container restarts and updates
+      - postgres_data:/var/lib/postgresql/data
+      # Schema init — executed only once on first start (empty volume)
+      - ./docker/init-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leksis_user -d leksis"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - leksis-net
+
+  # ── Ollama (LLM inference, GPU-accelerated) ─────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: leksis-ollama
+    restart: unless-stopped
+    volumes:
+      # Persistent model storage — models survive updates
+      - ollama_data:/root/.ollama
+    ports:
+      # Expose on host for direct access / model management
+      - "11434:11434"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - leksis-net
+
+  # ── Leksis Application ──────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: leksis-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    environment:
+      # Database — resolved via internal Docker network
+      DATABASE_URL: postgresql://leksis_user:${POSTGRES_PASSWORD}@postgres:5432/leksis
+
+      # NextAuth
+      AUTH_SECRET: ${AUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+
+      # Encryption key (AES-256-GCM, 64 hex chars)
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+
+      # Ollama — resolved via internal Docker network
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL}
+      OLLAMA_OCR_MODEL: ${OLLAMA_OCR_MODEL}
+      OLLAMA_REWRITE_MODEL: ${OLLAMA_REWRITE_MODEL}
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/ -o /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - leksis-net
+
+# ── Networks ────────────────────────────────────────────────
+networks:
+  leksis-net:
+    driver: bridge
+
+# ── Volumes ─────────────────────────────────────────────────
+volumes:
+  postgres_data:
+  ollama_data:

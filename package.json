@@ -1,0 +1,35 @@
+{
+  "name": "leksis",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@auth/pg-adapter": "^1.11.1",
+    "@napi-rs/canvas": "^0.1.97",
+    "@types/pg": "^8.20.0",
+    "docx": "^8.5.0",
+    "mammoth": "^1.12.0",
+    "next": "^16.2.2",
+    "next-auth": "^5.0.0-beta.30",
+    "pdf-parse": "^2.4.5",
+    "pg": "^8.20.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "server-only": "^0.0.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.2",
+    "@types/node": "^25.5.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^6.0.2"
+  }
+}
