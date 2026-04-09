@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+
+export const maxDuration = 300 // 5 min — needed for large model cold-start + long texts
 import { streamOllamaResponse, getOllamaConfig } from '@/lib/ollama'
 import { buildTranslationPrompt, buildMarkdownTranslationPrompt } from '@/lib/prompts'
 import { validateTextInput } from '@/lib/validators'

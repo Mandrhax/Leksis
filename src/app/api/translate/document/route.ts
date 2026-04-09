@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callOllama, getOllamaConfig } from '@/lib/ollama'
 import { buildDocumentTranslationPrompt } from '@/lib/prompts'
+
+export const maxDuration = 300
 import { parseFile, parsePdf, isProbablyScanned, flattenBlocks, applyTranslatedSegments, countBlockChars } from '@/lib/file-parser'
 import { parsePdfWithVision } from '@/lib/pdf-vision'
 import { getDynamicLimits } from '@/lib/limits'

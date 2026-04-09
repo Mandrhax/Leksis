@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { streamOllamaResponse, getOllamaConfig } from '@/lib/ollama'
 import { buildOcrPrompt } from '@/lib/prompts'
+
+export const maxDuration = 300
 import { validateImageSize } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
 import { logUsage } from '@/lib/usage'

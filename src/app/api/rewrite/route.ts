@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { streamOllamaResponse, getOllamaConfig } from '@/lib/ollama'
 import { buildRewritePrompt, buildCorrectPrompt, buildLangClause } from '@/lib/prompts'
+
+export const maxDuration = 300
 import { validateTextInput } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
 import { logUsage } from '@/lib/usage'
