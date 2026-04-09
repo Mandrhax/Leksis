@@ -256,7 +256,17 @@ EOF
 
   header "Step 6/8 — Starting Docker containers"
   cd "$INSTALL_DIR"
-  docker compose up -d --build
+
+  # Use GPU override if a physical GPU was detected and toolkit is configured
+  if [[ "$GPU_AVAILABLE" == "true" ]] && docker info 2>/dev/null | grep -q "nvidia"; then
+    info "GPU detected and configured — starting with GPU support."
+    COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.gpu.yml"
+  else
+    warn "Starting Ollama in CPU-only mode (no GPU or nvidia-container-toolkit not configured)."
+    COMPOSE_CMD="docker compose"
+  fi
+
+  $COMPOSE_CMD up -d --build
   wait_healthy postgres 120
   wait_healthy ollama 120
   wait_healthy app 180

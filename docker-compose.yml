@@ -23,7 +23,8 @@ services:
     networks:
       - leksis-net
 
-  # ── Ollama (LLM inference, GPU-accelerated) ─────────────────
+  # ── Ollama (LLM inference — CPU mode by default) ────────────
+  # For GPU support, also run: docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
   ollama:
     image: ollama/ollama:latest
     container_name: leksis-ollama
@@ -34,13 +35,6 @@ services:
     ports:
       # Expose on host for direct access / model management
       - "11434:11434"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
       interval: 15s
