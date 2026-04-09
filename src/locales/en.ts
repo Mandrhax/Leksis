@@ -341,6 +341,21 @@ export const messages = {
     purgeDeletedSome:     '{0} entry(ies) deleted from {1}.',
     errorUnknown:         'Unknown error',
   },
+  signIn: {
+    subtitle:       'Sign in to access your workspace.',
+    emailLabel:     'Email address',
+    emailPlaceholder: 'you@example.com',
+    sendCode:       'Get my code',
+    sending:        'Sending…',
+    yourCode:       'Your code',
+    codeValid:      'Valid for 10 minutes',
+    enterCode:      'Enter the code',
+    verify:         'Sign in',
+    verifying:      'Verifying…',
+    useOther:       'Use a different address',
+    errorGeneric:   'Error generating the code.',
+    errorInvalid:   'Incorrect or expired code. Please try again.',
+  },
 } as const
 
 type DeepString<T> = { -readonly [K in keyof T]: T[K] extends object ? DeepString<T[K]> : string }

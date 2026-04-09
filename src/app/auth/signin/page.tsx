@@ -3,23 +3,25 @@
 import { useState, useRef, Suspense } from 'react'
 import { signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
+import { I18nProvider, useI18n } from '@/lib/i18n'
+import { UILanguageSwitcher } from '@/components/ui/UILanguageSwitcher'
 
 type Step = 'email' | 'otp'
 
 function SignInForm() {
   const searchParams = useSearchParams()
   const callbackUrl  = searchParams.get('callbackUrl') ?? '/'
+  const { t } = useI18n()
 
   const [step, setStep]       = useState<Step>('email')
   const [email, setEmail]     = useState('')
-  const [otpCode, setOtpCode] = useState('')   // code affiché à l'utilisateur
-  const [input, setInput]     = useState('')   // code saisi par l'utilisateur
+  const [otpCode, setOtpCode] = useState('')
+  const [input, setInput]     = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
 
   const inputRef = useRef<HTMLInputElement>(null)
 
-  /* ── Étape 1 : demander le code ── */
   async function handleRequestCode(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -34,7 +36,7 @@ function SignInForm() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error ?? 'Erreur lors de la génération du code.')
+        setError(data.error ?? t.signIn.errorGeneric)
         return
       }
 
@@ -46,7 +48,6 @@ function SignInForm() {
     }
   }
 
-  /* ── Étape 2 : vérifier le code ── */
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -60,12 +61,11 @@ function SignInForm() {
       })
 
       if (result?.error || !result?.ok) {
-        setError('Code incorrect ou expiré. Recommencez.')
+        setError(t.signIn.errorInvalid)
         setInput('')
         return
       }
 
-      // Navigation complète pour que le cookie de session soit envoyé
       window.location.href = callbackUrl
     } finally {
       setLoading(false)
@@ -74,15 +74,21 @@ function SignInForm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
+
+      {/* Language switcher — top right */}
+      <div className="absolute top-4 right-4">
+        <UILanguageSwitcher />
+      </div>
+
       <div className="w-full max-w-sm">
 
-        {/* Logo / titre */}
+        {/* Logo / title */}
         <div className="text-center mb-8">
           <h1 className="font-headline text-2xl font-bold text-on-surface tracking-tight">
             Leksis
           </h1>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Connectez-vous pour accéder à l&apos;espace de travail.
+            {t.signIn.subtitle}
           </p>
         </div>
 
@@ -93,7 +99,7 @@ function SignInForm() {
             <form onSubmit={handleRequestCode} className="space-y-5">
               <div>
                 <label htmlFor="email" className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2">
-                  Adresse e-mail
+                  {t.signIn.emailLabel}
                 </label>
                 <input
                   id="email"
@@ -102,7 +108,7 @@ function SignInForm() {
                   autoFocus
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="vous@exemple.com"
+                  placeholder={t.signIn.emailPlaceholder}
                   className="w-full px-3 py-2.5 text-sm rounded-lg border border-outline-variant/40 bg-background
                              text-on-surface placeholder:text-on-surface-variant/50
                              focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60
@@ -119,29 +125,29 @@ function SignInForm() {
                 disabled={loading || !email}
                 className="action-btn w-full justify-center"
               >
-                {loading ? 'Envoi…' : 'Obtenir mon code'}
+                {loading ? t.signIn.sending : t.signIn.sendCode}
               </button>
             </form>
 
           ) : (
             <form onSubmit={handleVerify} className="space-y-5">
 
-              {/* Code affiché */}
+              {/* OTP display */}
               <div className="rounded-lg bg-primary-container/30 border border-primary/20 p-4 text-center">
                 <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
-                  Votre code
+                  {t.signIn.yourCode}
                 </p>
                 <p className="font-headline text-3xl font-bold tracking-[0.25em] text-primary select-all">
                   {otpCode}
                 </p>
                 <p className="text-xs text-on-surface-variant mt-1">
-                  Valable 10 minutes
+                  {t.signIn.codeValid}
                 </p>
               </div>
 
               <div>
                 <label htmlFor="otp" className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2">
-                  Saisir le code
+                  {t.signIn.enterCode}
                 </label>
                 <input
                   id="otp"
@@ -170,7 +176,7 @@ function SignInForm() {
                 disabled={loading || input.length !== 6}
                 className="action-btn w-full justify-center"
               >
-                {loading ? 'Vérification…' : 'Se connecter'}
+                {loading ? t.signIn.verifying : t.signIn.verify}
               </button>
 
               <button
@@ -178,7 +184,7 @@ function SignInForm() {
                 onClick={() => { setStep('email'); setError(''); setInput(''); setOtpCode('') }}
                 className="w-full text-center text-xs text-on-surface-variant hover:text-on-surface transition-colors"
               >
-                Utiliser une autre adresse
+                {t.signIn.useOther}
               </button>
             </form>
           )}
@@ -190,8 +196,10 @@ function SignInForm() {
 
 export default function SignInPage() {
   return (
-    <Suspense>
-      <SignInForm />
-    </Suspense>
+    <I18nProvider>
+      <Suspense>
+        <SignInForm />
+      </Suspense>
+    </I18nProvider>
   )
 }
