@@ -295,7 +295,7 @@ detect_gpu() {
   # Method 1: lspci (universal, available on most Linux servers)
   if command -v lspci &>/dev/null; then
     local line
-    line=$(lspci | grep -iE "vga|3d controller|display controller" | head -1)
+    line=$(lspci | grep -iE "vga|3d controller|display controller" | head -1 || true)
     if   echo "$line" | grep -qi "nvidia";                      then GPU_VENDOR="nvidia"
     elif echo "$line" | grep -qi "amd\|radeon\|advanced micro"; then GPU_VENDOR="amd"
     elif echo "$line" | grep -qi "intel";                       then GPU_VENDOR="intel"
@@ -308,7 +308,7 @@ detect_gpu() {
     if command -v nvidia-smi &>/dev/null \
         && nvidia-smi --query-gpu=name --format=csv,noheader &>/dev/null 2>&1; then
       GPU_VENDOR="nvidia"
-      GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)
+      GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1 || true)
     elif command -v rocm-smi &>/dev/null; then
       GPU_VENDOR="amd"
     fi
