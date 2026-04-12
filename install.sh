@@ -609,7 +609,10 @@ EOF
   done
 
   if ask_yn "Rebuild the app image from source?" y; then
-    $COMPOSE_CMD up -d --build
+    start_spinner "Building app image..."
+    BUILDKIT_PROGRESS=quiet $COMPOSE_CMD up -d --build
+    stop_spinner
+    success "App image built."
   else
     $COMPOSE_CMD up -d
   fi
@@ -700,7 +703,7 @@ cmd_update() {
   _update_service() {
     local svc="$1"
     info "Updating service: $svc"
-    $COMPOSE_CMD up -d --build "$svc"
+    BUILDKIT_PROGRESS=quiet $COMPOSE_CMD up -d --build "$svc"
     wait_healthy "$svc" 180
     success "$svc updated."
   }
