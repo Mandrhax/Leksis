@@ -75,9 +75,22 @@ function FlagFR({ size = 20 }: { size?: number }) {
   )
 }
 
+function FlagIT({ size = 20 }: { size?: number }) {
+  const h = Math.round(size * 2 / 3)
+  return (
+    <svg width={size} height={h} viewBox="0 0 3 2" aria-hidden="true"
+         style={{ display: 'block', flexShrink: 0, borderRadius: 2 }}>
+      <rect width="1" height="2" fill="#009246"/>
+      <rect x="1"   width="1" height="2" fill="#fff"/>
+      <rect x="2"   width="1" height="2" fill="#CE2B37"/>
+    </svg>
+  )
+}
+
 function FlagIcon({ locale, size }: { locale: UILocale; size?: number }) {
   if (locale === 'en') return <FlagGB size={size}/>
   if (locale === 'de') return <FlagDE size={size}/>
+  if (locale === 'it') return <FlagIT size={size}/>
   return <FlagFR size={size}/>
 }
 
@@ -87,6 +100,7 @@ const LOCALES: { code: UILocale; label: string }[] = [
   { code: 'en', label: 'EN' },
   { code: 'de', label: 'DE' },
   { code: 'fr', label: 'FR' },
+  { code: 'it', label: 'IT' },
 ]
 
 // ─── Switcher component ───────────────────────────────────────────────────────

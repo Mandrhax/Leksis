@@ -4,12 +4,13 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 import { messages as en } from '@/locales/en'
 import { messages as de } from '@/locales/de'
 import { messages as fr } from '@/locales/fr'
+import { messages as it } from '@/locales/it'
 import type { Messages } from '@/locales/en'
 
-export type UILocale = 'en' | 'de' | 'fr'
+export type UILocale = 'en' | 'de' | 'fr' | 'it'
 
 const LOCALE_KEY = 'leksisUILocale'
-const LOCALE_MAP: Record<UILocale, Messages> = { en, de, fr }
+const LOCALE_MAP: Record<UILocale, Messages> = { en, de, fr, it }
 
 type I18nContextValue = {
   locale:    UILocale
