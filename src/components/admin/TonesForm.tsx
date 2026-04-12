@@ -67,9 +67,13 @@ export function TonesForm({ initial, onToast }: Props) {
     })
   }
 
+  function toggleEnabled(idx: number) {
+    setTones(prev => prev.map((t, i) => i === idx ? { ...t, enabled: t.enabled === false ? true : false } : t))
+  }
+
   function addTone() {
     if (tones.length >= MAX_TONES) return
-    setTones(prev => [...prev, { id: 'new-tone', label: '', instruction: '', isNew: true }])
+    setTones(prev => [...prev, { id: 'new-tone', label: '', instruction: '', enabled: true, isNew: true }])
   }
 
   function removeTone(idx: number) {
@@ -152,8 +156,9 @@ export function TonesForm({ initial, onToast }: Props) {
     }
   }
 
-  const atMax = tones.length >= MAX_TONES
-  const atMin = tones.length <= 1
+  const atMax        = tones.length >= MAX_TONES
+  const atMin        = tones.length <= 1
+  const activeCount  = tones.filter(t => t.enabled !== false).length
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -162,7 +167,8 @@ export function TonesForm({ initial, onToast }: Props) {
         <p className="text-xs text-on-surface-variant mb-4">{t.tonesForm.tonesDesc}</p>
 
         {/* Table header */}
-        <div className="hidden sm:grid grid-cols-[1fr_auto_2fr_auto] gap-x-3 px-3 mb-1">
+        <div className="hidden sm:grid grid-cols-[auto_1fr_auto_2fr_auto] gap-x-3 px-3 mb-1">
+          <span className="w-9" />
           <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">{t.tonesForm.colLabel}</span>
           <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wide w-28">{t.tonesForm.colId}</span>
           <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">{t.tonesForm.colInstruction}</span>
@@ -171,13 +177,33 @@ export function TonesForm({ initial, onToast }: Props) {
 
         {/* Rows */}
         <div className="space-y-2">
-          {tones.map((tone, idx) => (
+          {tones.map((tone, idx) => {
+            const isEnabled = tone.enabled !== false
+            const isLastActive = isEnabled && activeCount <= 1
+            return (
             <div
               key={tone.id + idx}
-              className="bg-surface-container-lowest border border-outline-variant/20 rounded-lg px-3 py-3"
+              className={`bg-surface-container-lowest border border-outline-variant/20 rounded-lg px-3 py-3 transition-opacity ${isEnabled ? '' : 'opacity-50'}`}
             >
               {/* Grid row */}
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_2fr_auto] gap-x-3 gap-y-2 items-start">
+              <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto_2fr_auto] gap-x-3 gap-y-2 items-start">
+
+                {/* Enabled toggle */}
+                <div className="flex items-center justify-center w-9 pt-1.5">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isEnabled}
+                    title={isLastActive ? t.tonesForm.disableToneDisabled : (isEnabled ? t.tonesForm.disableTone : t.tonesForm.enableTone)}
+                    disabled={isLastActive}
+                    onClick={() => toggleEnabled(idx)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none disabled:cursor-not-allowed ${
+                      isEnabled ? 'bg-primary' : 'bg-outline-variant/40'
+                    }`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${isEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
+                  </button>
+                </div>
 
                 {/* Label */}
                 <div>
@@ -252,7 +278,8 @@ export function TonesForm({ initial, onToast }: Props) {
                 </div>
               </div>
             </div>
-          ))}
+          )
+          })}
         </div>
 
         {/* Add tone button */}

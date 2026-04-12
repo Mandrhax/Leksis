@@ -30,10 +30,12 @@ const DEFAULT_TONES_FALLBACK: ToneConfig[] = [
 export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = DEFAULT_TONES_FALLBACK }: Props) {
   const { t } = useI18n()
 
+  const activeTones = configuredTones.filter(tn => tn.enabled !== false)
+
   const [inputText, setInputText]   = useState('')
   const [outputText, setOutputText] = useState('')
   const [mode, setMode]     = useState<RewriteMode>('rewrite')
-  const [tone, setTone]     = useState<string>(() => configuredTones[0]?.id ?? 'professional')
+  const [tone, setTone]     = useState<string>(() => activeTones[0]?.id ?? 'professional')
   const [length, setLength] = useState<RewriteLength>('Keep')
   const [isLoading, setIsLoading]   = useState(false)
   const [error, setError]           = useState<string | null>(null)
@@ -163,7 +165,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
                   </span>
                   {appliedMode === 'rewrite' && appliedTone && appliedLength && (
                     <>
-                      {' '}· {t.rewriteTab.toneLabel} <span className="font-semibold text-primary">{configuredTones.find(tn => tn.id === appliedTone)?.label ?? appliedTone}</span>
+                      {' '}· {t.rewriteTab.toneLabel} <span className="font-semibold text-primary">{activeTones.find(tn => tn.id === appliedTone)?.label ?? appliedTone}</span>
                       {' '}· {t.rewriteTab.lengthLabel} <span className="font-semibold">{t.rewriteTab[LENGTH_LABELS[appliedLength]]}</span>
                     </>
                   )}
@@ -221,7 +223,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
             <div className={`flex items-center gap-2 transition-opacity duration-200 ${mode === 'correct' ? 'opacity-30 pointer-events-none' : ''}`}>
               <span className="text-xs font-bold text-on-surface tracking-wider">{t.rewriteTab.tone}</span>
               <div className="flex flex-wrap gap-1">
-                {configuredTones.map(tn => (
+                {activeTones.map(tn => (
                   <button
                     key={tn.id}
                     onClick={() => setTone(tn.id)}

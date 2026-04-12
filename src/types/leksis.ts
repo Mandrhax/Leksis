@@ -19,6 +19,7 @@ export type ToneConfig = {
   id:          string
   label:       string
   instruction: string
+  enabled?:    boolean
 }
 
 export type RewriteLength = 'Shorter' | 'Keep' | 'Longer'

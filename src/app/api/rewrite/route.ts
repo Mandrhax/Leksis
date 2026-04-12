@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   if (mode === 'rewrite') {
     const tones = await getConfiguredTones()
     const incomingId = (tone ?? 'professional').toLowerCase()
-    const matched = tones.find(t => t.id === incomingId)
+    const matched = tones.find(t => t.id === incomingId && t.enabled !== false)
     if (!matched) {
       return NextResponse.json({ error: 'Invalid tone.' }, { status: 400 })
     }
