@@ -34,7 +34,7 @@ fi
 # ── VERSION from package.json ────────────────────────────────
 VERSION=$(grep '"version"' "$(dirname "$0")/package.json" 2>/dev/null \
   | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' \
-  | head -1)
+  | head -1 || true)
 VERSION="${VERSION:-1.0.0}"
 
 # ── Colors ───────────────────────────────────────────────────
