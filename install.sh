@@ -566,6 +566,7 @@ cmd_install() {
   elif [[ -d "$INSTALL_DIR" ]]; then
     warn "$INSTALL_DIR exists but is not a git repository."
     if ask_yn "Empty the directory and clone fresh?" n; then
+      cd /tmp  # éviter "No such file or directory" si le shell est dans $INSTALL_DIR
       rm -rf "$INSTALL_DIR"
       git clone "$REPO_URL" "$INSTALL_DIR"
     else
