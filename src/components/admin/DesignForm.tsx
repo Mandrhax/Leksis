@@ -8,6 +8,7 @@ interface DesignData {
   buttonRadius: string
   headerLogoSize: string
   footerText: string
+  footerTextColor: string
   footerLinks: { label: string; url: string }[]
 }
 
@@ -22,6 +23,7 @@ export function DesignForm({ initial, onToast }: Props) {
     buttonRadius: initial.buttonRadius ?? '0.75rem',
     headerLogoSize: initial.headerLogoSize ?? '32',
     footerText: initial.footerText ?? '',
+    footerTextColor: initial.footerTextColor ?? '',
     footerLinks: initial.footerLinks ?? [],
   })
   const [saving, setSaving] = useState(false)
@@ -125,6 +127,34 @@ export function DesignForm({ initial, onToast }: Props) {
             className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
             placeholder="© 2025 Leksis"
           />
+        </div>
+        <div>
+          <label className="block text-sm text-on-surface mb-1.5">{t.designForm.footerTextColorLabel}</label>
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={data.footerTextColor || '#8a8fa8'}
+              onChange={e => setData(prev => ({ ...prev, footerTextColor: e.target.value }))}
+              className="w-10 h-10 rounded-lg border border-outline-variant/20 cursor-pointer bg-transparent p-0.5"
+            />
+            <input
+              type="text"
+              value={data.footerTextColor}
+              onChange={e => setData(prev => ({ ...prev, footerTextColor: e.target.value }))}
+              className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface font-mono focus:outline-none focus:border-primary/50"
+              placeholder="#8a8fa8"
+            />
+            {data.footerTextColor && (
+              <button
+                type="button"
+                onClick={() => setData(prev => ({ ...prev, footerTextColor: '' }))}
+                className="icon-btn text-on-surface-variant"
+                title="Reset to default"
+              >
+                <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">restart_alt</span>
+              </button>
+            )}
+          </div>
         </div>
         <div>
           <div className="flex items-center justify-between mb-2">

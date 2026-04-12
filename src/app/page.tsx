@@ -12,6 +12,7 @@ async function loadPageSettings() {
     const design    = (settings.design    ?? {}) as {
       headerLogoSize?: string
       footerText?:     string
+      footerTextColor?: string
       footerLinks?:    { label: string; url: string }[]
     }
     const features  = (settings.features  ?? {}) as {
@@ -42,8 +43,9 @@ async function loadPageSettings() {
       logoUrl:           branding.logoUrl  ?? null,
       logoSize:          parseInt(design.headerLogoSize ?? '32', 10),
       siteName:          branding.siteName ?? 'Leksis',
-      footerText:        design.footerText  ?? '',
-      footerLinks:       design.footerLinks ?? [],
+      footerText:        design.footerText      ?? '',
+      footerTextColor:   design.footerTextColor ?? '',
+      footerLinks:       design.footerLinks     ?? [],
       enabledTabs:       tabs,
       defaultSourceLang: features.defaults?.sourceLang ?? 'auto',
       defaultTargetLang: features.defaults?.targetLang ?? 'en',
@@ -56,6 +58,7 @@ async function loadPageSettings() {
       logoSize:          32,
       siteName:          'Leksis',
       footerText:        '',
+      footerTextColor:   '',
       footerLinks:       [],
       enabledTabs:       { text: true, document: true, image: true, rewrite: true },
       defaultSourceLang: 'auto',

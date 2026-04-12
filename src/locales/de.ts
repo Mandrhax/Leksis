@@ -238,6 +238,7 @@ export const messages = {
     logoSizeLabel:        'Logo-Größe (px)',
     sectionFooter:        'Fußzeile',
     footerTextLabel:      'Fußzeilentext',
+    footerTextColorLabel: 'Textfarbe der Fußzeile',
     footerLinksLabel:     'Fußzeilenlinks',
     addLink:              'Hinzufügen',
     linkLabelPlaceholder: 'Bezeichnung',

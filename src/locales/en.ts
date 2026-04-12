@@ -236,6 +236,7 @@ export const messages = {
     logoSizeLabel:        'Logo size (px)',
     sectionFooter:        'Footer',
     footerTextLabel:      'Footer text',
+    footerTextColorLabel: 'Footer text color',
     footerLinksLabel:     'Footer links',
     addLink:              'Add',
     linkLabelPlaceholder: 'Label',

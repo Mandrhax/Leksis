@@ -25,6 +25,7 @@ interface Props {
   logoSize:          number
   siteName:          string
   footerText:        string
+  footerTextColor:   string
   footerLinks:       { label: string; url: string }[]
   enabledTabs:       EnabledTabs
   defaultSourceLang: string
@@ -41,7 +42,7 @@ export function HomeClient(props: Props) {
   )
 }
 
-function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, maxTextChars, configuredTones }: Props) {
+function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, maxTextChars, configuredTones }: Props) {
   const { t } = useI18n()
 
   const ALL_TABS: { id: TabId; label: string; icon: string }[] = [
@@ -125,7 +126,12 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerLinks, e
         <footer className="border-t border-outline-variant/10 px-6 md:px-8 py-4">
           <div className="flex flex-wrap items-center gap-3">
             {footerText && (
-              <span className="text-xs text-on-surface-variant">{footerText}</span>
+              <span
+                className="text-xs text-on-surface-variant"
+                style={footerTextColor ? { color: footerTextColor } : undefined}
+              >
+                {footerText}
+              </span>
             )}
             {footerLinks.length > 0 && (
               <nav className="flex items-center gap-4 ml-auto">
@@ -136,6 +142,7 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerLinks, e
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-on-surface-variant hover:text-on-surface transition-colors"
+                    style={footerTextColor ? { color: footerTextColor } : undefined}
                   >
                     {link.label}
                   </a>
