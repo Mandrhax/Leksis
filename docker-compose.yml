@@ -25,7 +25,7 @@ services:
 
   # ── Ollama (LLM inference, GPU-accelerated) ─────────────────
   ollama:
-    image: ollama/ollama:latest
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
     container_name: leksis-ollama
     restart: unless-stopped
     volumes:
@@ -33,18 +33,11 @@ services:
       - ollama_data:/root/.ollama
     environment:
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:--1}
-      OLLAMA_SCHED_SPREAD: ${OLLAMA_SCHED_SPREAD:-4}
-      OLLAMA_MAX_LOADED_MODELS: "3"
+      OLLAMA_SCHED_SPREAD: ${OLLAMA_SCHED_SPREAD:-false}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-3}
     ports:
       # Expose on host for direct access / model management
       - "11434:11434"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 15s
@@ -83,7 +76,7 @@ services:
       OLLAMA_OCR_MODEL: ${OLLAMA_OCR_MODEL}
       OLLAMA_REWRITE_MODEL: ${OLLAMA_REWRITE_MODEL}
     ports:
-      - "3000:3000"
+      - "${APP_PORT:-3000}:3000"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:3000/ -o /dev/null || exit 1"]
       interval: 30s

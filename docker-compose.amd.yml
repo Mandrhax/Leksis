@@ -1,0 +1,18 @@
+# ============================================================
+# AMD ROCm overlay for Ollama
+#
+# Requires: ROCm drivers installed (amdgpu-install).
+# Selected automatically by install.sh when an AMD GPU is detected.
+#
+# Manual usage:
+#   docker compose -f docker-compose.yml -f docker-compose.amd.yml up -d
+# ============================================================
+services:
+  ollama:
+    image: ollama/ollama:rocm
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
