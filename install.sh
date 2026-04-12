@@ -375,25 +375,30 @@ install_gpu_toolkit() {
 # ── Shared helpers ───────────────────────────────────────────
 COMPOSE_CMD="docker compose"
 OLLAMA_IMAGE="ollama/ollama:latest"
+COMPOSE_FILE_VALUE="docker-compose.yml"
 
 resolve_compose_cmd() {
   case "${GPU_VENDOR:-}" in
     nvidia)
       if docker info 2>/dev/null | grep -q "nvidia"; then
         COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.nvidia.yml"
+        COMPOSE_FILE_VALUE="docker-compose.yml:docker-compose.nvidia.yml"
         OLLAMA_IMAGE="ollama/ollama:latest"
         info "NVIDIA GPU — nvidia overlay enabled."
       else
         warn "NVIDIA detected but toolkit absent — falling back to CPU mode."
         COMPOSE_CMD="docker compose"
+        COMPOSE_FILE_VALUE="docker-compose.yml"
         OLLAMA_IMAGE="ollama/ollama:latest"
       fi ;;
     amd)
       COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.amd.yml"
+      COMPOSE_FILE_VALUE="docker-compose.yml:docker-compose.amd.yml"
       OLLAMA_IMAGE="ollama/ollama:rocm"
       info "AMD GPU — ROCm overlay enabled." ;;
     *)
       COMPOSE_CMD="docker compose"
+      COMPOSE_FILE_VALUE="docker-compose.yml"
       OLLAMA_IMAGE="ollama/ollama:latest"
       warn "CPU-only mode." ;;
   esac
@@ -584,6 +589,7 @@ AUTH_SECRET=${AUTH_SECRET}
 NEXTAUTH_URL=${APP_URL}
 ENCRYPTION_KEY=${ENCRYPTION_KEY}
 APP_PORT=${APP_PORT}
+COMPOSE_FILE=${COMPOSE_FILE_VALUE}
 OLLAMA_BASE_URL=http://ollama:11434
 OLLAMA_IMAGE=${OLLAMA_IMAGE}
 OLLAMA_MODEL=${OLLAMA_MODEL}
