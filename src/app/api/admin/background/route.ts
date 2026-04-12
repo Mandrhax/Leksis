@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, unlink } from 'node:fs/promises'
+import { writeFile, unlink, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { getAdminSession } from '@/lib/admin-guard'
 import { getSetting, updateSetting } from '@/lib/settings'
@@ -44,9 +44,12 @@ export async function POST(req: NextRequest) {
 
     await removeExistingBgFile()
 
-    const filename = `site-bg.${ext}`
-    const destPath = join(process.cwd(), 'public', filename)
+    const filename  = `site-bg.${ext}`
+    const publicDir = join(process.cwd(), 'public')
+    const destPath  = join(publicDir, filename)
+    await mkdir(publicDir, { recursive: true })
     await writeFile(destPath, Buffer.from(await file.arrayBuffer()))
+    console.log('[background] Fichier écrit :', destPath)
 
     const branding = (await getSetting<Record<string, unknown>>('branding')) ?? {}
     await updateSetting(

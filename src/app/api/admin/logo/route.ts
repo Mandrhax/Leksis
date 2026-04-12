@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, unlink } from 'node:fs/promises'
+import { writeFile, unlink, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { getAdminSession } from '@/lib/admin-guard'
 import { getSetting, updateSetting } from '@/lib/settings'
@@ -48,10 +48,13 @@ export async function POST(req: NextRequest) {
 
     await removeExistingLogoFile()
 
-    const filename = `site-logo.${ext}`
-    const destPath = join(process.cwd(), 'public', filename)
-    const buffer   = Buffer.from(await file.arrayBuffer())
+    const filename  = `site-logo.${ext}`
+    const publicDir = join(process.cwd(), 'public')
+    const destPath  = join(publicDir, filename)
+    await mkdir(publicDir, { recursive: true })
+    const buffer = Buffer.from(await file.arrayBuffer())
     await writeFile(destPath, buffer)
+    console.log('[logo] Fichier écrit :', destPath)
 
     const branding = (await getSetting<Record<string, unknown>>('branding')) ?? {}
     await updateSetting(

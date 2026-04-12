@@ -9,6 +9,7 @@ export default auth
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|api/auth).*)',
+    // Exclure : assets Next.js, auth, et fichiers statiques uploadés (logo, bg)
+    '/((?!_next/static|_next/image|favicon.ico|api/auth|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.webp$|.*\\.svg$|.*\\.ico$|.*\\.gif$).*)',
   ],
 }
