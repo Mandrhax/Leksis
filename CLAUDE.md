@@ -62,7 +62,9 @@ L'OCR et la traduction sont **deux étapes distinctes**, mais peuvent être ench
 - Objectifs possibles :
   - reformulation (mode Rewrite)
   - correction grammaticale et orthographique (mode Correct only)
-- Tons disponibles : Professional, Casual, Friendly, Authoritative, Empathetic, Creative
+- Tons disponibles : configurables depuis l'admin (min 1, max 6), avec label multilingue EN/FR/DE et instruction de prompt personnalisée
+- Tons par défaut : Professional, Casual, Friendly, Authoritative, Empathetic, Creative
+- Chaque ton peut être activé/désactivé sans suppression
 - Longueur : Shorter / Keep / Longer
 - Intégration du glossaire
 
@@ -144,10 +146,11 @@ src/
 │       ├── AdminClientLayout.tsx        (Fournit I18nProvider aux composants admin)
 │       ├── AdminPageHeader.tsx          (Titre + description de page traduits, prop section=)
 │       ├── AdminSidebar.tsx             (Navigation admin traduite)
-│       ├── SettingsTabs.tsx             (Onglets Identité/Interface/Fonctionnalités/Accès)
+│       ├── SettingsTabs.tsx             (Onglets Identité/Interface/Fonctionnalités/Tonalités/Accès)
 │       ├── BrandingForm.tsx             (Logo, couleurs, fond, mode sombre)
 │       ├── DesignForm.tsx               (Radius boutons, taille logo, footer)
 │       ├── FeaturesForm.tsx             (Modules actifs, langues défaut, limites API)
+│       ├── TonesForm.tsx                (CRUD tonalités : label EN/FR/DE, instruction prompt, on/off, min 1 / max 6)
 │       ├── GeneralForm.tsx              (Email contact, bannière, mode maintenance)
 │       ├── ServicesPanel.tsx            (Conteneur Ollama + PostgreSQL)
 │       ├── OllamaServiceForm.tsx        (Config Ollama, test connexion)
@@ -166,13 +169,14 @@ src/
 │   ├── i18n.tsx                         (I18nProvider, useI18n, UILocale — zero-dep)
 │   ├── ollama.ts                        (SERVER-ONLY: streamOllamaResponse, callOllama)
 │   ├── prompts.ts                       (Factory prompts: translate, document, ocr, rewrite, correct)
+│   ├── tones.ts                         (SERVER-ONLY: DEFAULT_TONES, getConfiguredTones — fallback + migration DB)
 │   ├── file-parser.ts                   (SERVER-ONLY: parsePdf, parseDocx, parseTxt, Block model)
 │   ├── validators.ts                    (Limites: text=5000, doc=12000, image=10MB)
 │   ├── languages.ts                     (LANGUAGES[] triés BCP47 + detectLanguage())
 │   └── glossary.ts                      (buildTranslationGlossaryClause, buildRewriteGlossaryClause, CSV)
 │
 └── types/
-    └── leksis.ts                        (Language, Block, Formality, RewriteTone, RewriteLength, etc.)
+    └── leksis.ts                        (Language, Block, Formality, RewriteTone, RewriteLength, ToneConfig, etc.)
 ```
 
 ---
@@ -209,7 +213,7 @@ Les composants appelant `useI18n()` doivent être enfants d'un `I18nProvider`.
 
 ### Espaces de noms définis
 
-`home`, `account`, `textTab`, `docTab`, `imgTab`, `rewriteTab`, `langDropdown`, `glossary`, `langSwitcher`, `settingsPage`, `adminSidebar`, `adminPages`, `settingsTabs`, `brandingForm`, `designForm`, `featuresForm`, `generalForm`, `ollamaForm`, `dbForm`, `userList`, `usagePanel`, `auditTable`, `purgeButton`
+`home`, `account`, `textTab`, `docTab`, `imgTab`, `rewriteTab`, `langDropdown`, `glossary`, `langSwitcher`, `settingsPage`, `adminSidebar`, `adminPages`, `settingsTabs`, `brandingForm`, `designForm`, `featuresForm`, `tonesForm`, `generalForm`, `ollamaForm`, `dbForm`, `userList`, `usagePanel`, `auditTable`, `purgeButton`
 
 ---
 
@@ -275,7 +279,7 @@ Tous les prompts sont dans `src/lib/prompts.ts` :
 | `buildTranslationPrompt()` | Traduction texte libre (avec formality + glossaire optionnels) |
 | `buildDocumentTranslationPrompt()` | Traduction segments `\|\|\|` |
 | `buildOcrPrompt()` | Extraction texte image (tables en markdown) |
-| `buildRewritePrompt()` | Réécriture (tone + length + glossaire) |
+| `buildRewritePrompt()` | Réécriture (instruction de ton + length + glossaire) |
 | `buildCorrectPrompt()` | Correction grammaticale |
 | `buildLangClause()` | Clause "respond in [lang] only" |
 
@@ -334,7 +338,9 @@ Flux local :
 - La liste des langues doit toujours être **triée alphabétiquement** (base + régionales mélangées)
 - Tous les strings UI doivent passer par `useI18n()` → `t.*` — ne jamais hardcoder de libellés
 - Tout nouveau namespace i18n doit être ajouté dans les 3 fichiers (`en.ts`, `de.ts`, `fr.ts`) simultanément
-- Les valeurs envoyées à l'API (tons, longueurs, features) restent en anglais — seul l'affichage est traduit
+- Les valeurs envoyées à l'API (id de ton, longueurs, features) restent des slugs stables — seul l'affichage est traduit via `labels[locale]`
+- Les tons de réécriture sont dans `site_settings` (clé `rewrite_tones`, JSONB array). `src/lib/tones.ts` gère les défauts et la migration backward compat (`label: string` → `labels: { en }`)
+- `ToneConfig.labels` : `en` requis, `fr` et `de` optionnels avec fallback sur `en`
 - Priorité : robustesse, lisibilité, maintenabilité
 
 ---
