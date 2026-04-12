@@ -465,6 +465,15 @@ show_volumes_info() {
   done
 }
 
+# ── Env file helper ──────────────────────────────────────────
+_env_set() {
+  # _env_set KEY VALUE /path/to/.env
+  # Replaces KEY=... in-place, preserving line order.
+  # Uses | as delimiter so URLs (containing /) are safe.
+  local key="$1" value="$2" envfile="$3"
+  sed -i "s|^${key}=.*|${key}=${value}|" "$envfile"
+}
+
 # ── Mode: install ─────────────────────────────────────────────
 cmd_install() {
   STEP_TOTAL=8
@@ -864,6 +873,116 @@ cmd_logs() {
   docker compose -f "$INSTALL_DIR/docker-compose.yml" logs -f "$service"
 }
 
+# ── Mode: config ─────────────────────────────────────────────
+cmd_config() {
+  STEP_TOTAL=0
+  STEP_CURRENT=0
+
+  check_root
+
+  local INSTALL_DIR
+  INSTALL_DIR=$(ask "Installation directory" "/opt/leksis")
+
+  if [[ ! -f "$INSTALL_DIR/.env" ]]; then
+    error "Leksis does not appear to be installed at $INSTALL_DIR (.env not found)."
+    exit 1
+  fi
+
+  # shellcheck source=/dev/null
+  source "$INSTALL_DIR/.env"
+
+  local _changed_ollama=false _changed_app=false
+
+  while true; do
+    divider
+    echo -e "${BOLD}${CYAN}  Leksis Configuration — v${VERSION}${RESET}"
+    divider
+    echo ""
+    echo -e "  ${BOLD}Ollama models${RESET}"
+    printf "  [1] %-30s ${CYAN}%s${RESET}\n" "Translation model"  "${OLLAMA_MODEL:-translategemma:27b}"
+    printf "  [2] %-30s ${CYAN}%s${RESET}\n" "OCR model"          "${OLLAMA_OCR_MODEL:-maternion/LightOnOCR-2}"
+    printf "  [3] %-30s ${CYAN}%s${RESET}\n" "Rewrite model"      "${OLLAMA_REWRITE_MODEL:-qwen2.5:14b}"
+    echo ""
+    echo -e "  ${BOLD}Ollama runtime${RESET}"
+    printf "  [4] %-30s ${CYAN}%s${RESET}\n" "Keep alive"         "${OLLAMA_KEEP_ALIVE:--1}"
+    printf "  [5] %-30s ${CYAN}%s${RESET}\n" "Sched spread"       "${OLLAMA_SCHED_SPREAD:-false}"
+    printf "  [6] %-30s ${CYAN}%s${RESET}\n" "Max loaded models"  "${OLLAMA_MAX_LOADED_MODELS:-3}"
+    echo ""
+    echo -e "  ${BOLD}Application${RESET}"
+    printf "  [7] %-30s ${CYAN}%s${RESET}\n" "Public URL"         "${NEXTAUTH_URL:-}"
+    printf "  [8] %-30s ${CYAN}%s${RESET}\n" "App port"           "${APP_PORT:-3000}"
+    echo ""
+    echo "  [s] Save & exit  (propose container restart)"
+    echo "  [q] Quit         (containers not restarted)"
+    echo ""
+
+    local CHOICE
+    CHOICE=$(ask "Select a field to edit" "s")
+
+    case "$CHOICE" in
+      1)
+        OLLAMA_MODEL=$(ask "Translation model" "${OLLAMA_MODEL:-translategemma:27b}")
+        _env_set "OLLAMA_MODEL" "$OLLAMA_MODEL" "$INSTALL_DIR/.env"
+        _changed_ollama=true ;;
+      2)
+        OLLAMA_OCR_MODEL=$(ask "OCR model" "${OLLAMA_OCR_MODEL:-maternion/LightOnOCR-2}")
+        _env_set "OLLAMA_OCR_MODEL" "$OLLAMA_OCR_MODEL" "$INSTALL_DIR/.env"
+        _changed_ollama=true ;;
+      3)
+        OLLAMA_REWRITE_MODEL=$(ask "Rewrite model" "${OLLAMA_REWRITE_MODEL:-qwen2.5:14b}")
+        _env_set "OLLAMA_REWRITE_MODEL" "$OLLAMA_REWRITE_MODEL" "$INSTALL_DIR/.env"
+        _changed_ollama=true ;;
+      4)
+        OLLAMA_KEEP_ALIVE=$(ask "Keep alive (-1=forever, 5m=5min, 0=unload)" "${OLLAMA_KEEP_ALIVE:--1}")
+        _env_set "OLLAMA_KEEP_ALIVE" "$OLLAMA_KEEP_ALIVE" "$INSTALL_DIR/.env"
+        _changed_ollama=true ;;
+      5)
+        OLLAMA_SCHED_SPREAD=$(ask "Sched spread (true/false)" "${OLLAMA_SCHED_SPREAD:-false}")
+        _env_set "OLLAMA_SCHED_SPREAD" "$OLLAMA_SCHED_SPREAD" "$INSTALL_DIR/.env"
+        _changed_ollama=true ;;
+      6)
+        OLLAMA_MAX_LOADED_MODELS=$(ask "Max loaded models" "${OLLAMA_MAX_LOADED_MODELS:-3}")
+        _env_set "OLLAMA_MAX_LOADED_MODELS" "$OLLAMA_MAX_LOADED_MODELS" "$INSTALL_DIR/.env"
+        _changed_ollama=true ;;
+      7)
+        local _new_url
+        _new_url=$(ask "Public URL (no trailing slash)" "${NEXTAUTH_URL:-}")
+        while ! validate_url "$_new_url"; do
+          warn "Invalid URL — must start with http:// or https://, no trailing slash."
+          _new_url=$(ask "Public URL" "${NEXTAUTH_URL:-}")
+        done
+        NEXTAUTH_URL="$_new_url"
+        _env_set "NEXTAUTH_URL" "$NEXTAUTH_URL" "$INSTALL_DIR/.env"
+        _changed_app=true ;;
+      8)
+        APP_PORT=$(ask "App port" "${APP_PORT:-3000}")
+        _env_set "APP_PORT" "$APP_PORT" "$INSTALL_DIR/.env"
+        _changed_app=true ;;
+      s|S)
+        success ".env saved: $INSTALL_DIR/.env"
+        cd "$INSTALL_DIR"
+        detect_gpu
+        resolve_compose_cmd
+        if [[ "$_changed_ollama" == true ]]; then
+          if ask_yn "Restart Ollama to apply changes?" y; then
+            $COMPOSE_CMD restart ollama && success "Ollama restarted." || warn "Restart failed — run manually: docker compose restart ollama"
+          fi
+        fi
+        if [[ "$_changed_app" == true ]]; then
+          if ask_yn "Restart app to apply changes?" y; then
+            $COMPOSE_CMD restart app && success "App restarted." || warn "Restart failed — run manually: docker compose restart app"
+          fi
+        fi
+        break ;;
+      q|Q)
+        info "Exited config. Run 'docker compose restart ollama/app' manually if needed."
+        break ;;
+      *)
+        warn "Invalid choice: $CHOICE" ;;
+    esac
+  done
+}
+
 # ── Interactive menu (no argument) ───────────────────────────
 show_menu() {
   print_banner
@@ -872,8 +991,9 @@ show_menu() {
   echo "  [2] Update    — Update one or more containers"
   echo "  [3] Uninstall — Clean removal of all Leksis components"
   echo "  [4] Status    — Show live status of all services"
-  echo "  [5] Logs      — Tail service logs"
-  echo "  [6] Exit"
+  echo "  [5] Config    — Edit environment variables"
+  echo "  [6] Logs      — Tail service logs"
+  echo "  [7] Exit"
   echo ""
   local CHOICE
   CHOICE=$(ask "Select an option" "1")
@@ -883,23 +1003,25 @@ show_menu() {
     2) cmd_update ;;
     3) cmd_uninstall ;;
     4) cmd_status ;;
-    5)
+    5) cmd_config ;;
+    6)
       local SVC
       SVC=$(ask "Service to tail (app/postgres/ollama)" "app")
       cmd_logs "$SVC"
       ;;
-    6) exit 0 ;;
+    7) exit 0 ;;
     *) error "Invalid option: $CHOICE"; exit 1 ;;
   esac
 }
 
 usage() {
-  echo "Usage: $0 [install|update|uninstall|status|logs [service]]"
+  echo "Usage: $0 [install|update|uninstall|status|config|logs [service]]"
   echo ""
   echo "  install    Full guided installation on a fresh server"
   echo "  update     Update one or more containers selectively"
   echo "  uninstall  Clean removal of all Leksis components"
   echo "  status     Show live status of all services"
+  echo "  config     Edit environment variables (.env)"
   echo "  logs       Tail service logs (default: app)"
   echo ""
   echo "Run without arguments to open the interactive menu."
@@ -912,6 +1034,7 @@ main() {
     update)    cmd_update ;;
     uninstall) cmd_uninstall ;;
     status)    cmd_status ;;
+    config)    cmd_config ;;
     logs)      cmd_logs "${2:-app}" ;;
     menu)      show_menu ;;
     -h|--help) usage ;;
