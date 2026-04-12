@@ -17,7 +17,7 @@ export type RewriteTone = string
 
 export type ToneConfig = {
   id:          string
-  labels:      { en: string; fr?: string; de?: string }
+  labels:      { en: string; fr?: string; de?: string; it?: string }
   instruction: string
   enabled?:    boolean
 }
