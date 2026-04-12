@@ -631,18 +631,19 @@ EOF
   # ── Step 8 ───────────────────────────────────────────────────
   header "Creating admin user"
   if [[ -n "$ADMIN_EMAIL" ]]; then
+    # Escape single quotes (SQL injection protection: ' → '')
+    local _email _name
+    _email=$(printf '%s' "$ADMIN_EMAIL" | sed "s/'/''/g")
+    _name=$(printf '%s'  "$ADMIN_NAME"  | sed "s/'/''/g")
     $COMPOSE_CMD exec -T postgres \
       psql -U leksis_user -d leksis \
-      -v email="$ADMIN_EMAIL" \
-      -v name="$ADMIN_NAME" \
-      -c "INSERT INTO users (email, name, role) VALUES (:'email', :'name', 'admin')
-          ON CONFLICT (email) DO UPDATE SET role = 'admin', name = :'name';"
+      -c "INSERT INTO users (email, name, role) VALUES ('${_email}', '${_name}', 'admin')
+          ON CONFLICT (email) DO UPDATE SET role = 'admin', name = '${_name}';"
     success "Admin user created: ${ADMIN_EMAIL}"
   else
     warn "No admin email provided. You can create one later with:"
     echo "  docker compose exec -T postgres psql -U leksis_user -d leksis \\"
-    echo "    -v email='you@example.com' -v name='Admin' \\"
-    echo "    -c \"INSERT INTO users (email, name, role) VALUES (:'email', :'name', 'admin');\""
+    echo "    -c \"INSERT INTO users (email, name, role) VALUES ('you@example.com', 'Admin', 'admin');\""
   fi
 
   local gpu_summary="${GPU_VENDOR:-CPU}${GPU_NAME:+ ${GPU_NAME}}"
