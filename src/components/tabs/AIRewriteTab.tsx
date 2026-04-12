@@ -6,21 +6,11 @@ import { getGlossary, buildRewriteGlossaryClause } from '@/lib/glossary'
 import { TEXT_MAX_CHARS } from '@/lib/validators'
 import { useI18n } from '@/lib/i18n'
 import type { Messages } from '@/locales/en'
-import type { RewriteMode, RewriteTone, RewriteLength } from '@/types/leksis'
+import type { RewriteMode, RewriteLength, ToneConfig } from '@/types/leksis'
 
-const TONES: RewriteTone[]   = ['Professional', 'Casual', 'Friendly', 'Authoritative', 'Empathetic', 'Creative']
 const LENGTHS: RewriteLength[] = ['Shorter', 'Keep', 'Longer']
 
 type RewriteTabMessages = Messages['rewriteTab']
-
-const TONE_LABELS: Record<RewriteTone, keyof RewriteTabMessages> = {
-  Professional:  'professional',
-  Casual:        'casual',
-  Friendly:      'friendly',
-  Authoritative: 'authoritative',
-  Empathetic:    'empathetic',
-  Creative:      'creative',
-}
 
 const LENGTH_LABELS: Record<RewriteLength, keyof RewriteTabMessages> = {
   Shorter: 'shorter',
@@ -29,21 +19,26 @@ const LENGTH_LABELS: Record<RewriteLength, keyof RewriteTabMessages> = {
 }
 
 interface Props {
-  maxTextChars?: number
+  maxTextChars?:    number
+  configuredTones?: ToneConfig[]
 }
 
-export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS }: Props) {
+const DEFAULT_TONES_FALLBACK: ToneConfig[] = [
+  { id: 'professional',  label: 'Professional',  instruction: 'in a professional, formal tone appropriate for business communication' },
+]
+
+export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = DEFAULT_TONES_FALLBACK }: Props) {
   const { t } = useI18n()
 
   const [inputText, setInputText]   = useState('')
   const [outputText, setOutputText] = useState('')
   const [mode, setMode]     = useState<RewriteMode>('rewrite')
-  const [tone, setTone]     = useState<RewriteTone>('Professional')
+  const [tone, setTone]     = useState<string>(() => configuredTones[0]?.id ?? 'professional')
   const [length, setLength] = useState<RewriteLength>('Keep')
   const [isLoading, setIsLoading]   = useState(false)
   const [error, setError]           = useState<string | null>(null)
   const [appliedMode, setAppliedMode] = useState<RewriteMode | null>(null)
-  const [appliedTone, setAppliedTone] = useState<RewriteTone | null>(null)
+  const [appliedTone, setAppliedTone] = useState<string | null>(null)
   const [appliedLength, setAppliedLength] = useState<RewriteLength | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
@@ -54,7 +49,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS }: Props) {
     setIsLoading(false)
   }, [])
 
-  const run = useCallback(async (text: string, m: RewriteMode, tn: RewriteTone, l: RewriteLength) => {
+  const run = useCallback(async (text: string, m: RewriteMode, tn: string, l: RewriteLength) => {
     if (!text.trim()) return
 
     abort()
@@ -168,7 +163,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS }: Props) {
                   </span>
                   {appliedMode === 'rewrite' && appliedTone && appliedLength && (
                     <>
-                      {' '}· {t.rewriteTab.toneLabel} <span className="font-semibold text-primary">{t.rewriteTab[TONE_LABELS[appliedTone]]}</span>
+                      {' '}· {t.rewriteTab.toneLabel} <span className="font-semibold text-primary">{configuredTones.find(tn => tn.id === appliedTone)?.label ?? appliedTone}</span>
                       {' '}· {t.rewriteTab.lengthLabel} <span className="font-semibold">{t.rewriteTab[LENGTH_LABELS[appliedLength]]}</span>
                     </>
                   )}
@@ -226,13 +221,13 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS }: Props) {
             <div className={`flex items-center gap-2 transition-opacity duration-200 ${mode === 'correct' ? 'opacity-30 pointer-events-none' : ''}`}>
               <span className="text-xs font-bold text-on-surface tracking-wider">{t.rewriteTab.tone}</span>
               <div className="flex flex-wrap gap-1">
-                {TONES.map(tn => (
+                {configuredTones.map(tn => (
                   <button
-                    key={tn}
-                    onClick={() => setTone(tn)}
-                    className={`tone-btn ${tone === tn ? 'active' : ''}`}
+                    key={tn.id}
+                    onClick={() => setTone(tn.id)}
+                    className={`tone-btn ${tone === tn.id ? 'active' : ''}`}
                   >
-                    {t.rewriteTab[TONE_LABELS[tn]]}
+                    {tn.label}
                   </button>
                 ))}
               </div>

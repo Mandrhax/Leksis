@@ -9,6 +9,7 @@ import { GlossaryPanel }        from '@/components/ui/GlossaryPanel'
 import { AccountMenu }          from '@/components/ui/AccountMenu'
 import { UILanguageSwitcher }   from '@/components/ui/UILanguageSwitcher'
 import { I18nProvider, useI18n } from '@/lib/i18n'
+import type { ToneConfig } from '@/types/leksis'
 
 type TabId = 'text' | 'document' | 'image' | 'rewrite'
 
@@ -29,6 +30,7 @@ interface Props {
   defaultSourceLang: string
   defaultTargetLang: string
   maxTextChars:      number
+  configuredTones:   ToneConfig[]
 }
 
 export function HomeClient(props: Props) {
@@ -39,7 +41,7 @@ export function HomeClient(props: Props) {
   )
 }
 
-function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, maxTextChars }: Props) {
+function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, maxTextChars, configuredTones }: Props) {
   const { t } = useI18n()
 
   const ALL_TABS: { id: TabId; label: string; icon: string }[] = [
@@ -114,7 +116,7 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerLinks, e
           {safeActiveTab === 'text'     && <TextTranslationTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} maxTextChars={maxTextChars} />}
           {safeActiveTab === 'document' && <DocumentStudioTab  defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} />}
           {safeActiveTab === 'image'    && <ImageExtractionTab defaultTargetLang={defaultTargetLang} />}
-          {safeActiveTab === 'rewrite'  && <AIRewriteTab maxTextChars={maxTextChars} />}
+          {safeActiveTab === 'rewrite'  && <AIRewriteTab maxTextChars={maxTextChars} configuredTones={configuredTones} />}
         </div>
       </main>
 

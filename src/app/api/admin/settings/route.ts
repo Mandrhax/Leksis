@@ -17,10 +17,22 @@ export async function GET() {
   return NextResponse.json(settings)
 }
 
-const PatchSchema = z.object({
-  key: z.enum(['branding', 'design', 'general', 'seo', 'features']),
-  value: z.record(z.string(), z.unknown()),
+const ToneConfigSchema = z.object({
+  id:          z.string().min(1),
+  label:       z.string().min(1),
+  instruction: z.string().min(1),
 })
+
+const PatchSchema = z.union([
+  z.object({
+    key:   z.enum(['branding', 'design', 'general', 'seo', 'features']),
+    value: z.record(z.string(), z.unknown()),
+  }),
+  z.object({
+    key:   z.literal('rewrite_tones'),
+    value: z.array(ToneConfigSchema).min(1).max(6),
+  }),
+])
 
 export async function PATCH(req: NextRequest) {
   const session = await getAdminSession()
@@ -33,6 +45,6 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { key, value } = parsed.data
-  await updateSetting(key, value, session.user.id, session.user.email!)
+  await updateSetting(key, value as object, session.user.id, session.user.email!)
   return NextResponse.json({ ok: true })
 }

@@ -3,12 +3,14 @@ import { unlink } from 'node:fs/promises'
 import { join }   from 'node:path'
 import { getAdminSession } from '@/lib/admin-guard'
 import { getSetting, updateSetting } from '@/lib/settings'
+import { DEFAULT_TONES } from '@/lib/tones'
 
 const DEFAULTS = {
-  branding: { siteName: 'Leksis', primaryColor: '#565e74', secondaryColor: '#506076', darkMode: false },
-  design:   { buttonRadius: '0.75rem', headerLogoSize: '32', footerText: '© Leksis', footerLinks: [] },
-  general:  { contactEmail: '', globalBanner: '', maintenanceMode: false, maintenanceMessage: '' },
-  seo:      { title: 'Leksis', description: '' },
+  branding:      { siteName: 'Leksis', primaryColor: '#565e74', secondaryColor: '#506076', darkMode: false },
+  design:        { buttonRadius: '0.75rem', headerLogoSize: '32', footerText: '© Leksis', footerLinks: [] },
+  general:       { contactEmail: '', globalBanner: '', maintenanceMode: false, maintenanceMessage: '' },
+  seo:           { title: 'Leksis', description: '' },
+  rewrite_tones: DEFAULT_TONES,
 }
 
 export async function POST() {

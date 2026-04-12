@@ -13,7 +13,13 @@ export type Block =
 
 export type Formality = 'Formal' | 'Informal'
 
-export type RewriteTone = 'Professional' | 'Casual' | 'Friendly' | 'Authoritative' | 'Empathetic' | 'Creative'
+export type RewriteTone = string
+
+export type ToneConfig = {
+  id:          string
+  label:       string
+  instruction: string
+}
 
 export type RewriteLength = 'Shorter' | 'Keep' | 'Longer'
 

@@ -1,4 +1,6 @@
 import { HomeClient } from '@/components/ui/HomeClient'
+import type { ToneConfig } from '@/types/leksis'
+import { DEFAULT_TONES } from '@/lib/tones'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,16 +27,22 @@ async function loadPageSettings() {
       rewrite:  features.tabs?.rewrite  !== false,
     }
 
+    const rawTones = settings.rewrite_tones
+    const configuredTones: ToneConfig[] = Array.isArray(rawTones) && rawTones.length > 0
+      ? (rawTones as ToneConfig[])
+      : DEFAULT_TONES
+
     return {
-      logoUrl:          branding.logoUrl  ?? null,
-      logoSize:         parseInt(design.headerLogoSize ?? '32', 10),
-      siteName:         branding.siteName ?? 'Leksis',
-      footerText:       design.footerText  ?? '',
-      footerLinks:      design.footerLinks ?? [],
+      logoUrl:           branding.logoUrl  ?? null,
+      logoSize:          parseInt(design.headerLogoSize ?? '32', 10),
+      siteName:          branding.siteName ?? 'Leksis',
+      footerText:        design.footerText  ?? '',
+      footerLinks:       design.footerLinks ?? [],
       enabledTabs:       tabs,
       defaultSourceLang: features.defaults?.sourceLang ?? 'auto',
       defaultTargetLang: features.defaults?.targetLang ?? 'en',
       maxTextChars:      features.limits?.maxTextChars  ?? 5000,
+      configuredTones,
     }
   } catch {
     return {
@@ -47,6 +55,7 @@ async function loadPageSettings() {
       defaultSourceLang: 'auto',
       defaultTargetLang: 'en',
       maxTextChars:      5000,
+      configuredTones:   DEFAULT_TONES,
     }
   }
 }

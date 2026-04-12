@@ -5,6 +5,8 @@ import { BrandingForm }  from './BrandingForm'
 import { DesignForm }    from './DesignForm'
 import { GeneralForm }   from './GeneralForm'
 import { FeaturesForm }  from './FeaturesForm'
+import { TonesForm }     from './TonesForm'
+import type { ToneConfig } from '@/types/leksis'
 import { AdminToast }    from './AdminToast'
 import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
@@ -21,10 +23,11 @@ export function SettingsTabs({ settings }: Props) {
   const [resetting, setResetting]   = useState(false)
 
   const TABS = [
-    { id: 'branding',  label: t.settingsTabs.tabBranding,  icon: 'palette'  },
-    { id: 'design',    label: t.settingsTabs.tabDesign,     icon: 'brush'    },
-    { id: 'features',  label: t.settingsTabs.tabFeatures,   icon: 'tune'     },
-    { id: 'general',   label: t.settingsTabs.tabGeneral,    icon: 'lock'     },
+    { id: 'branding',  label: t.settingsTabs.tabBranding,  icon: 'palette'      },
+    { id: 'design',    label: t.settingsTabs.tabDesign,     icon: 'brush'        },
+    { id: 'features',  label: t.settingsTabs.tabFeatures,   icon: 'tune'         },
+    { id: 'tones',     label: t.settingsTabs.tabTones,      icon: 'auto_fix_high'},
+    { id: 'general',   label: t.settingsTabs.tabGeneral,    icon: 'lock'         },
   ]
 
   async function handleReset() {
@@ -109,6 +112,12 @@ export function SettingsTabs({ settings }: Props) {
       {active === 'features' && (
         <FeaturesForm
           initial={settings.features as never ?? {}}
+          onToast={setToast}
+        />
+      )}
+      {active === 'tones' && (
+        <TonesForm
+          initial={(settings.rewrite_tones as ToneConfig[] | undefined) ?? []}
           onToast={setToast}
         />
       )}

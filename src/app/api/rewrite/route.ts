@@ -8,7 +8,8 @@ import { getDynamicLimits } from '@/lib/limits'
 import { logUsage } from '@/lib/usage'
 import { isFeatureEnabled } from '@/lib/features-guard'
 import { auth } from '@/auth'
-import type { RewriteMode, RewriteTone, RewriteLength } from '@/types/leksis'
+import { getConfiguredTones } from '@/lib/tones'
+import type { RewriteMode, RewriteLength } from '@/types/leksis'
 
 export async function POST(req: NextRequest) {
   if (!await isFeatureEnabled('rewrite')) {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
   let body: {
     text: string
     mode: RewriteMode
-    tone?: RewriteTone
+    tone?: string
     length?: RewriteLength
     glossaryClause?: string
     sourceLang?: string
@@ -43,10 +44,21 @@ export async function POST(req: NextRequest) {
 
   const langClause = buildLangClause(sourceLang || 'the same language as the input')
 
+  let toneInstruction = 'in a professional, formal tone'
+  if (mode === 'rewrite') {
+    const tones = await getConfiguredTones()
+    const incomingId = (tone ?? 'professional').toLowerCase()
+    const matched = tones.find(t => t.id === incomingId)
+    if (!matched) {
+      return NextResponse.json({ error: 'Invalid tone.' }, { status: 400 })
+    }
+    toneInstruction = matched.instruction
+  }
+
   const { system, prompt } = mode === 'correct'
     ? buildCorrectPrompt({ langClause, glossaryClause, text })
     : buildRewritePrompt({
-        tone: tone || 'Professional',
+        instruction: toneInstruction,
         length: length || 'Keep',
         langClause,
         glossaryClause,

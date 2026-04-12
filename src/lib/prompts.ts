@@ -1,7 +1,7 @@
 // Centralise tous les prompts envoyés à Ollama.
 // Port de translator.js, rewrite-tab.js, doc-studio.js, image-tab.js
 
-import type { Formality, RewriteTone, RewriteLength } from '@/types/leksis'
+import type { Formality, RewriteLength } from '@/types/leksis'
 
 // ── Traduction texte ────────────────────────────────────────────
 
@@ -94,7 +94,7 @@ export function buildMarkdownTranslationPrompt({ sourceLang, targetLang, text }:
 // ── Réécriture IA ───────────────────────────────────────────────
 
 type RewritePromptOptions = {
-  tone: RewriteTone
+  instruction: string
   length: RewriteLength
   langClause: string
   glossaryClause?: string
@@ -102,7 +102,7 @@ type RewritePromptOptions = {
 }
 
 export function buildRewritePrompt({
-  tone, length, langClause, glossaryClause = '', text,
+  instruction, length, langClause, glossaryClause = '', text,
 }: RewritePromptOptions): { system: string; prompt: string } {
   const lengthInstruction =
     length === 'Shorter' ? 'Make the text significantly shorter while preserving the key message.' :
@@ -116,7 +116,7 @@ export function buildRewritePrompt({
       `Do not add new information. Do not remove key information. ` +
       `Return only the rewritten text, nothing else.`,
     prompt:
-      `Rewrite the following text in a ${tone.toLowerCase()} tone. ${lengthInstruction}\n` +
+      `Rewrite the following text ${instruction}. ${lengthInstruction}\n` +
       `IMPORTANT: ${langClause}\n` +
       glossaryClause +
       `\n${text}`,
