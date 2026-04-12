@@ -29,7 +29,13 @@ async function loadPageSettings() {
 
     const rawTones = settings.rewrite_tones
     const configuredTones: ToneConfig[] = Array.isArray(rawTones) && rawTones.length > 0
-      ? (rawTones as ToneConfig[])
+      ? (rawTones as Array<ToneConfig & { label?: string }>).map(t => {
+          if (t.label && !t.labels) {
+            const { label, ...rest } = t
+            return { ...rest, labels: { en: label } }
+          }
+          return t as ToneConfig
+        })
       : DEFAULT_TONES
 
     return {

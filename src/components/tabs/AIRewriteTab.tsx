@@ -24,13 +24,18 @@ interface Props {
 }
 
 const DEFAULT_TONES_FALLBACK: ToneConfig[] = [
-  { id: 'professional',  label: 'Professional',  instruction: 'in a professional, formal tone appropriate for business communication' },
+  { id: 'professional', labels: { en: 'Professional' }, instruction: 'in a professional, formal tone appropriate for business communication' },
 ]
 
 export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = DEFAULT_TONES_FALLBACK }: Props) {
   const { t } = useI18n()
 
+  const { locale } = useI18n()
   const activeTones = configuredTones.filter(tn => tn.enabled !== false)
+
+  function toneLabel(tn: typeof configuredTones[0]): string {
+    return (tn.labels?.[locale] ?? tn.labels?.en) || tn.id
+  }
 
   const [inputText, setInputText]   = useState('')
   const [outputText, setOutputText] = useState('')
@@ -165,7 +170,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
                   </span>
                   {appliedMode === 'rewrite' && appliedTone && appliedLength && (
                     <>
-                      {' '}· {t.rewriteTab.toneLabel} <span className="font-semibold text-primary">{activeTones.find(tn => tn.id === appliedTone)?.label ?? appliedTone}</span>
+                      {' '}· {t.rewriteTab.toneLabel} <span className="font-semibold text-primary">{(() => { const tn = activeTones.find(tn => tn.id === appliedTone); return tn ? toneLabel(tn) : appliedTone })()} </span>
                       {' '}· {t.rewriteTab.lengthLabel} <span className="font-semibold">{t.rewriteTab[LENGTH_LABELS[appliedLength]]}</span>
                     </>
                   )}
@@ -229,7 +234,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
                     onClick={() => setTone(tn.id)}
                     className={`tone-btn ${tone === tn.id ? 'active' : ''}`}
                   >
-                    {tn.label}
+                    {toneLabel(tn)}
                   </button>
                 ))}
               </div>

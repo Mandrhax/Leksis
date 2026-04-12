@@ -19,7 +19,11 @@ export async function GET() {
 
 const ToneConfigSchema = z.object({
   id:          z.string().min(1),
-  label:       z.string().min(1),
+  labels:      z.object({
+    en: z.string().min(1),
+    fr: z.string().optional(),
+    de: z.string().optional(),
+  }),
   instruction: z.string().min(1),
   enabled:     z.boolean().optional(),
 })
