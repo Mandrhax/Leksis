@@ -643,6 +643,15 @@ EOF
   pull_model_if_needed "$OLLAMA_REWRITE_MODEL"
   success "All models ready."
 
+  # Pre-warm: load models into VRAM to avoid 504 on first request
+  info "Pre-warming models into VRAM…"
+  for _m in "$OLLAMA_MODEL" "$OLLAMA_OCR_MODEL" "$OLLAMA_REWRITE_MODEL"; do
+    curl -s --max-time 120 -X POST "http://localhost:11434/api/generate" \
+      -d "{\"model\":\"${_m}\",\"prompt\":\"\",\"stream\":false,\"keep_alive\":-1}" \
+      > /dev/null 2>&1 || true
+  done
+  success "Models loaded into VRAM."
+
   # ── Step 8 ───────────────────────────────────────────────────
   header "Creating admin user"
   if [[ -n "$ADMIN_EMAIL" ]]; then
