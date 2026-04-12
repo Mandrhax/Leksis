@@ -964,13 +964,13 @@ cmd_config() {
         detect_gpu
         resolve_compose_cmd
         if [[ "$_changed_ollama" == true ]]; then
-          if ask_yn "Restart Ollama to apply changes?" y; then
-            $COMPOSE_CMD restart ollama && success "Ollama restarted." || warn "Restart failed — run manually: docker compose restart ollama"
+          if ask_yn "Recreate Ollama container to apply changes?" y; then
+            $COMPOSE_CMD up -d ollama && success "Ollama recreated with new env." || warn "Failed — run manually: docker compose up -d ollama"
           fi
         fi
         if [[ "$_changed_app" == true ]]; then
-          if ask_yn "Restart app to apply changes?" y; then
-            $COMPOSE_CMD restart app && success "App restarted." || warn "Restart failed — run manually: docker compose restart app"
+          if ask_yn "Recreate app container to apply changes?" y; then
+            $COMPOSE_CMD up -d app && success "App recreated with new env." || warn "Failed — run manually: docker compose up -d app"
           fi
         fi
         break ;;
