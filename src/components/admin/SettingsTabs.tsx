@@ -6,7 +6,6 @@ import { DesignForm }        from './DesignForm'
 import { GeneralForm }       from './GeneralForm'
 import { FeaturesForm }      from './FeaturesForm'
 import { TonesForm }         from './TonesForm'
-import { ExportImportForm }  from './ExportImportForm'
 import type { ToneConfig } from '@/types/leksis'
 import { AdminToast }        from './AdminToast'
 import type { ToastState }   from './AdminToast'
@@ -29,7 +28,6 @@ export function SettingsTabs({ settings }: Props) {
     { id: 'features',  label: t.settingsTabs.tabFeatures,   icon: 'tune'         },
     { id: 'tones',     label: t.settingsTabs.tabTones,      icon: 'auto_fix_high'},
     { id: 'general',   label: t.settingsTabs.tabGeneral,    icon: 'lock'         },
-    { id: 'backup',    label: t.settingsTabs.tabBackup,     icon: 'cloud_download'},
   ]
 
   async function handleReset() {
@@ -128,9 +126,6 @@ export function SettingsTabs({ settings }: Props) {
           initial={settings.general as never ?? {}}
           onToast={setToast}
         />
-      )}
-      {active === 'backup' && (
-        <ExportImportForm onToast={setToast} />
       )}
       <AdminToast toast={toast} onDismiss={() => setToast(null)} />
     </>

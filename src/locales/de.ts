@@ -135,6 +135,7 @@ export const messages = {
     navUsers:     'Benutzer',
     navUsage:     'Nutzung',
     navAudit:     'Protokoll',
+    navBackup:    'Sicherung',
     backToApp:    'Zurück zur App',
   },
   adminPages: {
@@ -148,6 +149,8 @@ export const messages = {
     usageDesc:      'KI-Aufrufe nach Funktion, Sprache und Modell. Als CSV exportierbar.',
     auditTitle:     'Prüfprotokoll',
     auditDesc:      'Verlauf aller von Administratoren durchgeführten Aktionen.',
+    backupTitle:    'Sicherung & Wiederherstellung',
+    backupDesc:     'Exportieren Sie Ihre Konfiguration als JSON-Datei oder stellen Sie sie aus einer früheren Sicherung wieder her.',
   },
   settingsTabs: {
     tabBranding:    'Identität',
@@ -155,7 +158,6 @@ export const messages = {
     tabFeatures:    'Funktionen',
     tabTones:       'Tonlagen',
     tabGeneral:     'Zugang',
-    tabBackup:      'Sicherung',
     confirmLabel:   'Bestätigen?',
     cancelReset:    'Abbrechen',
     resetDefaults:  'Standard',

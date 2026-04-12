@@ -135,6 +135,7 @@ export const messages = {
     navUsers:     'Utilisateurs',
     navUsage:     'Utilisation',
     navAudit:     'Journal',
+    navBackup:    'Sauvegarde',
     backToApp:    'Retour à l\'app',
   },
   adminPages: {
@@ -148,6 +149,8 @@ export const messages = {
     usageDesc:      'Appels IA par fonctionnalité, langue et modèle. Exportable en CSV.',
     auditTitle:     'Journal d\'audit',
     auditDesc:      'Historique de toutes les actions effectuées par les administrateurs.',
+    backupTitle:    'Sauvegarde & Restauration',
+    backupDesc:     'Exportez votre configuration en fichier JSON, ou restaurez-la depuis une sauvegarde précédente.',
   },
   settingsTabs: {
     tabBranding:    'Identité',
@@ -155,7 +158,6 @@ export const messages = {
     tabFeatures:    'Fonctionnalités',
     tabTones:       'Tonalités',
     tabGeneral:     'Accès',
-    tabBackup:      'Sauvegarde',
     confirmLabel:   'Confirmer ?',
     cancelReset:    'Annuler',
     resetDefaults:  'Défauts',

@@ -1,16 +1,13 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { AdminToast }       from './AdminToast'
 import type { ToastState }  from './AdminToast'
 import { useI18n }          from '@/lib/i18n'
 
-interface Props {
-  onToast: (t: ToastState) => void
-}
-
 const KNOWN_KEYS = ['branding', 'design', 'features', 'rewrite_tones', 'general', 'seo', 'ollama_config', 'db_config']
 
-export function ExportImportForm({ onToast }: Props) {
+export function ExportImportForm() {
   const { t } = useI18n()
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -19,6 +16,7 @@ export function ExportImportForm({ onToast }: Props) {
   const [detectedKeys, setDetected] = useState<string[] | null>(null)
   const [pendingJson, setPending]   = useState<object | null>(null)
   const [fileName, setFileName]     = useState<string>('')
+  const [toast, setToast]           = useState<ToastState>(null)
 
   /* ── Export ─────────────────────────────────────────────── */
   async function handleExport() {
@@ -34,9 +32,9 @@ export function ExportImportForm({ onToast }: Props) {
       a.download = `leksis-config-${date}.json`
       a.click()
       URL.revokeObjectURL(url)
-      onToast({ message: t.backupForm.toastExported, type: 'success' })
+      setToast({ message: t.backupForm.toastExported, type: 'success' })
     } catch {
-      onToast({ message: t.backupForm.toastError, type: 'error' })
+      setToast({ message: t.backupForm.toastError, type: 'error' })
     } finally {
       setExporting(false)
     }
@@ -55,14 +53,14 @@ export function ExportImportForm({ onToast }: Props) {
       try {
         const json = JSON.parse(ev.target?.result as string)
         if (!json.version || !json.settings || typeof json.settings !== 'object') {
-          onToast({ message: t.backupForm.errorInvalidFile, type: 'error' })
+          setToast({ message: t.backupForm.errorInvalidFile, type: 'error' })
           return
         }
         const keys = Object.keys(json.settings).filter(k => KNOWN_KEYS.includes(k))
         setDetected(keys)
         setPending(json)
       } catch {
-        onToast({ message: t.backupForm.errorInvalidFile, type: 'error' })
+        setToast({ message: t.backupForm.errorInvalidFile, type: 'error' })
       }
     }
     reader.readAsText(file)
@@ -82,10 +80,10 @@ export function ExportImportForm({ onToast }: Props) {
         body:    JSON.stringify(pendingJson),
       })
       if (!res.ok) throw new Error()
-      onToast({ message: t.backupForm.toastImported, type: 'success' })
+      setToast({ message: t.backupForm.toastImported, type: 'success' })
       setTimeout(() => window.location.reload(), 800)
     } catch {
-      onToast({ message: t.backupForm.toastError, type: 'error' })
+      setToast({ message: t.backupForm.toastError, type: 'error' })
     } finally {
       setImporting(false)
     }
@@ -93,6 +91,7 @@ export function ExportImportForm({ onToast }: Props) {
 
   /* ── UI ──────────────────────────────────────────────────── */
   return (
+    <>
     <div className="space-y-6">
 
       {/* Export */}
@@ -180,5 +179,8 @@ export function ExportImportForm({ onToast }: Props) {
       </div>
 
     </div>
+
+    <AdminToast toast={toast} onDismiss={() => setToast(null)} />
+    </>
   )
 }

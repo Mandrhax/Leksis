@@ -14,6 +14,7 @@ export function AdminSidebar() {
     { href: '/admin/users',    icon: 'group',           label: t.adminSidebar.navUsers    },
     { href: '/admin/usage',    icon: 'bar_chart',       label: t.adminSidebar.navUsage    },
     { href: '/admin/audit',    icon: 'manage_history',  label: t.adminSidebar.navAudit    },
+    { href: '/admin/backup',   icon: 'cloud_download',  label: t.adminSidebar.navBackup   },
   ]
 
   return (
