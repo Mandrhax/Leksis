@@ -58,7 +58,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: branding.siteName || 'Leksis',
-    icons: branding.logoUrl ? { icon: branding.logoUrl } : undefined,
+    icons: { icon: branding.logoUrl || '/favicon.svg' },
   }
 }
 

@@ -1,24 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, unlink, mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
-import { getAdminSession } from '@/lib/admin-guard'
+import { join, basename }           from 'node:path'
+import { getAdminSession }          from '@/lib/admin-guard'
 import { getSetting, updateSetting } from '@/lib/settings'
 
 const ALLOWED_TYPES: Record<string, string> = {
-  'image/png':  'png',
-  'image/jpeg': 'jpg',
-  'image/webp': 'webp',
+  'image/png':     'png',
+  'image/jpeg':    'jpg',
+  'image/webp':    'webp',
   'image/svg+xml': 'svg',
 }
-const MAX_SIZE = 5 * 1024 * 1024 // 5 Mo
+const MAX_SIZE   = 5 * 1024 * 1024 // 5 Mo
+const ASSET_SLUG = 'site-bg'
+
+function uploadsDir(): string {
+  return process.env.UPLOAD_DIR || join(process.cwd(), 'uploads')
+}
+
+function urlToPath(url: string): string {
+  const newFormat = url.match(/^\/api\/site-assets\/(.+)$/)
+  if (newFormat) return join(uploadsDir(), basename(newFormat[1]))
+  return join(process.cwd(), 'public', basename(url))
+}
 
 async function removeExistingBgFile() {
   try {
     const branding = await getSetting<{ backgroundImage?: string }>('branding')
-    if (branding?.backgroundImage) {
-      const relative = branding.backgroundImage.replace(/^\//, '')
-      await unlink(join(process.cwd(), 'public', relative)).catch(() => {})
-    }
+    if (branding?.backgroundImage) await unlink(urlToPath(branding.backgroundImage)).catch(() => {})
   } catch {}
 }
 
@@ -44,26 +52,21 @@ export async function POST(req: NextRequest) {
 
     await removeExistingBgFile()
 
-    const filename  = `site-bg.${ext}`
-    const publicDir = join(process.cwd(), 'public')
-    const destPath  = join(publicDir, filename)
-    await mkdir(publicDir, { recursive: true })
-    await writeFile(destPath, Buffer.from(await file.arrayBuffer()))
-    console.log('[background] Fichier écrit :', destPath)
+    const dir      = uploadsDir()
+    const filename = `${ASSET_SLUG}.${ext}`
+    const dest     = join(dir, filename)
+    await mkdir(dir, { recursive: true })
+    await writeFile(dest, Buffer.from(await file.arrayBuffer()))
+    console.log('[background] Fichier écrit :', dest)
 
+    const backgroundImage = `/api/site-assets/${filename}`
     const branding = (await getSetting<Record<string, unknown>>('branding')) ?? {}
-    await updateSetting(
-      'branding',
-      { ...branding, backgroundImage: `/${filename}` },
-      session.user.id,
-      session.user.email!,
-    )
+    await updateSetting('branding', { ...branding, backgroundImage }, session.user.id, session.user.email!)
 
-    return NextResponse.json({ ok: true, backgroundImage: `/${filename}` })
+    return NextResponse.json({ ok: true, backgroundImage })
   } catch (err) {
     console.error('[POST /api/admin/background]', err)
-    const message = err instanceof Error ? err.message : String(err)
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
 }
 
@@ -81,7 +84,6 @@ export async function DELETE() {
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[DELETE /api/admin/background]', err)
-    const message = err instanceof Error ? err.message : String(err)
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur interne du serveur.' }, { status: 500 })
   }
 }

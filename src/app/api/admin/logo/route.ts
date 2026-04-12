@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, unlink, mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
-import { getAdminSession } from '@/lib/admin-guard'
+import { join, basename }           from 'node:path'
+import { getAdminSession }          from '@/lib/admin-guard'
 import { getSetting, updateSetting } from '@/lib/settings'
 
 const ALLOWED_TYPES: Record<string, string> = {
@@ -11,18 +11,25 @@ const ALLOWED_TYPES: Record<string, string> = {
   'image/webp':    'webp',
   'image/x-icon':  'ico',
 }
-const MAX_SIZE = 2 * 1024 * 1024 // 2 Mo
+const MAX_SIZE   = 2 * 1024 * 1024 // 2 Mo
+const ASSET_SLUG = 'site-logo'
 
-/** Supprime le fichier logo existant depuis le disque (silencieux si absent). */
+function uploadsDir(): string {
+  return process.env.UPLOAD_DIR || join(process.cwd(), 'uploads')
+}
+
+/** Retourne le chemin disque d'une URL d'asset (ancienne ou nouvelle convention). */
+function urlToPath(url: string): string {
+  const newFormat = url.match(/^\/api\/site-assets\/(.+)$/)
+  if (newFormat) return join(uploadsDir(), basename(newFormat[1]))
+  // Ancienne convention : /site-logo.png dans public/
+  return join(process.cwd(), 'public', basename(url))
+}
+
 async function removeExistingLogoFile() {
   try {
     const branding = await getSetting<{ logoUrl?: string }>('branding')
-    if (branding?.logoUrl) {
-      // Supprimer le slash initial pour que path.join fonctionne correctement
-      const relative = branding.logoUrl.replace(/^\//, '')
-      const oldPath  = join(process.cwd(), 'public', relative)
-      await unlink(oldPath).catch(() => {})
-    }
+    if (branding?.logoUrl) await unlink(urlToPath(branding.logoUrl)).catch(() => {})
   } catch {}
 }
 
@@ -48,27 +55,21 @@ export async function POST(req: NextRequest) {
 
     await removeExistingLogoFile()
 
-    const filename  = `site-logo.${ext}`
-    const publicDir = join(process.cwd(), 'public')
-    const destPath  = join(publicDir, filename)
-    await mkdir(publicDir, { recursive: true })
-    const buffer = Buffer.from(await file.arrayBuffer())
-    await writeFile(destPath, buffer)
-    console.log('[logo] Fichier écrit :', destPath)
+    const dir      = uploadsDir()
+    const filename = `${ASSET_SLUG}.${ext}`
+    const dest     = join(dir, filename)
+    await mkdir(dir, { recursive: true })
+    await writeFile(dest, Buffer.from(await file.arrayBuffer()))
+    console.log('[logo] Fichier écrit :', dest)
 
+    const logoUrl = `/api/site-assets/${filename}`
     const branding = (await getSetting<Record<string, unknown>>('branding')) ?? {}
-    await updateSetting(
-      'branding',
-      { ...branding, logoUrl: `/${filename}` },
-      session.user.id,
-      session.user.email!,
-    )
+    await updateSetting('branding', { ...branding, logoUrl }, session.user.id, session.user.email!)
 
-    return NextResponse.json({ ok: true, logoUrl: `/${filename}` })
+    return NextResponse.json({ ok: true, logoUrl })
   } catch (err) {
     console.error('[POST /api/admin/logo] ERROR:', err)
-    const message = err instanceof Error ? err.message : String(err)
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
 }
 
