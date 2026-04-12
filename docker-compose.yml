@@ -75,6 +75,9 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL}
       OLLAMA_OCR_MODEL: ${OLLAMA_OCR_MODEL}
       OLLAMA_REWRITE_MODEL: ${OLLAMA_REWRITE_MODEL}
+    volumes:
+      # Persistent uploads (logo, background) — survives container restarts and updates
+      - leksis_uploads:/app/uploads
     ports:
       - "${APP_PORT:-3000}:3000"
     healthcheck:
@@ -95,3 +98,4 @@ networks:
 volumes:
   postgres_data:
   ollama_data:
+  leksis_uploads:
