@@ -7,7 +7,7 @@ import { AdminToast }        from './AdminToast'
 import type { ToastState }   from './AdminToast'
 
 interface Props {
-  ollamaInitial: { baseUrl: string; model: string; ocrModel: string }
+  ollamaInitial: { baseUrl: string; translationModel: string; ocrModel: string; rewriteModel: string; sameModelForAll: boolean }
   dbInitial:     { host: string; port: number; database: string; user: string }
 }
 
