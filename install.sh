@@ -32,10 +32,16 @@ if [[ ! -t 0 ]]; then
 fi
 
 # ── VERSION from package.json ────────────────────────────────
-VERSION=$(grep '"version"' "$(dirname "$0")/package.json" 2>/dev/null \
-  | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' \
-  | head -1 || true)
-VERSION="${VERSION:-1.0.0}"
+VERSION="1.0.0"
+_pkg="$(dirname "$0")/package.json"
+if [[ -f "$_pkg" ]]; then
+  _v=$(grep '"version"' "$_pkg" \
+    | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' \
+    | head -1)
+  VERSION="${_v:-1.0.0}"
+  unset _v
+fi
+unset _pkg
 
 # ── Colors ───────────────────────────────────────────────────
 RED='\033[0;31m'
