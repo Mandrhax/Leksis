@@ -123,12 +123,12 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerLinks, e
       {/* ── Footer ── */}
       {(footerText || footerLinks.length > 0) && (
         <footer className="border-t border-outline-variant/10 px-6 md:px-8 py-4">
-          <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {footerText && (
               <span className="text-xs text-on-surface-variant">{footerText}</span>
             )}
             {footerLinks.length > 0 && (
-              <nav className="flex items-center gap-4">
+              <nav className="flex items-center gap-4 ml-auto">
                 {footerLinks.map((link, i) => (
                   <a
                     key={i}
