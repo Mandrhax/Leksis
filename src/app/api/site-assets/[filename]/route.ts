@@ -24,7 +24,7 @@ export async function GET(
     return new NextResponse('Not found', { status: 404 })
   }
 
-  const uploadsDir = process.env.UPLOAD_DIR || join(process.cwd(), 'uploads')
+  const uploadsDir = process.env.UPLOAD_DIR || '/tmp/uploads'
   const filePath   = join(uploadsDir, safe)
 
   try {

@@ -15,7 +15,7 @@ const MAX_SIZE   = 2 * 1024 * 1024 // 2 Mo
 const ASSET_SLUG = 'site-logo'
 
 function uploadsDir(): string {
-  return process.env.UPLOAD_DIR || join(process.cwd(), 'uploads')
+  return process.env.UPLOAD_DIR || '/tmp/uploads'
 }
 
 /** Retourne le chemin disque d'une URL d'asset (ancienne ou nouvelle convention). */

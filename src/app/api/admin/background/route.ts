@@ -14,7 +14,7 @@ const MAX_SIZE   = 5 * 1024 * 1024 // 5 Mo
 const ASSET_SLUG = 'site-bg'
 
 function uploadsDir(): string {
-  return process.env.UPLOAD_DIR || join(process.cwd(), 'uploads')
+  return process.env.UPLOAD_DIR || '/tmp/uploads'
 }
 
 function urlToPath(url: string): string {

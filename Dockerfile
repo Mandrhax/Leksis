@@ -67,9 +67,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy public folder (favicon, images, etc.)
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Create the uploads directory with the correct owner (logo, background images)
-# This directory must be mounted as a volume to persist across container restarts.
-RUN mkdir -p /app/uploads && chown nextjs:nodejs /app/uploads
+# Create the uploads directory outside /app/ to avoid Docker volume mount conflicts.
+# UPLOAD_DIR=/data/uploads must be set in docker-compose (env var).
+RUN mkdir -p /data/uploads && chown nextjs:nodejs /data/uploads
 
 USER nextjs
 

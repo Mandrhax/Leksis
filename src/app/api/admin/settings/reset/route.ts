@@ -20,7 +20,7 @@ export async function POST() {
   // Supprimer les fichiers logo et background s'ils existent
   try {
     const branding = await getSetting<{ logoUrl?: string; backgroundImage?: string }>('branding')
-    const uploadsDir = process.env.UPLOAD_DIR || join(process.cwd(), 'uploads')
+    const uploadsDir = process.env.UPLOAD_DIR || '/tmp/uploads'
     for (const url of [branding?.logoUrl, branding?.backgroundImage]) {
       if (!url) continue
       const newFormat = url.match(/^\/api\/site-assets\/(.+)$/)
