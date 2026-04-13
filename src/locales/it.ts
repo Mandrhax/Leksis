@@ -143,7 +143,7 @@ export const messages = {
   },
   adminPages: {
     settingsTitle:  'Impostazioni sito',
-    settingsDesc:   'Aspetto, design, informazioni generali e SEO.',
+    settingsDesc:   'Aspetto, design, informazioni generali.',
     servicesTitle:  'Servizi',
     servicesDesc:   'Configurazione e test di connessione per Ollama e PostgreSQL.',
     servicesAiTitle: 'IA — Ollama',
