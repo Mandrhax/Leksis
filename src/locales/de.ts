@@ -144,6 +144,8 @@ export const messages = {
     settingsDesc:   'Erscheinungsbild, Design, allgemeine Informationen und SEO.',
     servicesTitle:  'Dienste',
     servicesDesc:   'Konfiguration und Verbindungstest für Ollama und PostgreSQL.',
+    servicesTabAI:  'KI',
+    servicesTabDb:  'Datenbank',
     usersTitle:     'Benutzer',
     usersDesc:      'Benutzerrollen verwalten. Der Schalter erteilt oder entzieht Administratorrechte. Änderungen wirken beim nächsten Login.',
     usageTitle:     'Nutzung',

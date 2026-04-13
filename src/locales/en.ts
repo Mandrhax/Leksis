@@ -142,6 +142,8 @@ export const messages = {
     settingsDesc:   'Appearance, design, general info and SEO.',
     servicesTitle:  'Services',
     servicesDesc:   'Configuration and connection testing for Ollama and PostgreSQL.',
+    servicesTabAI:  'AI',
+    servicesTabDb:  'Database',
     usersTitle:     'Users',
     usersDesc:      'Manage user roles. The toggle grants or revokes admin privileges. Changes take effect on next login.',
     usageTitle:     'Usage',

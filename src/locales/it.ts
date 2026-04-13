@@ -144,6 +144,8 @@ export const messages = {
     settingsDesc:   'Aspetto, design, informazioni generali e SEO.',
     servicesTitle:  'Servizi',
     servicesDesc:   'Configurazione e test di connessione per Ollama e PostgreSQL.',
+    servicesTabAI:  'IA',
+    servicesTabDb:  'Database',
     usersTitle:     'Utenti',
     usersDesc:      'Gestisci i ruoli degli utenti. Il toggle concede o revoca i privilegi di amministratore. Le modifiche hanno effetto al prossimo accesso.',
     usageTitle:     'Utilizzo',

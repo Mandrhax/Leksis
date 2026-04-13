@@ -144,6 +144,8 @@ export const messages = {
     settingsDesc:   'Apparence, design, informations générales et SEO.',
     servicesTitle:  'Services',
     servicesDesc:   'Configuration et test de connexion aux services Ollama et PostgreSQL.',
+    servicesTabAI:  'IA',
+    servicesTabDb:  'Base de données',
     usersTitle:     'Utilisateurs',
     usersDesc:      'Gérez les rôles des utilisateurs. Le toggle active ou révoque le rôle administrateur. Le changement prend effet à la prochaine connexion.',
     usageTitle:     'Utilisation',
