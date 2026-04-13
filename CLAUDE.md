@@ -137,8 +137,11 @@ src/
 │   │       ├── background/route.ts      (Mise à jour image de fond)
 │   │       ├── logo/route.ts            (Upload/suppression du logo)
 │   │       ├── services/route.ts        (Config Ollama + PostgreSQL GET/PATCH)
-│   │       ├── services/ollama/test/route.ts (Test connexion Ollama)
-│   │       ├── services/db/test/route.ts     (Test connexion PostgreSQL)
+│   │       ├── services/ollama/test/route.ts    (Test connexion Ollama)
+│   │       ├── services/ollama/metrics/route.ts (Métriques Ollama : version, latence, modèles, running)
+│   │       ├── services/ollama/unload/route.ts  (Décharge un modèle — keep_alive: 0)
+│   │       ├── services/db/test/route.ts        (Test connexion PostgreSQL)
+│   │       ├── services/db/metrics/route.ts     (Métriques PostgreSQL : version, taille, connexions, tables)
 │   │       ├── settings/route.ts        (Réglages site GET/PATCH)
 │   │       ├── settings/export/route.ts (Export config JSON)
 │   │       ├── settings/import/route.ts (Import config JSON)
@@ -149,10 +152,10 @@ src/
 │   │       └── users/[id]/route.ts      (Mise à jour rôle utilisateur)
 │   ├── admin/
 │   │   ├── layout.tsx                   (requireAdmin + AdminClientLayout + AdminSidebar)
-│   │   ├── settings/page.tsx            (AdminPageHeader + SettingsTabs)
+│   │   ├── settings/page.tsx            (AdminPageHeader + SettingsTabs — max-w-[1400px])
 │   │   ├── services/page.tsx            (redirect → /admin/services/ai)
-│   │   ├── services/ai/page.tsx         (AdminPageHeader "servicesAi" + ServicesPanel mode="ai")
-│   │   ├── services/db/page.tsx         (AdminPageHeader "servicesDb" + ServicesPanel mode="db")
+│   │   ├── services/ai/page.tsx         (AdminPageHeader "servicesAi" + grille [2fr_3fr] : ServicesPanel | OllamaMetrics)
+│   │   ├── services/db/page.tsx         (AdminPageHeader "servicesDb" + grille [2fr_3fr] : ServicesPanel | DbMetrics)
 │   │   ├── users/page.tsx               (AdminPageHeader + UserList)
 │   │   ├── usage/page.tsx               (AdminPageHeader + UsagePanel)
 │   │   ├── audit/page.tsx               (AdminPageHeader + AuditTable)
@@ -186,16 +189,18 @@ src/
 │       ├── AdminSidebar.tsx             (Navigation admin — Settings, Services [en-tête] > AI + Database, Users, Usage, Audit, Backup)
 │       ├── AdminToast.tsx               (Composant toast + type ToastState)
 │       ├── AdminToastWrapper.tsx        (Wrapper de positionnement du toast)
-│       ├── SettingsTabs.tsx             (Onglets Identité/Interface/Fonctionnalités/Tonalités/Accès)
-│       ├── BrandingForm.tsx             (Logo, couleurs, fond, mode sombre)
-│       ├── DesignForm.tsx               (Radius boutons, taille logo, footer)
-│       ├── FeaturesForm.tsx             (Modules actifs, langues défaut, limites API)
+│       ├── SettingsTabs.tsx             (Onglets Identité/Interface/Fonctionnalités/Tonalités/Accès — sous-blocs en grille lg:grid-cols-2)
+│       ├── BrandingForm.tsx             (Logo, couleurs, fond, mode sombre — sous-blocs en grille)
+│       ├── DesignForm.tsx               (Radius boutons, taille logo, footer — sous-blocs en grille)
+│       ├── FeaturesForm.tsx             (Modules actifs, langues défaut, limites API — sous-blocs en grille)
 │       ├── TonesForm.tsx                (CRUD tonalités : label EN/FR/DE/IT, instruction prompt, on/off, min 1 / max 6)
-│       ├── GeneralForm.tsx              (Email contact, bannière, mode maintenance)
+│       ├── GeneralForm.tsx              (Email contact, bannière, mode maintenance — sous-blocs en grille)
 │       ├── ExportImportForm.tsx         (Export/Import configuration JSON)
 │       ├── ServicesPanel.tsx            (Client wrapper pour OllamaServiceForm ou DbServiceForm selon mode="ai"|"db")
 │       ├── OllamaServiceForm.tsx        (Config Ollama, test connexion)
 │       ├── DbServiceForm.tsx            (Config PostgreSQL, test connexion)
+│       ├── OllamaMetrics.tsx            (Métriques Ollama live : statut, modèles installés, modèles en mémoire + Unload)
+│       ├── DbMetrics.tsx                (Métriques PostgreSQL live : statut serveur, connexions, tables application)
 │       ├── UserList.tsx                 (Tableau utilisateurs, toggle rôle admin)
 │       ├── UsagePanel.tsx               (Stats IA filtrées par date, export CSV)
 │       ├── AuditTable.tsx               (Journal d'audit paginé)
@@ -282,6 +287,14 @@ Les composants appelant `useI18n()` doivent être enfants d'un `I18nProvider`.
 - Header : barre de tabs centrée — à droite, un wrapper flex `absolute right-4` contient `UILanguageSwitcher` + `AccountMenu`
 - Workspace : `max-w-[1440px]`, `px-6 md:px-8`, `pt-6`
 - Footer 3 colonnes : Privacy / Precision / Editorial
+
+### Pages admin — conventions de mise en page
+
+- Wrapper page : `p-8 max-w-[1400px]`
+- **Pages Services AI & DB** : grille `grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 items-start` — formulaire config à gauche, blocs métriques à droite
+- **Page Réglages** : tabs de navigation (5 onglets), sous-blocs de chaque formulaire en `grid grid-cols-1 lg:grid-cols-2 gap-6 items-start`, bouton Save hors grille
+- **Style de carte admin** : `bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6` — utilisé uniformément pour formulaires et blocs métriques
+- **Blocs métriques** (OllamaMetrics, DbMetrics) : bouton Refresh dans l'en-tête du bloc Statut, blocs 2 et 3 côte à côte (`xl:grid-cols-2`)
 
 ### Panneaux de traduction (tous les tabs)
 
