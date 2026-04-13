@@ -58,22 +58,7 @@ export function DbMetrics() {
   const df = t.dbForm
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-on-surface">{df.metricsTitle}</h2>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="icon-btn"
-          title={df.metricsRefresh}
-        >
-          <span className={`material-symbols-outlined text-[20px]${loading ? ' animate-spin' : ''}`}>
-            refresh
-          </span>
-        </button>
-      </div>
-
+    <div className="flex flex-col gap-4">
       {/* Loading */}
       {loading && !data && (
         <p className="text-sm text-on-surface-variant py-4">{df.metricsLoading}</p>
@@ -89,11 +74,23 @@ export function DbMetrics() {
 
       {data && (
         <>
-          {/* Bloc 1 — Server status */}
+          {/* Bloc 1 — Server status (full width) — refresh button in header */}
           <div className={`${CARD} flex flex-col gap-4`}>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500" />
-              <h3 className="text-sm font-semibold text-on-surface">{df.blockStatus}</h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500" />
+                <h3 className="text-sm font-semibold text-on-surface">{df.blockStatus}</h3>
+              </div>
+              <button
+                onClick={load}
+                disabled={loading}
+                className="icon-btn"
+                title={df.metricsRefresh}
+              >
+                <span className={`material-symbols-outlined text-[20px]${loading ? ' animate-spin' : ''}`}>
+                  refresh
+                </span>
+              </button>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -118,71 +115,74 @@ export function DbMetrics() {
             </div>
           </div>
 
-          {/* Bloc 2 — Connections */}
-          <div className={`${CARD} flex flex-col gap-4`}>
-            <h3 className="text-sm font-semibold text-on-surface">{df.blockConnections}</h3>
+          {/* Blocs 2 + 3 — side by side */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {/* Bloc 2 — Connections */}
+            <div className={`${CARD} flex flex-col gap-4`}>
+              <h3 className="text-sm font-semibold text-on-surface">{df.blockConnections}</h3>
 
-            <div className="grid grid-cols-4 gap-4">
-              {[
-                { label: df.blockConnectionsActive, value: data.activeConnections },
-                { label: df.blockConnectionsIdle,   value: data.idleConnections   },
-                { label: df.blockConnectionsTotal,  value: data.totalConnections  },
-                { label: df.blockConnectionsMax,    value: data.maxConnections    },
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <p className="text-xs text-on-surface-variant mb-0.5">{label}</p>
-                  <p className="text-sm font-medium text-on-surface">{value}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Usage bar */}
-            <div>
-              <div className="flex justify-between text-xs text-on-surface-variant mb-1">
-                <span>{df.blockConnectionsUsage}</span>
-                <span>
-                  {Math.min(100, Math.round(data.totalConnections / data.maxConnections * 100))}%
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full bg-outline-variant/20 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-primary/60 transition-all"
-                  style={{ width: `${Math.min(100, Math.round(data.totalConnections / data.maxConnections * 100))}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Bloc 3 — Tables */}
-          <div className={`${CARD} flex flex-col gap-4`}>
-            <h3 className="text-sm font-semibold text-on-surface">{df.blockTables}</h3>
-
-            <div className="flex flex-col gap-1">
-              {/* Header row */}
-              <div className="grid grid-cols-[1fr_auto_auto] gap-4 pb-1.5 border-b border-outline-variant/20 text-xs font-medium text-on-surface-variant">
-                <span>Table</span>
-                <span className="text-right">{df.blockTablesRows}</span>
-                <span className="text-right w-16">{df.blockTablesSize}</span>
-              </div>
-
-              {/* Data rows — fixed order, missing tables show "—" */}
-              {KNOWN_TABLES.map(name => {
-                const row = data.tables.find(r => r.tableName === name)
-                return (
-                  <div
-                    key={name}
-                    className="grid grid-cols-[1fr_auto_auto] gap-4 py-1.5 border-b border-outline-variant/10 last:border-0 text-sm"
-                  >
-                    <span className="text-on-surface font-mono text-xs">{name}</span>
-                    <span className="text-right text-on-surface-variant">
-                      {row ? row.rowCount.toLocaleString() : '—'}
-                    </span>
-                    <span className="text-right text-on-surface-variant w-16">
-                      {row ? row.sizePretty : '—'}
-                    </span>
+              <div className="grid grid-cols-4 gap-4">
+                {[
+                  { label: df.blockConnectionsActive, value: data.activeConnections },
+                  { label: df.blockConnectionsIdle,   value: data.idleConnections   },
+                  { label: df.blockConnectionsTotal,  value: data.totalConnections  },
+                  { label: df.blockConnectionsMax,    value: data.maxConnections    },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <p className="text-xs text-on-surface-variant mb-0.5">{label}</p>
+                    <p className="text-sm font-medium text-on-surface">{value}</p>
                   </div>
-                )
-              })}
+                ))}
+              </div>
+
+              {/* Usage bar */}
+              <div>
+                <div className="flex justify-between text-xs text-on-surface-variant mb-1">
+                  <span>{df.blockConnectionsUsage}</span>
+                  <span>
+                    {Math.min(100, Math.round(data.totalConnections / data.maxConnections * 100))}%
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-outline-variant/20 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary/60 transition-all"
+                    style={{ width: `${Math.min(100, Math.round(data.totalConnections / data.maxConnections * 100))}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Bloc 3 — Tables */}
+            <div className={`${CARD} flex flex-col gap-4`}>
+              <h3 className="text-sm font-semibold text-on-surface">{df.blockTables}</h3>
+
+              <div className="flex flex-col gap-1">
+                {/* Header row */}
+                <div className="grid grid-cols-[1fr_auto_auto] gap-4 pb-1.5 border-b border-outline-variant/20 text-xs font-medium text-on-surface-variant">
+                  <span>Table</span>
+                  <span className="text-right">{df.blockTablesRows}</span>
+                  <span className="text-right w-16">{df.blockTablesSize}</span>
+                </div>
+
+                {/* Data rows — fixed order, missing tables show "—" */}
+                {KNOWN_TABLES.map(name => {
+                  const row = data.tables.find(r => r.tableName === name)
+                  return (
+                    <div
+                      key={name}
+                      className="grid grid-cols-[1fr_auto_auto] gap-4 py-1.5 border-b border-outline-variant/10 last:border-0 text-sm"
+                    >
+                      <span className="text-on-surface font-mono text-xs">{name}</span>
+                      <span className="text-right text-on-surface-variant">
+                        {row ? row.rowCount.toLocaleString() : '—'}
+                      </span>
+                      <span className="text-right text-on-surface-variant w-16">
+                        {row ? row.sizePretty : '—'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
         </>
