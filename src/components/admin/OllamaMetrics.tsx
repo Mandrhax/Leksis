@@ -88,7 +88,7 @@ export function OllamaMetrics() {
 
       {/* Offline error */}
       {error && !loading && (
-        <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-4 flex items-center gap-3">
+        <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex items-center gap-3">
           <span className="material-symbols-outlined text-error text-[20px]">warning</span>
           <p className="text-sm text-on-surface-variant">{of.metricsOffline}</p>
         </div>
@@ -97,7 +97,7 @@ export function OllamaMetrics() {
       {data && (
         <>
           {/* Bloc 1 — Server status */}
-          <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-5 flex flex-col gap-3">
+          <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <span
                 className={`w-2 h-2 rounded-full ${data.version ? 'bg-green-500' : 'bg-red-500'}`}
@@ -126,7 +126,7 @@ export function OllamaMetrics() {
           </div>
 
           {/* Bloc 2 — Installed models */}
-          <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-5 flex flex-col gap-3">
+          <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-on-surface">{of.blockModels}</h3>
               <span className="text-xs text-on-surface-variant">
@@ -164,7 +164,7 @@ export function OllamaMetrics() {
           </div>
 
           {/* Bloc 3 — Running models */}
-          <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-5 flex flex-col gap-3">
+          <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-3">
             <h3 className="text-sm font-semibold text-on-surface">{of.blockRunning}</h3>
 
             {data.running.length === 0 ? (
