@@ -66,21 +66,6 @@ export function OllamaMetrics() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-on-surface">{of.metricsTitle}</h2>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="icon-btn"
-          title={of.metricsRefresh}
-        >
-          <span className={`material-symbols-outlined text-[20px]${loading ? ' animate-spin' : ''}`}>
-            refresh
-          </span>
-        </button>
-      </div>
-
       {/* Loading skeleton */}
       {loading && !data && (
         <p className="text-sm text-on-surface-variant py-4">{of.metricsLoading}</p>
@@ -96,13 +81,25 @@ export function OllamaMetrics() {
 
       {data && (
         <>
-          {/* Bloc 1 — Server status */}
+          {/* Bloc 1 — Server status (full width) — refresh button in header */}
           <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <span
-                className={`w-2 h-2 rounded-full ${data.version ? 'bg-green-500' : 'bg-red-500'}`}
-              />
-              <h3 className="text-sm font-semibold text-on-surface">{of.blockStatus}</h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`w-2 h-2 rounded-full ${data.version ? 'bg-green-500' : 'bg-red-500'}`}
+                />
+                <h3 className="text-sm font-semibold text-on-surface">{of.blockStatus}</h3>
+              </div>
+              <button
+                onClick={load}
+                disabled={loading}
+                className="icon-btn"
+                title={of.metricsRefresh}
+              >
+                <span className={`material-symbols-outlined text-[20px]${loading ? ' animate-spin' : ''}`}>
+                  refresh
+                </span>
+              </button>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
@@ -125,88 +122,91 @@ export function OllamaMetrics() {
             </div>
           </div>
 
-          {/* Bloc 2 — Installed models */}
-          <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-on-surface">{of.blockModels}</h3>
-              <span className="text-xs text-on-surface-variant">
-                {of.blockModelsTotal.replace('{0}', String(data.models.length))}
-              </span>
+          {/* Blocs 2 + 3 — side by side */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {/* Bloc 2 — Installed models */}
+            <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-on-surface">{of.blockModels}</h3>
+                <span className="text-xs text-on-surface-variant">
+                  {of.blockModelsTotal.replace('{0}', String(data.models.length))}
+                </span>
+              </div>
+
+              {data.models.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">—</p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {data.models.map(m => {
+                    const isConfigured = data.configuredModels.includes(m.name)
+                    return (
+                      <div
+                        key={m.name}
+                        className="flex items-center justify-between py-1.5 border-b border-outline-variant/10 last:border-0"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm text-on-surface truncate">{m.name}</span>
+                          {isConfigured && (
+                            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                              {of.blockModelsConfigured}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-on-surface-variant shrink-0 ml-4">
+                          {formatBytes(m.size)}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
-            {data.models.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">—</p>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                {data.models.map(m => {
-                  const isConfigured = data.configuredModels.includes(m.name)
-                  return (
+            {/* Bloc 3 — Running models */}
+            <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-3">
+              <h3 className="text-sm font-semibold text-on-surface">{of.blockRunning}</h3>
+
+              {data.running.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">{of.blockRunningEmpty}</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {data.running.map(m => (
                     <div
                       key={m.name}
-                      className="flex items-center justify-between py-1.5 border-b border-outline-variant/10 last:border-0"
+                      className="rounded-lg border border-outline-variant/15 bg-surface-container-low p-3 flex flex-col gap-2"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm text-on-surface truncate">{m.name}</span>
-                        {isConfigured && (
-                          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
-                            {of.blockModelsConfigured}
-                          </span>
-                        )}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-on-surface truncate">{m.name}</span>
+                        <button
+                          onClick={() => handleUnload(m.name)}
+                          disabled={unloading === m.name}
+                          className="text-button shrink-0 text-xs"
+                        >
+                          {unloading === m.name ? of.actionUnloading : of.actionUnload}
+                        </button>
                       </div>
-                      <span className="text-xs text-on-surface-variant shrink-0 ml-4">
-                        {formatBytes(m.size)}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Bloc 3 — Running models */}
-          <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-on-surface">{of.blockRunning}</h3>
-
-            {data.running.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">{of.blockRunningEmpty}</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {data.running.map(m => (
-                  <div
-                    key={m.name}
-                    className="rounded-lg border border-outline-variant/15 bg-surface-container-low p-3 flex flex-col gap-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-on-surface truncate">{m.name}</span>
-                      <button
-                        onClick={() => handleUnload(m.name)}
-                        disabled={unloading === m.name}
-                        className="text-button shrink-0 text-xs"
-                      >
-                        {unloading === m.name ? of.actionUnloading : of.actionUnload}
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs text-on-surface-variant">
-                      <div>
-                        <span className="font-medium">{of.blockRunningVram}</span>
-                        <br />
-                        {formatBytes(m.sizeVram)}
-                      </div>
-                      <div>
-                        <span className="font-medium">{of.blockRunningRam}</span>
-                        <br />
-                        {formatBytes(m.size)}
-                      </div>
-                      <div>
-                        <span className="font-medium">{of.blockRunningExpires}</span>
-                        <br />
-                        {formatExpiry(m.expiresAt)}
+                      <div className="grid grid-cols-3 gap-2 text-xs text-on-surface-variant">
+                        <div>
+                          <span className="font-medium">{of.blockRunningVram}</span>
+                          <br />
+                          {formatBytes(m.sizeVram)}
+                        </div>
+                        <div>
+                          <span className="font-medium">{of.blockRunningRam}</span>
+                          <br />
+                          {formatBytes(m.size)}
+                        </div>
+                        <div>
+                          <span className="font-medium">{of.blockRunningExpires}</span>
+                          <br />
+                          {formatExpiry(m.expiresAt)}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}
