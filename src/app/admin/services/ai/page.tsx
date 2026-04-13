@@ -14,7 +14,7 @@ export default async function AdminServicesAiPage() {
   const initial   = { ...ollama, sameModelForAll: (rawOllama.sameModelForAll as boolean) ?? false }
 
   return (
-    <div className="p-8 max-w-[1400px]">
+    <div className="p-4 md:p-8 max-w-[1400px]">
       <AdminPageHeader section="servicesAi" />
       <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-8 items-start">
         <ServicesPanel mode="ai" initial={initial} />

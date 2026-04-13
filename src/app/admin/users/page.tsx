@@ -13,7 +13,7 @@ export default async function AdminUsersPage() {
   }>(`SELECT id, email, name, role, created_at FROM users ORDER BY created_at DESC`)
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-4 md:p-8 max-w-3xl">
       <AdminPageHeader section="users" />
       <UserList users={result.rows} currentUserId={session.user.id} />
     </div>

@@ -8,7 +8,7 @@ export default async function AdminUsagePage() {
   await requireAdmin()
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-4 md:p-8 max-w-5xl">
       <AdminPageHeader section="usage" />
       <UsagePanel />
     </div>

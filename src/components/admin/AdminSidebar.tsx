@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 
-export function AdminSidebar() {
+export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname()
   const { t } = useI18n()
 
@@ -46,14 +46,22 @@ export function AdminSidebar() {
   }
 
   return (
-    <aside className="w-56 shrink-0 bg-surface-container-lowest border-r border-outline-variant/10 min-h-screen flex flex-col">
+    <aside className={`fixed inset-y-0 left-0 z-40 w-56 shrink-0 bg-surface-container-lowest border-r border-outline-variant/10 flex flex-col transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-auto ${open ? 'translate-x-0' : '-translate-x-full'}`}>
       {/* Logo / titre */}
       <div className="px-5 py-5 border-b border-outline-variant/10">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-primary text-xl leading-none" aria-hidden="true">
             admin_panel_settings
           </span>
-          <span className="font-headline font-bold text-sm text-on-surface">{t.adminSidebar.title}</span>
+          <span className="font-headline font-bold text-sm text-on-surface flex-1">{t.adminSidebar.title}</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="icon-btn md:hidden"
+            aria-label="Close menu"
+          >
+            <span className="material-symbols-outlined text-[1.1rem] leading-none" aria-hidden="true">close</span>
+          </button>
         </div>
       </div>
 
