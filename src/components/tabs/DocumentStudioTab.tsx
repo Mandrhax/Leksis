@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import { LANGUAGES } from '@/lib/languages'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
 import type { Block, Language } from '@/types/leksis'
 
@@ -183,14 +184,8 @@ export function DocumentStudioTab({ defaultTargetLang }: Props) {
   const handleClearInput = () => { abort(); setFile(null); setOutputHtml(''); setOutputBlocks(null); setError(null) }
   const handleClearOutput = () => { setOutputHtml(''); setOutputBlocks(null) }
 
-  const [copied, setCopied] = useState(false)
-  const handleCopy = () => {
-    if (!outputRef.current) return
-    navigator.clipboard.writeText(outputRef.current.innerText).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }).catch(() => {})
-  }
+  const [copied, copy] = useCopyToClipboard()
+  const handleCopy = () => { if (outputRef.current) copy(outputRef.current.innerText) }
 
   const handleDownloadTxt = useCallback(() => {
     if (!outputBlocks) return

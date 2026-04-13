@@ -113,6 +113,7 @@ export const messages = {
     exportCsv:       'Export CSV',
     clearAll:        'Clear all',
     autoInjectNote:  'Only terms found in your input text are injected into the prompt automatically.',
+    close:           'Close',
   },
   langSwitcher: {
     ariaLabel: 'UI language',
@@ -181,6 +182,7 @@ export const messages = {
     labelEn:                 'English',
     labelFr:                 'French',
     labelDe:                 'German',
+    labelIt:                 'Italian',
     labelFallbackHint:       'Fallback: EN',
     labelPlaceholder:        'e.g. Formal',
     instructionPlaceholder:  'e.g. in a formal, professional tone',
@@ -237,6 +239,7 @@ export const messages = {
     sectionFooter:        'Footer',
     footerTextLabel:      'Footer text',
     footerTextColorLabel: 'Footer text color',
+    resetColorTitle:      'Reset to default',
     footerLinksLabel:     'Footer links',
     addLink:              'Add',
     linkLabelPlaceholder: 'Label',

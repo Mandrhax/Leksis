@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react'
 import { detectLanguage } from '@/lib/languages'
 import { getGlossary, buildRewriteGlossaryClause } from '@/lib/glossary'
 import { TEXT_MAX_CHARS } from '@/lib/validators'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
 import type { Messages } from '@/locales/en'
 import type { RewriteMode, RewriteLength, ToneConfig } from '@/types/leksis'
@@ -112,14 +113,8 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
 
   const handleClearInput  = () => { abort(); setInputText(''); setOutputText(''); setError(null); setAppliedMode(null) }
   const handleClearOutput = () => { setOutputText(''); setAppliedMode(null) }
-  const [copied, setCopied] = useState(false)
-  const handleCopy = () => {
-    if (!outputText) return
-    navigator.clipboard.writeText(outputText).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }).catch(() => {})
-  }
+  const [copied, copy] = useCopyToClipboard()
+  const handleCopy = () => { if (outputText) copy(outputText) }
 
   return (
     <div id="rewriteTab">

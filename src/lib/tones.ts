@@ -3,12 +3,12 @@ import type { ToneConfig } from '@/types/leksis'
 import { getSetting } from '@/lib/settings'
 
 export const DEFAULT_TONES: ToneConfig[] = [
-  { id: 'professional',  labels: { en: 'Professional',  fr: 'Professionnel', de: 'Professionell'  }, instruction: 'in a professional, formal tone appropriate for business communication' },
-  { id: 'casual',        labels: { en: 'Casual',         fr: 'Décontracté',   de: 'Locker'         }, instruction: 'in a casual, relaxed tone as if talking to a friend' },
-  { id: 'friendly',      labels: { en: 'Friendly',       fr: 'Amical',        de: 'Freundlich'     }, instruction: 'in a warm and friendly tone that feels approachable and welcoming' },
-  { id: 'authoritative', labels: { en: 'Authoritative',  fr: 'Autoritaire',   de: 'Autoritativ'    }, instruction: 'in an authoritative, confident tone that conveys expertise and credibility' },
-  { id: 'empathetic',    labels: { en: 'Empathetic',     fr: 'Empathique',    de: 'Einfühlsam'     }, instruction: 'in an empathetic, compassionate tone that acknowledges feelings and builds connection' },
-  { id: 'creative',      labels: { en: 'Creative',       fr: 'Créatif',       de: 'Kreativ'        }, instruction: 'in a creative, expressive tone that uses vivid language and original phrasing' },
+  { id: 'professional',  labels: { en: 'Professional',  fr: 'Professionnel', de: 'Professionell', it: 'Professionale'  }, instruction: 'in a professional, formal tone appropriate for business communication' },
+  { id: 'casual',        labels: { en: 'Casual',         fr: 'Décontracté',   de: 'Locker',        it: 'Informale'      }, instruction: 'in a casual, relaxed tone as if talking to a friend' },
+  { id: 'friendly',      labels: { en: 'Friendly',       fr: 'Amical',        de: 'Freundlich',    it: 'Amichevole'     }, instruction: 'in a warm and friendly tone that feels approachable and welcoming' },
+  { id: 'authoritative', labels: { en: 'Authoritative',  fr: 'Autoritaire',   de: 'Autoritativ',   it: 'Autorevole'     }, instruction: 'in an authoritative, confident tone that conveys expertise and credibility' },
+  { id: 'empathetic',    labels: { en: 'Empathetic',     fr: 'Empathique',    de: 'Einfühlsam',    it: 'Empatico'       }, instruction: 'in an empathetic, compassionate tone that acknowledges feelings and builds connection' },
+  { id: 'creative',      labels: { en: 'Creative',       fr: 'Créatif',       de: 'Kreativ',       it: 'Creativo'       }, instruction: 'in a creative, expressive tone that uses vivid language and original phrasing' },
 ]
 
 function migrateLabel(t: unknown): ToneConfig {

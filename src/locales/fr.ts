@@ -115,6 +115,7 @@ export const messages = {
     exportCsv:        'Exporter CSV',
     clearAll:         'Tout effacer',
     autoInjectNote:   'Seuls les termes présents dans votre texte source sont automatiquement injectés dans la requête.',
+    close:            'Fermer',
   },
   langSwitcher: {
     ariaLabel: 'Langue de l\'interface',
@@ -183,6 +184,7 @@ export const messages = {
     labelEn:                 'Anglais',
     labelFr:                 'Français',
     labelDe:                 'Allemand',
+    labelIt:                 'Italien',
     labelFallbackHint:       'Défaut : EN',
     labelPlaceholder:        'ex. Formel',
     instructionPlaceholder:  'ex. dans un ton formel et professionnel',
@@ -239,6 +241,7 @@ export const messages = {
     sectionFooter:        'Footer',
     footerTextLabel:      'Texte du footer',
     footerTextColorLabel: 'Couleur du texte du footer',
+    resetColorTitle:      'Réinitialiser',
     footerLinksLabel:     'Liens du footer',
     addLink:              'Ajouter',
     linkLabelPlaceholder: 'Libellé',

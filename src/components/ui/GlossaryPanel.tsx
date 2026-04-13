@@ -86,8 +86,8 @@ export function GlossaryPanel({ open, onClose }: Props) {
           <button
             onClick={onClose}
             className="text-slate-500 hover:text-slate-900 transition-colors"
-            title="Close"
-            aria-label="Close"
+            title={t.glossary.close}
+            aria-label={t.glossary.close}
           >✕</button>
         </div>
 

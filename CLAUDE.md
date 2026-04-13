@@ -62,7 +62,7 @@ L'OCR et la traduction sont **deux étapes distinctes**, mais peuvent être ench
 - Objectifs possibles :
   - reformulation (mode Rewrite)
   - correction grammaticale et orthographique (mode Correct only)
-- Tons disponibles : configurables depuis l'admin (min 1, max 6), avec label multilingue EN/FR/DE et instruction de prompt personnalisée
+- Tons disponibles : configurables depuis l'admin (min 1, max 6), avec label multilingue EN/FR/DE/IT et instruction de prompt personnalisée
 - Tons par défaut : Professional, Casual, Friendly, Authoritative, Empathetic, Creative
 - Chaque ton peut être activé/désactivé sans suppression
 - Longueur : Shorter / Keep / Longer
@@ -83,6 +83,11 @@ Cette fonctionnalité **n'est pas une traduction**, mais une transformation du t
 - Fonts : Manrope (headlines) + Inter (body) via `next/font/google`
 - Material Symbols (icons via CDN Google Fonts)
 - Bootstrap Icons (icônes fichiers dans Document Studio via CDN)
+- **next-auth v5** (authentification OTP par email — `src/auth.ts`, `src/auth.config.ts`, `src/middleware.ts`)
+- **pg** + **@auth/pg-adapter** (PostgreSQL — pool, sessions, utilisateurs)
+- **zod** (validation des entrées dans les routes API admin)
+- **@napi-rs/canvas** (conversion PDF → PNG pour l'OCR vision)
+- **server-only** (protection des modules serveur)
 - À terme : Docker / Docker Compose (appliance)
 
 ---
@@ -111,19 +116,49 @@ Client React
 
 ```
 src/
+├── auth.ts                              (NextAuth config principale — OTP credentials provider)
+├── auth.config.ts                       (Config NextAuth partagée — callbacks, pages)
+├── middleware.ts                        (Protection des routes — redirect vers signin)
+│
 ├── app/
 │   ├── api/
 │   │   ├── translate/route.ts           (Traduction texte — streaming)
 │   │   ├── translate/document/route.ts  (Traduction documents — JSON blocks)
 │   │   ├── rewrite/route.ts             (Réécriture IA — streaming)
-│   │   └── ocr/route.ts                 (OCR image via Ollama vision — streaming)
+│   │   ├── ocr/route.ts                 (OCR image via Ollama vision — streaming)
+│   │   ├── extract/document/route.ts    (Extraction document sans traduction)
+│   │   ├── export/docx/route.ts         (Export du résultat en fichier DOCX)
+│   │   ├── site-assets/[filename]/route.ts (Sert logo et bg image depuis /tmp/uploads)
+│   │   ├── auth/otp/route.ts            (Génère et retourne le code OTP)
+│   │   ├── auth/[...nextauth]/route.ts  (Handler NextAuth)
+│   │   └── admin/
+│   │       ├── audit/route.ts           (Journal d'audit paginé)
+│   │       ├── audit/purge/route.ts     (Suppression entrées avant date)
+│   │       ├── background/route.ts      (Mise à jour image de fond)
+│   │       ├── logo/route.ts            (Upload/suppression du logo)
+│   │       ├── services/route.ts        (Config Ollama + PostgreSQL GET/PATCH)
+│   │       ├── services/ollama/test/route.ts (Test connexion Ollama)
+│   │       ├── services/db/test/route.ts     (Test connexion PostgreSQL)
+│   │       ├── settings/route.ts        (Réglages site GET/PATCH)
+│   │       ├── settings/export/route.ts (Export config JSON)
+│   │       ├── settings/import/route.ts (Import config JSON)
+│   │       ├── settings/reset/route.ts  (Réinitialisation aux défauts)
+│   │       ├── usage/route.ts           (Stats d'utilisation IA)
+│   │       ├── usage/purge/route.ts     (Suppression stats avant date)
+│   │       ├── users/route.ts           (Liste utilisateurs)
+│   │       └── users/[id]/route.ts      (Mise à jour rôle utilisateur)
 │   ├── admin/
 │   │   ├── layout.tsx                   (requireAdmin + AdminClientLayout + AdminSidebar)
 │   │   ├── settings/page.tsx            (AdminPageHeader + SettingsTabs)
 │   │   ├── services/page.tsx            (AdminPageHeader + ServicesPanel)
 │   │   ├── users/page.tsx               (AdminPageHeader + UserList)
 │   │   ├── usage/page.tsx               (AdminPageHeader + UsagePanel)
-│   │   └── audit/page.tsx               (AdminPageHeader + AuditTable)
+│   │   ├── audit/page.tsx               (AdminPageHeader + AuditTable)
+│   │   └── backup/page.tsx              (AdminPageHeader + ExportImportForm)
+│   ├── auth/
+│   │   └── signin/page.tsx              (I18nProvider + UILanguageSwitcher + formulaire OTP)
+│   ├── maintenance/
+│   │   └── page.tsx                     (Page maintenance — affichée si maintenanceMode actif)
 │   ├── settings/
 │   │   └── page.tsx                     (I18nProvider + profil + session)
 │   ├── globals.css                      (Tailwind v4 @theme + classes CSS custom)
@@ -131,27 +166,31 @@ src/
 │   └── page.tsx                         (Workspace — tabs centrés)
 │
 ├── components/
+│   ├── GlobalBanner.tsx                 (Bannière globale — affichée si globalBanner configuré)
 │   ├── tabs/
 │   │   ├── TextTranslationTab.tsx       (Debounce 400ms detect + 800ms translate, swap, formality)
 │   │   ├── DocumentStudioTab.tsx        (Upload → extract → translate → blocks HTML)
 │   │   ├── ImageExtractionTab.tsx       (OCR + traduction optionnelle, stats)
-│   │   └── AIRewriteTab.tsx             (Modes rewrite/correct, 6 tons, length)
+│   │   └── AIRewriteTab.tsx             (Modes rewrite/correct, tons configurables, length)
 │   ├── ui/
 │   │   ├── HomeClient.tsx               (I18nProvider wrapper + HomeWorkspace interne)
 │   │   ├── AccountMenu.tsx              (Menu utilisateur — positionné par HomeClient)
-│   │   ├── UILanguageSwitcher.tsx       (Switcher EN/DE/FR avec drapeaux SVG inline)
+│   │   ├── UILanguageSwitcher.tsx       (Switcher EN/DE/FR/IT avec drapeaux SVG inline)
 │   │   ├── LanguageDropdown.tsx         (Liste alphabétique unifiée, favoris, portal fixe)
 │   │   └── GlossaryPanel.tsx            (Slide-in, add/remove/import/export CSV)
 │   └── admin/
 │       ├── AdminClientLayout.tsx        (Fournit I18nProvider aux composants admin)
 │       ├── AdminPageHeader.tsx          (Titre + description de page traduits, prop section=)
 │       ├── AdminSidebar.tsx             (Navigation admin traduite)
+│       ├── AdminToast.tsx               (Composant toast + type ToastState)
+│       ├── AdminToastWrapper.tsx        (Wrapper de positionnement du toast)
 │       ├── SettingsTabs.tsx             (Onglets Identité/Interface/Fonctionnalités/Tonalités/Accès)
 │       ├── BrandingForm.tsx             (Logo, couleurs, fond, mode sombre)
 │       ├── DesignForm.tsx               (Radius boutons, taille logo, footer)
 │       ├── FeaturesForm.tsx             (Modules actifs, langues défaut, limites API)
-│       ├── TonesForm.tsx                (CRUD tonalités : label EN/FR/DE, instruction prompt, on/off, min 1 / max 6)
+│       ├── TonesForm.tsx                (CRUD tonalités : label EN/FR/DE/IT, instruction prompt, on/off, min 1 / max 6)
 │       ├── GeneralForm.tsx              (Email contact, bannière, mode maintenance)
+│       ├── ExportImportForm.tsx         (Export/Import configuration JSON)
 │       ├── ServicesPanel.tsx            (Conteneur Ollama + PostgreSQL)
 │       ├── OllamaServiceForm.tsx        (Config Ollama, test connexion)
 │       ├── DbServiceForm.tsx            (Config PostgreSQL, test connexion)
@@ -160,30 +199,46 @@ src/
 │       ├── AuditTable.tsx               (Journal d'audit paginé)
 │       └── PurgeButton.tsx              (Purge avec confirmation et date)
 │
+├── hooks/
+│   └── useCopyToClipboard.ts            (Hook partagé copie presse-papiers + feedback 2s)
+│
 ├── locales/
 │   ├── en.ts                            (Source canonique — définit le type Messages)
 │   ├── de.ts                            (Traduction allemande — satisfies Messages)
-│   └── fr.ts                            (Traduction française — satisfies Messages)
+│   ├── fr.ts                            (Traduction française — satisfies Messages)
+│   └── it.ts                            (Traduction italienne — satisfies Messages)
 │
 ├── lib/
 │   ├── i18n.tsx                         (I18nProvider, useI18n, UILocale — zero-dep)
-│   ├── ollama.ts                        (SERVER-ONLY: streamOllamaResponse, callOllama)
+│   ├── ollama.ts                        (SERVER-ONLY: streamOllamaResponse, callOllama, getOllamaConfig)
 │   ├── prompts.ts                       (Factory prompts: translate, document, ocr, rewrite, correct)
 │   ├── tones.ts                         (SERVER-ONLY: DEFAULT_TONES, getConfiguredTones — fallback + migration DB)
 │   ├── file-parser.ts                   (SERVER-ONLY: parsePdf, parseDocx, parseTxt, Block model)
-│   ├── validators.ts                    (Limites: text=5000, doc=12000, image=10MB)
+│   ├── pdf-vision.ts                    (SERVER-ONLY: parsePdfWithVision — OCR via Ollama vision)
+│   ├── validators.ts                    (Limites: text=5000, doc=12000, image=10MB + validateFileExtension)
 │   ├── languages.ts                     (LANGUAGES[] triés BCP47 + detectLanguage())
-│   └── glossary.ts                      (buildTranslationGlossaryClause, buildRewriteGlossaryClause, CSV)
+│   ├── glossary.ts                      (buildTranslationGlossaryClause, buildRewriteGlossaryClause, CSV)
+│   ├── settings.ts                      (SERVER-ONLY: getSetting, updateSetting, getAllSettings)
+│   ├── db.ts                            (SERVER-ONLY: pool PostgreSQL + query() helper)
+│   ├── admin-guard.ts                   (SERVER-ONLY: requireAdmin, getAdminSession)
+│   ├── features-guard.ts                (SERVER-ONLY: isFeatureEnabled — vérifie site_settings.features)
+│   ├── limits.ts                        (SERVER-ONLY: getDynamicLimits — lit limites depuis DB avec fallback)
+│   ├── audit.ts                         (SERVER-ONLY: logAudit — fire-and-forget)
+│   ├── usage.ts                         (SERVER-ONLY: logUsage — fire-and-forget)
+│   ├── otp.ts                           (SERVER-ONLY: generateOtp, verifyOtp, getOrCreateUser)
+│   ├── crypto.ts                        (SERVER-ONLY: encrypt/decrypt AES-256-GCM)
+│   └── color-utils.ts                   (buildColorVars — génère variables CSS couleur depuis settings)
 │
 └── types/
-    └── leksis.ts                        (Language, Block, Formality, RewriteTone, RewriteLength, ToneConfig, etc.)
+    ├── leksis.ts                        (Language, Block, Formality, RewriteTone, RewriteLength, ToneConfig, etc.)
+    └── next-auth.d.ts                   (Extension Session + JWT pour next-auth)
 ```
 
 ---
 
 ## 🌍 Internationalisation (i18n)
 
-L'interface est entièrement traduite en **Anglais (EN), Allemand (DE) et Français (FR)**.
+L'interface est entièrement traduite en **Anglais (EN), Allemand (DE), Français (FR) et Italien (IT)**.
 
 ### Architecture
 
@@ -191,15 +246,15 @@ L'interface est entièrement traduite en **Anglais (EN), Allemand (DE) et Franç
 - Préférence persistée dans `localStorage` (clé : `leksisUILocale`)
 - Strings imbriquées à 2 niveaux : `composant.clé` (ex: `t.textTab.translate`)
 - `en.ts` est la **source de type** via `DeepString<typeof messages>` → `Messages`
-- `de.ts` et `fr.ts` utilisent `satisfies Messages` pour garantir la couverture complète à la compilation
+- `de.ts`, `fr.ts` et `it.ts` utilisent `satisfies Messages` pour garantir la couverture complète à la compilation
 - Interpolation dynamique via `{0}`, `{1}` et `.replace()` inline (ex: `t.userList.toastRoleUpdated.replace('{0}', email)`)
 
 ### Sélecteur de langue
 
 - `UILanguageSwitcher` dans le header, à gauche de `AccountMenu`
 - Affiche le **drapeau SVG inline** de la locale active (pas de texte)
-- Dropdown avec drapeau + code court (EN/DE/FR) + checkmark sur la locale active
-- Drapeaux : `FlagGB` (Union Jack avec saltire counterchangé via clipPath), `FlagDE`, `FlagFR`
+- Dropdown avec drapeau + code court (EN/DE/FR/IT) + checkmark sur la locale active
+- Drapeaux : `FlagGB` (Union Jack avec saltire counterchangé via clipPath), `FlagDE`, `FlagFR`, `FlagIT`
 
 ### Pattern provider
 
@@ -210,10 +265,11 @@ Les composants appelant `useI18n()` doivent être enfants d'un `I18nProvider`.
 | Workspace principal | `HomeClient` wraps `I18nProvider` → `HomeWorkspace` |
 | Section admin | `AdminClientLayout` (importé dans `admin/layout.tsx`) |
 | Page settings | `SettingsPage` wraps `I18nProvider` → `SettingsContent` |
+| Page signin | `SignInPage` wraps `I18nProvider` → `SignInForm` |
 
 ### Espaces de noms définis
 
-`home`, `account`, `textTab`, `docTab`, `imgTab`, `rewriteTab`, `langDropdown`, `glossary`, `langSwitcher`, `settingsPage`, `adminSidebar`, `adminPages`, `settingsTabs`, `brandingForm`, `designForm`, `featuresForm`, `tonesForm`, `generalForm`, `ollamaForm`, `dbForm`, `userList`, `usagePanel`, `auditTable`, `purgeButton`
+`home`, `account`, `textTab`, `docTab`, `imgTab`, `rewriteTab`, `langDropdown`, `glossary`, `langSwitcher`, `settingsPage`, `adminSidebar`, `adminPages`, `settingsTabs`, `brandingForm`, `designForm`, `featuresForm`, `tonesForm`, `generalForm`, `ollamaForm`, `dbForm`, `userList`, `usagePanel`, `auditTable`, `purgeButton`, `backupForm`, `signIn`
 
 ---
 
@@ -290,29 +346,11 @@ Tous les prompts sont dans `src/lib/prompts.ts` :
 - Séparation stricte client / serveur
 - Aucun secret exposé côté client
 - Aucune logique IA dans les composants React
-- Validation des entrées dans `src/lib/validators.ts`
-- Préparation aux contraintes entreprise (audit, RBAC, logs)
-
----
-
-## ♻️ Réutilisation de `Leksis_old`
-
-Le dossier **`Leksis_old/`** contient la première version fonctionnelle (vanilla JS).
-
-### Ce que Claude Code DOIT faire
-
-- S'inspirer de `Leksis_old` pour :
-  - l'interface utilisateur (layout, UX, wording)
-  - les parcours fonctionnels
-  - les prompts et la logique IA
-
-### Ce que Claude Code NE DOIT PAS faire
-
-- Migrer aveuglément tout le code legacy
-- Introduire des appels directs à Ollama depuis le client
-- Dériver vers des fonctionnalités hors périmètre
-
-`Leksis_old` est une **référence fonctionnelle et UX**, pas une base technique.
+- Validation des entrées dans `src/lib/validators.ts` (+ zod dans les routes admin)
+- Authentification OTP : code généré et retourné au client pour affichage immédiat (on-premise, pas d'envoi email)
+- Mots de passe DB chiffrés AES-256-GCM via `src/lib/crypto.ts` avant stockage en base
+- Admin protégé par `requireAdmin()` dans chaque page et route admin
+- Logs d'audit fire-and-forget via `src/lib/audit.ts`
 
 ---
 
@@ -333,15 +371,15 @@ Flux local :
 
 - Respecter strictement les **4 fonctionnalités définies**
 - Ne jamais appeler Ollama depuis le client
-- Lire `Leksis_old` avant toute proposition d'UI ou de logique métier
 - Conserver la structure exacte des panneaux (`gap-px bg-surface-container rounded-xl`)
 - La liste des langues doit toujours être **triée alphabétiquement** (base + régionales mélangées)
 - Tous les strings UI doivent passer par `useI18n()` → `t.*` — ne jamais hardcoder de libellés
-- Tout nouveau namespace i18n doit être ajouté dans les 3 fichiers (`en.ts`, `de.ts`, `fr.ts`) simultanément
+- Tout nouveau namespace i18n doit être ajouté dans les **4 fichiers** (`en.ts`, `de.ts`, `fr.ts`, `it.ts`) simultanément
 - Les valeurs envoyées à l'API (id de ton, longueurs, features) restent des slugs stables — seul l'affichage est traduit via `labels[locale]`
 - Les tons de réécriture sont dans `site_settings` (clé `rewrite_tones`, JSONB array). `src/lib/tones.ts` gère les défauts et la migration backward compat (`label: string` → `labels: { en }`)
-- `ToneConfig.labels` : `en` requis, `fr` et `de` optionnels avec fallback sur `en`
+- `ToneConfig.labels` : `en` requis, `fr`, `de` et `it` optionnels avec fallback sur `en`
 - Priorité : robustesse, lisibilité, maintenabilité
+- Les messages de commit git doivent toujours être **en anglais**
 
 ---
 

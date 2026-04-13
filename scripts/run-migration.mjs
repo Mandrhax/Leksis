@@ -9,11 +9,11 @@ import pg from 'pg'
 
 const { Client } = pg
 
-const HOST    = '192.168.40.225'
-const PORT    = 5432
-const DB_NAME = 'leksis'
-const DB_USER = 'leksis_user'
-const DB_PASS = 'leksisdb2025'
+const HOST    = process.env.LEKSIS_DB_HOST     ?? '192.168.40.225'
+const PORT    = Number(process.env.LEKSIS_DB_PORT) || 5432
+const DB_NAME = process.env.LEKSIS_DB_NAME     ?? 'leksis'
+const DB_USER = process.env.LEKSIS_DB_USER     ?? 'leksis_user'
+const DB_PASS = process.env.LEKSIS_DB_PASSWORD ?? 'leksisdb2025' // fallback for local dev only
 const SU_USER = 'postgres'
 const SU_PASS = process.env.PG_SUPERUSER_PASSWORD
 
@@ -21,6 +21,10 @@ if (!SU_PASS) {
   console.error('❌ Variable PG_SUPERUSER_PASSWORD manquante.')
   console.error('   Usage : PG_SUPERUSER_PASSWORD=<mot_de_passe_postgres> node scripts/run-migration.mjs')
   process.exit(1)
+}
+
+if (!process.env.LEKSIS_DB_PASSWORD) {
+  console.warn('  ⚠ LEKSIS_DB_PASSWORD non définie — utilisation du mot de passe par défaut (local uniquement).')
 }
 
 function log(msg)  { console.log(`  ✓ ${msg}`) }

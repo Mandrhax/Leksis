@@ -115,6 +115,7 @@ export const messages = {
     exportCsv:        'CSV exportieren',
     clearAll:         'Alle löschen',
     autoInjectNote:   'Nur Begriffe, die im Eingabetext gefunden werden, werden automatisch in die Anfrage eingebunden.',
+    close:            'Schließen',
   },
   langSwitcher: {
     ariaLabel: 'UI-Sprache',
@@ -183,6 +184,7 @@ export const messages = {
     labelEn:                 'Englisch',
     labelFr:                 'Französisch',
     labelDe:                 'Deutsch',
+    labelIt:                 'Italienisch',
     labelFallbackHint:       'Standard: EN',
     labelPlaceholder:        'z. B. Formell',
     instructionPlaceholder:  'z. B. in einem formellen, professionellen Ton',
@@ -239,6 +241,7 @@ export const messages = {
     sectionFooter:        'Fußzeile',
     footerTextLabel:      'Fußzeilentext',
     footerTextColorLabel: 'Textfarbe der Fußzeile',
+    resetColorTitle:      'Auf Standard zurücksetzen',
     footerLinksLabel:     'Fußzeilenlinks',
     addLink:              'Hinzufügen',
     linkLabelPlaceholder: 'Bezeichnung',

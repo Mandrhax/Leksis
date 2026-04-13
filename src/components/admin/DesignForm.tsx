@@ -149,7 +149,7 @@ export function DesignForm({ initial, onToast }: Props) {
                 type="button"
                 onClick={() => setData(prev => ({ ...prev, footerTextColor: '' }))}
                 className="icon-btn text-on-surface-variant"
-                title="Reset to default"
+                title={t.designForm.resetColorTitle}
               >
                 <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">restart_alt</span>
               </button>

@@ -5,6 +5,7 @@ import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import { LANGUAGES, detectLanguage } from '@/lib/languages'
 import { getGlossary, buildTranslationGlossaryClause } from '@/lib/glossary'
 import { TEXT_MAX_CHARS } from '@/lib/validators'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
 import type { Language, Formality } from '@/types/leksis'
 
@@ -182,14 +183,8 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
 
   const handleClearOutput = () => setOutputText('')
 
-  const [copied, setCopied] = useState(false)
-  const handleCopy = () => {
-    if (!outputText) return
-    navigator.clipboard.writeText(outputText).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }).catch(() => {})
-  }
+  const [copied, copy] = useCopyToClipboard()
+  const handleCopy = () => { if (outputText) copy(outputText) }
 
   const handleFormality = (f: Formality) => {
     setFormality(f)

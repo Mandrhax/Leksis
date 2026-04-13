@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import { LANGUAGES, detectLanguage } from '@/lib/languages'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
 import type { Language } from '@/types/leksis'
 
@@ -234,14 +235,8 @@ export function ImageExtractionTab({ defaultTargetLang }: Props) {
     setError(null)
   }
   const handleClearOutput = () => { setOutputText(''); setDetectedLang(null); setWordCount(null) }
-  const [copied, setCopied] = useState(false)
-  const handleCopy = () => {
-    if (!outputText) return
-    navigator.clipboard.writeText(outputText).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }).catch(() => {})
-  }
+  const [copied, copy] = useCopyToClipboard()
+  const handleCopy = () => { if (outputText) copy(outputText) }
 
   const handleTargetLangChange = (lang: Language) => {
     setTargetLang(lang)

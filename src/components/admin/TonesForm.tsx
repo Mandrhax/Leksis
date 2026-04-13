@@ -56,7 +56,7 @@ export function TonesForm({ initial, onToast }: Props) {
   const [errors, setErrors] = useState<FieldErrors>({})
   const [saving, setSaving] = useState(false)
 
-  function updateLabel(idx: number, lang: 'en' | 'fr' | 'de', value: string) {
+  function updateLabel(idx: number, lang: 'en' | 'fr' | 'de' | 'it', value: string) {
     setTones(prev => {
       const next = prev.map((tn, i) => i === idx
         ? { ...tn, labels: { ...tn.labels, [lang]: value } }
@@ -278,6 +278,19 @@ export function TonesForm({ initial, onToast }: Props) {
                         maxLength={60}
                         placeholder={t.tonesForm.labelFallbackHint}
                         onChange={e => updateLabel(idx, 'de', e.target.value)}
+                        className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-1.5 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+                      />
+                    </div>
+
+                    {/* IT — optionnel */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-on-surface-variant w-6 shrink-0">IT</span>
+                      <input
+                        type="text"
+                        value={tone.labels?.it ?? ''}
+                        maxLength={60}
+                        placeholder={t.tonesForm.labelFallbackHint}
+                        onChange={e => updateLabel(idx, 'it', e.target.value)}
                         className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-1.5 text-sm text-on-surface focus:outline-none focus:border-primary/50"
                       />
                     </div>

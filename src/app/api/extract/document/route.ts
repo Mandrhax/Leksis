@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { parseFile, parsePdf, isProbablyScanned, countBlockChars } from '@/lib/file-parser'
 import { parsePdfWithVision } from '@/lib/pdf-vision'
 import { OLLAMA_OCR_MODEL } from '@/lib/ollama'
-import { DOCUMENT_MAX_CHARS } from '@/lib/validators'
+import { DOCUMENT_MAX_CHARS, validateFileExtension } from '@/lib/validators'
 
 export async function POST(req: NextRequest) {
   let formData: FormData
@@ -15,11 +15,8 @@ export async function POST(req: NextRequest) {
   const file = formData.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'No file provided.' }, { status: 400 })
 
-  const supportedExts = ['pdf', 'docx', 'doc', 'txt', 'csv']
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-  if (!supportedExts.includes(ext)) {
-    return NextResponse.json({ error: `Unsupported file type: .${ext}` }, { status: 400 })
-  }
+  const { ext, error: extError } = validateFileExtension(file.name)
+  if (extError) return NextResponse.json({ error: extError }, { status: 400 })
 
   const arrayBuffer = await file.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)

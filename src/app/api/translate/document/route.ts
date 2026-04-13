@@ -8,6 +8,7 @@ import { parsePdfWithVision } from '@/lib/pdf-vision'
 import { getDynamicLimits } from '@/lib/limits'
 import { logUsage } from '@/lib/usage'
 import { isFeatureEnabled } from '@/lib/features-guard'
+import { validateFileExtension } from '@/lib/validators'
 import { auth } from '@/auth'
 
 export async function POST(req: NextRequest) {
@@ -28,11 +29,8 @@ export async function POST(req: NextRequest) {
   if (!file) return NextResponse.json({ error: 'No file provided.' }, { status: 400 })
   if (!targetLang) return NextResponse.json({ error: 'Target language is required.' }, { status: 400 })
 
-  const supportedExts = ['pdf', 'docx', 'doc', 'txt', 'csv']
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-  if (!supportedExts.includes(ext)) {
-    return NextResponse.json({ error: `Unsupported file type: .${ext}` }, { status: 400 })
-  }
+  const { ext, error: extError } = validateFileExtension(file.name)
+  if (extError) return NextResponse.json({ error: extError }, { status: 400 })
 
   const arrayBuffer = await file.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
