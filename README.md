@@ -149,8 +149,12 @@ Translation targets cover **dozens of languages** with alphabetically sorted dro
 ---
 
 ## 📸 Screenshots
+<img width="1794" height="857" alt="image" src="https://github.com/user-attachments/assets/87fea57b-2a73-4913-b6ea-89b420a351a6" />
 
-> 🚧 Screenshots coming soon.
+<img width="1794" height="857" alt="image" src="https://github.com/user-attachments/assets/022de1f2-6182-424f-9d86-b9d9e5c94e8d" />
+
+<img width="1794" height="857" alt="image" src="https://github.com/user-attachments/assets/b923b2c0-6574-4a24-8f8e-77451b4e41ba" />
+
 
 ---
 
