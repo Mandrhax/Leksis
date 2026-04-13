@@ -193,7 +193,7 @@ export function TonesForm({ initial, onToast }: Props) {
   const activeCount = tones.filter(tn => tn.enabled !== false).length
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       <section>
         <h2 className="text-sm font-semibold text-on-surface mb-1">{t.tonesForm.sectionTones}</h2>
         <p className="text-xs text-on-surface-variant mb-4">{t.tonesForm.tonesDesc}</p>

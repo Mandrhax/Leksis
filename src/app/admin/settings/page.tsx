@@ -10,7 +10,7 @@ export default async function AdminSettingsPage() {
   const settings = await getAllSettings()
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-8 max-w-[1400px]">
       <AdminPageHeader section="settings" />
       <SettingsTabs settings={settings} />
     </div>

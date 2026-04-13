@@ -89,7 +89,7 @@ export function FeaturesForm({ initial, onToast }: Props) {
   }
 
   return (
-    <div className="space-y-8 max-w-2xl">
+    <div className="space-y-8">
 
       {/* Section A — Modules actifs */}
       <section>
