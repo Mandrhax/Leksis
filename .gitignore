@@ -30,6 +30,9 @@ yarn-error.log*
 # Claude Code local data (memory, plans) — not for version control
 .claude/
 
+# Documentation — kept local, not published to the repo
+README.md
+
 # vercel
 .vercel
 
