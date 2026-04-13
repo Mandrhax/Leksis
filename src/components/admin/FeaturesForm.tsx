@@ -89,17 +89,20 @@ export function FeaturesForm({ initial, onToast }: Props) {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
       {/* Section A — Modules actifs */}
-      <section>
-        <h2 className="text-sm font-semibold text-on-surface mb-1">{t.featuresForm.sectionModules}</h2>
-        <p className="text-xs text-on-surface-variant mb-4">{t.featuresForm.modulesDesc}</p>
+      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
+        <div>
+          <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">{t.featuresForm.sectionModules}</h3>
+          <p className="text-xs text-on-surface-variant">{t.featuresForm.modulesDesc}</p>
+        </div>
         <div className="space-y-2">
           {MODULE_LABELS.map(m => (
             <label
               key={m.id}
-              className="flex items-center justify-between gap-4 bg-surface-container-lowest border border-outline-variant/20 rounded-lg px-4 py-3 cursor-pointer hover:bg-surface-container/60 transition-colors"
+              className="flex items-center justify-between gap-4 bg-surface-container border border-outline-variant/20 rounded-lg px-4 py-3 cursor-pointer hover:bg-surface-container/60 transition-colors"
             >
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-on-surface-variant text-base leading-none" aria-hidden="true">{m.icon}</span>
@@ -126,84 +129,93 @@ export function FeaturesForm({ initial, onToast }: Props) {
             </label>
           ))}
         </div>
-      </section>
+      </div>
 
-      {/* Section B — Langues par défaut */}
-      <section>
-        <h2 className="text-sm font-semibold text-on-surface mb-1">{t.featuresForm.sectionDefaults}</h2>
-        <p className="text-xs text-on-surface-variant mb-4">{t.featuresForm.defaultsDesc}</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Section B + C stacked in right column */}
+      <div className="flex flex-col gap-6">
+        {/* Section B — Langues par défaut */}
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
           <div>
-            <label className="block text-sm text-on-surface mb-1.5">{t.featuresForm.sourceLangLabel}</label>
-            <select
-              value={data.defaults.sourceLang}
-              onChange={e => setDefault('sourceLang', e.target.value)}
-              className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
-            >
-              <option value="auto">{t.featuresForm.autoDetect}</option>
-              {LANGUAGES.map(l => (
-                <option key={l.code} value={l.code}>{l.name}</option>
-              ))}
-            </select>
+            <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">{t.featuresForm.sectionDefaults}</h3>
+            <p className="text-xs text-on-surface-variant">{t.featuresForm.defaultsDesc}</p>
           </div>
-          <div>
-            <label className="block text-sm text-on-surface mb-1.5">{t.featuresForm.targetLangLabel}</label>
-            <select
-              value={data.defaults.targetLang}
-              onChange={e => setDefault('targetLang', e.target.value)}
-              className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
-            >
-              {LANGUAGES.map(l => (
-                <option key={l.code} value={l.code}>{l.name}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-on-surface mb-1.5">{t.featuresForm.sourceLangLabel}</label>
+              <select
+                value={data.defaults.sourceLang}
+                onChange={e => setDefault('sourceLang', e.target.value)}
+                className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+              >
+                <option value="auto">{t.featuresForm.autoDetect}</option>
+                {LANGUAGES.map(l => (
+                  <option key={l.code} value={l.code}>{l.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-on-surface mb-1.5">{t.featuresForm.targetLangLabel}</label>
+              <select
+                value={data.defaults.targetLang}
+                onChange={e => setDefault('targetLang', e.target.value)}
+                className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+              >
+                {LANGUAGES.map(l => (
+                  <option key={l.code} value={l.code}>{l.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
-      </section>
 
-      {/* Section C — Limites */}
-      <section>
-        <h2 className="text-sm font-semibold text-on-surface mb-1">{t.featuresForm.sectionLimits}</h2>
-        <p className="text-xs text-on-surface-variant mb-4">{t.featuresForm.limitsDesc}</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Section C — Limites */}
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
           <div>
-            <label className="block text-sm text-on-surface mb-1.5">
-              {t.featuresForm.textLimitLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.textLimitUnit}</span>
-            </label>
-            <input
-              type="number"
-              min={100}
-              value={data.limits.maxTextChars}
-              onChange={e => setLimit('maxTextChars', e.target.value)}
-              className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
-            />
+            <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">{t.featuresForm.sectionLimits}</h3>
+            <p className="text-xs text-on-surface-variant">{t.featuresForm.limitsDesc}</p>
           </div>
-          <div>
-            <label className="block text-sm text-on-surface mb-1.5">
-              {t.featuresForm.docLimitLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.docLimitUnit}</span>
-            </label>
-            <input
-              type="number"
-              min={100}
-              value={data.limits.maxDocChars}
-              onChange={e => setLimit('maxDocChars', e.target.value)}
-              className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-on-surface mb-1.5">
-              {t.featuresForm.imageLimitLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.imageLimitUnit}</span>
-            </label>
-            <input
-              type="number"
-              min={1}
-              value={data.limits.maxImageMB}
-              onChange={e => setLimit('maxImageMB', e.target.value)}
-              className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm text-on-surface mb-1.5">
+                {t.featuresForm.textLimitLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.textLimitUnit}</span>
+              </label>
+              <input
+                type="number"
+                min={100}
+                value={data.limits.maxTextChars}
+                onChange={e => setLimit('maxTextChars', e.target.value)}
+                className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-on-surface mb-1.5">
+                {t.featuresForm.docLimitLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.docLimitUnit}</span>
+              </label>
+              <input
+                type="number"
+                min={100}
+                value={data.limits.maxDocChars}
+                onChange={e => setLimit('maxDocChars', e.target.value)}
+                className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-on-surface mb-1.5">
+                {t.featuresForm.imageLimitLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.imageLimitUnit}</span>
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={data.limits.maxImageMB}
+                onChange={e => setLimit('maxImageMB', e.target.value)}
+                className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+              />
+            </div>
           </div>
         </div>
-      </section>
+      </div>
+
+      </div>{/* end grid */}
 
       {/* Save */}
       <div className="flex justify-end pt-2">

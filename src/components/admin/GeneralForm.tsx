@@ -44,7 +44,8 @@ export function GeneralForm({ initial, onToast }: Props) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
       {/* Contact */}
       <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
         <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.generalForm.sectionContact}</h3>
@@ -108,6 +109,7 @@ export function GeneralForm({ initial, onToast }: Props) {
         )}
       </div>
 
+      </div>{/* end grid */}
       <div className="flex justify-end">
         <button onClick={handleSave} disabled={saving} className="action-btn disabled:opacity-40">
           {saving ? (
