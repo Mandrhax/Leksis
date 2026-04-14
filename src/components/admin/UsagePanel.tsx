@@ -40,17 +40,20 @@ export function UsagePanel() {
   const today   = new Date()
   const oneWeek = new Date(today.getTime() - 7 * 24 * 3600 * 1000)
 
-  const [from, setFrom]     = useState(toInputDate(oneWeek))
-  const [to, setTo]         = useState(toInputDate(today))
-  const [data, setData]     = useState<UsageSummary | null>(null)
+  const PAGE_SIZES = [25, 50, 100, 200, 500]
+
+  const [from, setFrom]       = useState(toInputDate(oneWeek))
+  const [to, setTo]           = useState(toInputDate(today))
+  const [pageSize, setPageSize] = useState(100)
+  const [data, setData]       = useState<UsageSummary | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string | null>(null)
 
-  async function load() {
+  async function load(limit = pageSize) {
     setLoading(true)
     setError(null)
     try {
-      const params = new URLSearchParams({ from, to })
+      const params = new URLSearchParams({ from, to, limit: String(limit) })
       const res = await fetch(`/api/admin/usage?${params}`)
       if (!res.ok) throw new Error()
       setData(await res.json())
@@ -91,7 +94,7 @@ export function UsagePanel() {
             className="bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
           />
         </div>
-        <button onClick={load} disabled={loading} className="action-btn disabled:opacity-40">
+        <button onClick={() => load()} disabled={loading} className="action-btn disabled:opacity-40">
           {loading ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
           ) : (
@@ -162,11 +165,27 @@ export function UsagePanel() {
 
           {/* Tableau détail */}
           <div className="bg-surface-container-lowest border border-outline-variant/20 rounded-xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-outline-variant/10 flex items-center justify-between">
+            <div className="px-5 py-3 border-b border-outline-variant/10 flex items-center gap-4 flex-wrap">
               <h3 className="text-sm font-semibold text-on-surface">{t.usagePanel.lastCalls}</h3>
-              <span className="text-xs text-on-surface-variant">
+              <span className="text-xs text-on-surface-variant flex-1">
                 {t.usagePanel.totalSuffix.replace('{0}', String(data.total)).replace('{1}', String(data.rows.length))}
               </span>
+              <label className="flex items-center gap-2 text-xs text-on-surface-variant">
+                {t.usagePanel.rowsPerPage}
+                <select
+                  value={pageSize}
+                  onChange={e => {
+                    const next = Number(e.target.value)
+                    setPageSize(next)
+                    load(next)
+                  }}
+                  className="bg-surface-container border border-outline-variant/30 rounded-lg px-2 py-1 text-xs text-on-surface focus:outline-none focus:border-primary"
+                >
+                  {PAGE_SIZES.map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </label>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">

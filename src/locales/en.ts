@@ -404,6 +404,7 @@ export const messages = {
     topLangs:     'Top target languages',
     topModels:    'Models used',
     lastCalls:    'Last calls',
+    rowsPerPage:  'Rows per page',
     totalSuffix:  '{0} total · {1} shown',
     colDate:      'Date',
     colUser:      'User',

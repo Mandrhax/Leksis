@@ -406,6 +406,7 @@ export const messages = {
     topLangs:     'Meistgenutzte Zielsprachen',
     topModels:    'Verwendete Modelle',
     lastCalls:    'Letzte Aufrufe',
+    rowsPerPage:  'Zeilen pro Seite',
     totalSuffix:  '{0} gesamt · {1} angezeigt',
     colDate:      'Datum',
     colUser:      'Benutzer',

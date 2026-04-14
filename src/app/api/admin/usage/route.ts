@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
   const from   = searchParams.get('from')   // ISO date string
   const to     = searchParams.get('to')
   const format = searchParams.get('format') // 'csv' | undefined
+  const limit  = Math.min(500, Math.max(1, parseInt(searchParams.get('limit') ?? '100', 10))) || 100
 
   const params: (string | null)[] = []
   const conditions: string[] = []
@@ -72,5 +73,5 @@ export async function GET(req: NextRequest) {
     if (r.model)       byModel[r.model]         = (byModel[r.model]        ?? 0) + 1
   }
 
-  return NextResponse.json({ total: rows.length, byFeature, byLang, byModel, rows: rows.slice(0, 200) })
+  return NextResponse.json({ total: rows.length, byFeature, byLang, byModel, rows: rows.slice(0, limit) })
 }
