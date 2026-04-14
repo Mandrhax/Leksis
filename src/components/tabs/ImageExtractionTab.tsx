@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import { LANGUAGES, detectLanguage } from '@/lib/languages'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
@@ -119,8 +119,14 @@ export function ImageExtractionTab({ defaultTargetLang }: Props) {
   const [error, setError]               = useState<string | null>(null)
   const [fileName, setFileName]         = useState<string | null>(null)
 
-  const abortRef = useRef<AbortController | null>(null)
-  const fileRef  = useRef<HTMLInputElement>(null)
+  const abortRef  = useRef<AbortController | null>(null)
+  const fileRef   = useRef<HTMLInputElement>(null)
+  const outputRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = outputRef.current
+    if (el && isLoading) el.scrollTop = el.scrollHeight
+  }, [outputText, isLoading])
 
   const handleFile = (f: File) => {
     if (!f.type.startsWith('image/')) return
@@ -345,7 +351,7 @@ export function ImageExtractionTab({ defaultTargetLang }: Props) {
             </button>
           </div>
 
-          <div className="flex-grow translation-text text-on-surface/90 overflow-y-auto">
+          <div ref={outputRef} className="flex-grow translation-text text-on-surface/90 overflow-y-auto">
             {error ? (
               <span className="text-error text-sm">{error}</span>
             ) : isLoading ? (

@@ -44,6 +44,12 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
   const abortRef    = useRef<AbortController | null>(null)
   const detectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const transTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const outputRef   = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = outputRef.current
+    if (el && isLoading) el.scrollTop = el.scrollHeight
+  }, [outputText, isLoading])
 
   useEffect(() => { setTargetLang(loadTargetLang(defaultTargetLang)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -246,7 +252,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
               <span className="material-symbols-outlined text-lg" aria-hidden="true">close</span>
             </button>
           </div>
-          <div className="flex-grow translation-text text-on-surface/90 overflow-y-auto">
+          <div ref={outputRef} className="flex-grow translation-text text-on-surface/90 overflow-y-auto">
             {error ? (
               <span className="text-error text-sm">{error}</span>
             ) : outputText ? (

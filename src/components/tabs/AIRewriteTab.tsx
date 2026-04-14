@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { detectLanguage } from '@/lib/languages'
 import { TEXT_MAX_CHARS } from '@/lib/validators'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
@@ -48,7 +48,13 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
   const [appliedTone, setAppliedTone] = useState<string | null>(null)
   const [appliedLength, setAppliedLength] = useState<RewriteLength | null>(null)
 
-  const abortRef = useRef<AbortController | null>(null)
+  const abortRef  = useRef<AbortController | null>(null)
+  const outputRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = outputRef.current
+    if (el && isLoading) el.scrollTop = el.scrollHeight
+  }, [outputText, isLoading])
 
   const abort = useCallback(() => {
     abortRef.current?.abort()
@@ -176,7 +182,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
               <span className="material-symbols-outlined text-lg" aria-hidden="true">close</span>
             </button>
           </div>
-          <div className="flex-grow translation-text text-on-surface/90 overflow-y-auto">
+          <div ref={outputRef} className="flex-grow translation-text text-on-surface/90 overflow-y-auto">
             {error ? (
               <span className="text-error text-sm">{error}</span>
             ) : outputText ? (
