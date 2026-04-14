@@ -17,7 +17,7 @@ Leksis is a self-hosted, all-in-one platform for text translation, document proc
 ## ✨ Features
 
 ### 📝 Text Translation
-Translate free text between dozens of languages with automatic source detection. Supports formality control (formal / informal) when translating into French, and instant **source ↔ target swap** with re-translation.
+Translate free text between dozens of languages with automatic source detection. Supports formality control (formal / informal) when translating from English, and instant **source ↔ target swap** with re-translation.
 
 ### 📄 Document Studio
 Upload a full document and get a translated version — structure preserved. Supports **PDF, DOCX, TXT, and CSV**. Text extraction and translation happen entirely server-side, with segment-level fidelity via structured `|||` separators.
