@@ -327,6 +327,79 @@ detect_gpu() {
 }
 
 # ── GPU toolkit installation ─────────────────────────────────
+
+# NVIDIA kernel driver — version pinned for legacy GPU compatibility
+NVIDIA_DRIVER_VERSION="580.142"
+NVIDIA_DRIVER_URL="https://us.download.nvidia.com/XFree86/Linux-x86_64/${NVIDIA_DRIVER_VERSION}/NVIDIA-Linux-x86_64-${NVIDIA_DRIVER_VERSION}.run"
+NVIDIA_DRIVER_RUN="/tmp/NVIDIA-Linux-x86_64-${NVIDIA_DRIVER_VERSION}.run"
+
+_install_nvidia_driver() {
+  # Already installed at the target version?
+  if command -v nvidia-smi &>/dev/null; then
+    local installed_ver
+    installed_ver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || true)
+    if [[ "$installed_ver" == "$NVIDIA_DRIVER_VERSION" ]]; then
+      success "NVIDIA driver ${NVIDIA_DRIVER_VERSION} already installed."
+      return 0
+    fi
+    if [[ -n "$installed_ver" ]]; then
+      warn "NVIDIA driver ${installed_ver} found (target: ${NVIDIA_DRIVER_VERSION}). Skipping driver install."
+      return 0
+    fi
+  fi
+
+  info "NVIDIA driver ${NVIDIA_DRIVER_VERSION} not detected — installing..."
+
+  # Build dependencies required by the .run installer
+  info "Installing kernel build dependencies..."
+  apt-get install -y \
+    build-essential \
+    dkms \
+    "linux-headers-$(uname -r)" \
+    pkg-config \
+    libglvnd-dev
+
+  # Blacklist the nouveau open-source driver if not already done
+  local nouveau_conf="/etc/modprobe.d/blacklist-nouveau.conf"
+  if [[ ! -f "$nouveau_conf" ]]; then
+    info "Blacklisting nouveau driver..."
+    tee "$nouveau_conf" >/dev/null <<'EOF'
+blacklist nouveau
+options nouveau modeset=0
+EOF
+    update-initramfs -u
+  fi
+
+  # If nouveau is still loaded a reboot is required before the .run installer can proceed
+  if lsmod | grep -q "^nouveau "; then
+    echo ""
+    warn "────────────────────────────────────────────────────────────"
+    warn " The nouveau driver is currently active."
+    warn " The system must be rebooted before NVIDIA drivers can be"
+    warn " installed. No configuration questions will be asked again."
+    warn ""
+    warn " Please reboot and re-run install.sh to continue:"
+    warn "   sudo reboot"
+    warn "   sudo ./install.sh install"
+    warn "────────────────────────────────────────────────────────────"
+    echo ""
+    exit 0
+  fi
+
+  # Download the .run installer (skip if already present in /tmp)
+  if [[ ! -f "$NVIDIA_DRIVER_RUN" ]]; then
+    info "Downloading NVIDIA driver ${NVIDIA_DRIVER_VERSION}..."
+    curl -fL --progress-bar "$NVIDIA_DRIVER_URL" -o "$NVIDIA_DRIVER_RUN"
+  fi
+  chmod +x "$NVIDIA_DRIVER_RUN"
+
+  # Silent install with DKMS so kernel upgrades rebuild the module automatically
+  info "Installing NVIDIA driver ${NVIDIA_DRIVER_VERSION} (this may take a few minutes)..."
+  "$NVIDIA_DRIVER_RUN" --silent --dkms --no-questions
+
+  success "NVIDIA driver ${NVIDIA_DRIVER_VERSION} installed."
+}
+
 _install_nvidia_toolkit() {
   if docker info 2>/dev/null | grep -q "nvidia"; then
     success "nvidia-container-toolkit is already configured."
@@ -366,7 +439,10 @@ _install_amd_rocm() {
 
 install_gpu_toolkit() {
   case "${GPU_VENDOR:-}" in
-    nvidia) _install_nvidia_toolkit ;;
+    nvidia)
+      _install_nvidia_driver
+      _install_nvidia_toolkit
+      ;;
     amd)    _install_amd_rocm ;;
     *)      return 0 ;;
   esac
