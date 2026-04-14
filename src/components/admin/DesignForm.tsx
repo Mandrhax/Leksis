@@ -70,6 +70,9 @@ export function DesignForm({ initial, onToast }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+
+      {/* Colonne gauche */}
+      <div className="flex flex-col gap-3">
       {/* Boutons */}
       <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
         <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.designForm.sectionButtons}</h3>
@@ -100,6 +103,10 @@ export function DesignForm({ initial, onToast }: Props) {
         </div>
       </div>
 
+      </div>{/* end left column */}
+
+      {/* Colonne droite */}
+      <div className="flex flex-col gap-3">
       {/* Header */}
       <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
         <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.designForm.sectionHeader}</h3>
@@ -190,6 +197,8 @@ export function DesignForm({ initial, onToast }: Props) {
           </div>
         </div>
       </div>
+
+      </div>{/* end right column */}
 
       </div>{/* end grid */}
       <div className="flex justify-end">

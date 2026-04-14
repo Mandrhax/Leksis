@@ -134,6 +134,9 @@ export function BrandingForm({ initial, onToast }: Props) {
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
 
+      {/* Colonne gauche */}
+      <div className="flex flex-col gap-3">
+
       {/* Nom du site */}
       <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
         <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.brandingForm.sectionIdentity}</h3>
@@ -146,56 +149,6 @@ export function BrandingForm({ initial, onToast }: Props) {
             className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
           />
         </div>
-      </div>
-
-      {/* Logo */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.brandingForm.sectionLogo}</h3>
-        <p className="text-xs text-on-surface-variant">{t.brandingForm.logoDesc}</p>
-        {logoPreview ? (
-          <div className="flex items-center gap-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={logoPreview}
-              alt="Logo"
-              className="h-16 w-auto max-w-[200px] object-cover rounded border border-outline-variant/20 bg-surface-container"
-            />
-            <div className="flex flex-col gap-2">
-              <button type="button" onClick={() => logoInputRef.current?.click()} disabled={logoUploading} className="text-button text-xs">
-                <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">upload</span>
-                {t.brandingForm.logoReplace}
-              </button>
-              <button type="button" onClick={handleLogoRemove} disabled={logoRemoving} className="text-button text-xs text-error">
-                {logoRemoving
-                  ? <span className="material-symbols-outlined animate-spin text-sm leading-none" aria-hidden="true">progress_activity</span>
-                  : <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">delete</span>
-                }
-                {t.brandingForm.logoDelete}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => logoInputRef.current?.click()}
-            disabled={logoUploading}
-            className="flex flex-col items-center justify-center w-full border-2 border-dashed border-outline-variant/30 rounded-xl py-8 gap-2 text-on-surface-variant hover:border-primary/40 hover:text-on-surface transition-colors"
-          >
-            {logoUploading
-              ? <span className="material-symbols-outlined animate-spin text-2xl" aria-hidden="true">progress_activity</span>
-              : <span className="material-symbols-outlined text-2xl" aria-hidden="true">add_photo_alternate</span>
-            }
-            <span className="text-sm">{logoUploading ? t.brandingForm.logoUploading : t.brandingForm.logoClickToChoose}</span>
-            <span className="text-xs text-on-surface-variant/60">{t.brandingForm.logoFormats}</span>
-          </button>
-        )}
-        <input
-          ref={logoInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/svg+xml,image/webp,image/x-icon"
-          className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f) }}
-        />
       </div>
 
       {/* Fond */}
@@ -266,21 +219,6 @@ export function BrandingForm({ initial, onToast }: Props) {
         </div>
       </div>
 
-      {/* Couleur primaire */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.brandingForm.sectionColors}</h3>
-        <div>
-          <label className="block text-sm text-on-surface mb-1.5">{t.brandingForm.primaryColorLabel}</label>
-          <div className="flex items-center gap-3">
-            <input type="color" value={data.primaryColor} onChange={e => set('primaryColor', e.target.value)}
-              className="w-10 h-10 rounded-lg border border-outline-variant/20 cursor-pointer bg-transparent p-0.5" />
-            <input type="text" value={data.primaryColor} onChange={e => set('primaryColor', e.target.value)}
-              className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface font-mono focus:outline-none focus:border-primary/50"
-              placeholder="#565e74" />
-          </div>
-        </div>
-      </div>
-
       {/* Mode sombre */}
       <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6">
         <div className="flex items-center justify-between">
@@ -298,6 +236,76 @@ export function BrandingForm({ initial, onToast }: Props) {
         </div>
       </div>
 
+      </div>{/* end left column */}
+
+      {/* Colonne droite */}
+      <div className="flex flex-col gap-3">
+
+      {/* Logo */}
+      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
+        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.brandingForm.sectionLogo}</h3>
+        <p className="text-xs text-on-surface-variant">{t.brandingForm.logoDesc}</p>
+        {logoPreview ? (
+          <div className="flex items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={logoPreview}
+              alt="Logo"
+              className="h-16 w-auto max-w-[200px] object-cover rounded border border-outline-variant/20 bg-surface-container"
+            />
+            <div className="flex flex-col gap-2">
+              <button type="button" onClick={() => logoInputRef.current?.click()} disabled={logoUploading} className="text-button text-xs">
+                <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">upload</span>
+                {t.brandingForm.logoReplace}
+              </button>
+              <button type="button" onClick={handleLogoRemove} disabled={logoRemoving} className="text-button text-xs text-error">
+                {logoRemoving
+                  ? <span className="material-symbols-outlined animate-spin text-sm leading-none" aria-hidden="true">progress_activity</span>
+                  : <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">delete</span>
+                }
+                {t.brandingForm.logoDelete}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => logoInputRef.current?.click()}
+            disabled={logoUploading}
+            className="flex flex-col items-center justify-center w-full border-2 border-dashed border-outline-variant/30 rounded-xl py-8 gap-2 text-on-surface-variant hover:border-primary/40 hover:text-on-surface transition-colors"
+          >
+            {logoUploading
+              ? <span className="material-symbols-outlined animate-spin text-2xl" aria-hidden="true">progress_activity</span>
+              : <span className="material-symbols-outlined text-2xl" aria-hidden="true">add_photo_alternate</span>
+            }
+            <span className="text-sm">{logoUploading ? t.brandingForm.logoUploading : t.brandingForm.logoClickToChoose}</span>
+            <span className="text-xs text-on-surface-variant/60">{t.brandingForm.logoFormats}</span>
+          </button>
+        )}
+        <input
+          ref={logoInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp,image/x-icon"
+          className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f) }}
+        />
+      </div>
+
+      {/* Couleur primaire */}
+      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
+        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.brandingForm.sectionColors}</h3>
+        <div>
+          <label className="block text-sm text-on-surface mb-1.5">{t.brandingForm.primaryColorLabel}</label>
+          <div className="flex items-center gap-3">
+            <input type="color" value={data.primaryColor} onChange={e => set('primaryColor', e.target.value)}
+              className="w-10 h-10 rounded-lg border border-outline-variant/20 cursor-pointer bg-transparent p-0.5" />
+            <input type="text" value={data.primaryColor} onChange={e => set('primaryColor', e.target.value)}
+              className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface font-mono focus:outline-none focus:border-primary/50"
+              placeholder="#565e74" />
+          </div>
+        </div>
+      </div>
+
       {/* Aperçu */}
       <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6">
         <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">{t.brandingForm.sectionPreview}</h3>
@@ -311,6 +319,8 @@ export function BrandingForm({ initial, onToast }: Props) {
           </span>
         </div>
       </div>
+
+      </div>{/* end right column */}
 
       </div>{/* end grid */}
       <div className="flex justify-end">
