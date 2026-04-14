@@ -81,8 +81,8 @@ Cette fonctionnalité **n'est pas une traduction**, mais une transformation du t
 - Ollama (LLM local ou distant) via `/api/generate`
 - Tailwind CSS v4 (configuration CSS-first avec `@theme`)
 - Fonts : Manrope (headlines) + Inter (body) via `next/font/google`
-- Material Symbols (icons via CDN Google Fonts)
-- Bootstrap Icons (icônes fichiers dans Document Studio via CDN)
+- Material Symbols Outlined (icons) : **self-hébergé** — woff2 dans `public/fonts/material-symbols/`, `@font-face` + classe `.material-symbols-outlined` définis dans `globals.css`
+- Bootstrap Icons (icônes fichiers dans Document Studio) : **self-hébergé** via package npm `bootstrap-icons`, importé directement dans `layout.tsx`
 - **next-auth v5** (authentification OTP par email — `src/auth.ts`, `src/auth.config.ts`, `src/middleware.ts`)
 - **pg** + **@auth/pg-adapter** (PostgreSQL — pool, sessions, utilisateurs)
 - **zod** (validation des entrées dans les routes API admin)
@@ -174,17 +174,17 @@ src/
 │   │   └── page.tsx                     (Page maintenance — affichée si maintenanceMode actif)
 │   ├── settings/
 │   │   └── page.tsx                     (I18nProvider + profil + toggles glossaires + session)
-│   ├── globals.css                      (Tailwind v4 @theme + classes CSS custom)
-│   ├── layout.tsx                       (Fonts, Material Symbols, Bootstrap Icons CDN)
+│   ├── globals.css                      (Tailwind v4 @theme + @font-face Material Symbols + classes CSS custom)
+│   ├── layout.tsx                       (Fonts next/font, import bootstrap-icons/font/bootstrap-icons.css)
 │   └── page.tsx                         (Workspace — tabs centrés)
 │
 ├── components/
 │   ├── GlobalBanner.tsx                 (Bannière globale — affichée si globalBanner configuré)
 │   ├── tabs/
-│   │   ├── TextTranslationTab.tsx       (Debounce 400ms detect + 800ms translate, swap, formality)
+│   │   ├── TextTranslationTab.tsx       (Debounce 400ms detect + 800ms translate, swap, formality, auto-scroll output)
 │   │   ├── DocumentStudioTab.tsx        (Upload → extract → translate → blocks HTML)
-│   │   ├── ImageExtractionTab.tsx       (OCR + traduction optionnelle, stats)
-│   │   └── AIRewriteTab.tsx             (Modes rewrite/correct, tons configurables, length)
+│   │   ├── ImageExtractionTab.tsx       (OCR + traduction optionnelle, stats, auto-scroll output)
+│   │   └── AIRewriteTab.tsx             (Modes rewrite/correct, tons configurables, length, auto-scroll output)
 │   ├── ui/
 │   │   ├── HomeClient.tsx               (I18nProvider wrapper + HomeWorkspace interne)
 │   │   ├── AccountMenu.tsx              (Menu utilisateur — positionné par HomeClient)
@@ -315,6 +315,7 @@ overflow-hidden rounded-xl border border-outline-variant/10 relative
 - Panel droite : `bg-surface-container-low p-8 min-h-[460px]`
 - Le `gap-px` + `bg-surface-container` crée le séparateur 1px entre les panneaux
 - Swap button : `absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2`, cercle avec `rounded-full`
+- **Auto-scroll** : le div output (`outputRef`) scroll automatiquement vers le bas pendant le streaming (`isLoading === true`). Implémenté via `useRef<HTMLDivElement>` + `useEffect` sur `[outputText, isLoading]` dans TextTranslationTab, AIRewriteTab, ImageExtractionTab
 
 ### Language selector (LanguageDropdown)
 
@@ -410,6 +411,7 @@ Flux local :
 - Export CSV glossaire : **100 % client-side** (`exportEntriesToCSV` dans `GlossaryAdmin.tsx`) — pas de route API. Bouton visible uniquement si des entrées existent. Nom de fichier : `{glossary_name}_glossary.csv`
 - L'API usage (`/api/admin/usage`) accepte un paramètre `limit` (1–500, défaut 100) pour contrôler le nombre de lignes retournées. `UsagePanel` expose un sélecteur 25/50/100/200/500
 - Migration DB : `scripts/migrate-glossary.sql` pour les installations existantes, `docker/init-schema.sql` pour les nouveaux déploiements Docker
+- **Aucun CDN tiers** : Material Symbols et Bootstrap Icons sont self-hébergés. Ne pas réintroduire de `<link>` vers `fonts.googleapis.com` ou `cdn.jsdelivr.net`. Pour mettre à jour Material Symbols, re-télécharger le woff2 depuis `fonts.gstatic.com` (URL versionnée `v{N}`)
 - Priorité : robustesse, lisibilité, maintenabilité
 - Les messages de commit git doivent toujours être **en anglais**
 
