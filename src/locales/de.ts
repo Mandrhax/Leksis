@@ -175,6 +175,7 @@ export const messages = {
     targetTermPlaceholder: 'Zielbegriff…',
     addEntry:              'Begriff hinzufügen',
     importCsv:             'CSV importieren',
+    exportCsv:             'CSV exportieren',
     csvHint:               'CSV-Format: Quelle, Ziel, Quellsprache (optional), Zielsprache (optional). Leere Sprache = alle Sprachen.',
     importedCount:         '{0} Begriff(e) importiert.',
     errorAdd:              'Fehler beim Hinzufügen.',

@@ -7,6 +7,25 @@ import { AdminToast, type ToastState } from '@/components/admin/AdminToast'
 import { LANGUAGES } from '@/lib/languages'
 
 // ---------------------------------------------------------------------------
+// CSV export helper
+// ---------------------------------------------------------------------------
+function exportEntriesToCSV(entries: GlossaryEntry[], glossaryName: string) {
+  const escape = (s: string) => `"${s.replace(/"/g, '""')}"`
+  const header = 'source,target,source_lang,target_lang'
+  const rows = entries.map((e) =>
+    [escape(e.source), escape(e.target), e.sourceLang ?? '', e.targetLang ?? ''].join(','),
+  )
+  const csv = [header, ...rows].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${glossaryName.replace(/\s+/g, '_')}_glossary.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ---------------------------------------------------------------------------
 // Language selector helper — "Any" + alphabetical list
 // ---------------------------------------------------------------------------
 function LangSelect({
@@ -263,6 +282,15 @@ function GlossaryEntries({
             className="hidden"
             aria-label={t.glossaryAdmin.importCsv}
           />
+          {entries.length > 0 && (
+            <button
+              onClick={() => exportEntriesToCSV(entries, glossary.name)}
+              className="text-button flex items-center gap-1.5 text-sm"
+            >
+              <span className="material-symbols-outlined text-base leading-none">download</span>
+              {t.glossaryAdmin.exportCsv}
+            </button>
+          )}
         </div>
         <p className="mt-2 text-xs text-on-surface-variant">
           {t.glossaryAdmin.csvHint}
