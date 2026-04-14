@@ -64,7 +64,8 @@ export async function GET() {
         FROM pg_stat_user_tables
         WHERE relname IN (
           'users','sessions','accounts','otp_tokens',
-          'verification_token','site_settings','audit_log','usage_log'
+          'verification_token','site_settings','audit_log','usage_log',
+          'glossaries','glossary_entries','user_glossary_prefs'
         )
         ORDER BY size_bytes DESC
       `),
