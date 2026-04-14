@@ -153,7 +153,7 @@ src/
 │   │       ├── settings/export/route.ts (Export config JSON)
 │   │       ├── settings/import/route.ts (Import config JSON)
 │   │       ├── settings/reset/route.ts  (Réinitialisation aux défauts)
-│   │       ├── usage/route.ts           (Stats d'utilisation IA)
+│   │       ├── usage/route.ts           (Stats d'utilisation IA — param `limit` 1–500, défaut 100)
 │   │       ├── usage/purge/route.ts     (Suppression stats avant date)
 │   │       ├── users/route.ts           (Liste utilisateurs)
 │   │       └── users/[id]/route.ts      (Mise à jour rôle utilisateur)
@@ -208,9 +208,9 @@ src/
 │       ├── DbServiceForm.tsx            (Config PostgreSQL, test connexion)
 │       ├── OllamaMetrics.tsx            (Métriques Ollama live : statut, modèles installés, modèles en mémoire + Unload)
 │       ├── DbMetrics.tsx                (Métriques PostgreSQL live : statut serveur, connexions, tables application)
-│       ├── GlossaryAdmin.tsx            (CRUD glossaires nommés + entrées avec paires de langues + import CSV)
+│       ├── GlossaryAdmin.tsx            (CRUD glossaires nommés + entrées avec paires de langues + import CSV + export CSV client-side)
 │       ├── UserList.tsx                 (Tableau utilisateurs, toggle rôle admin)
-│       ├── UsagePanel.tsx               (Stats IA filtrées par date, export CSV)
+│       ├── UsagePanel.tsx               (Stats IA filtrées par date, export CSV, sélecteur lignes/page 25–500)
 │       ├── AuditTable.tsx               (Journal d'audit paginé)
 │       └── PurgeButton.tsx              (Purge avec confirmation et date)
 │
@@ -300,7 +300,7 @@ Les composants appelant `useI18n()` doivent être enfants d'un `I18nProvider`.
 
 - Wrapper page : `p-8 max-w-[1400px]`
 - **Pages Services AI & DB** : grille `grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 items-start` — formulaire config à gauche, blocs métriques à droite
-- **Page Réglages** : tabs de navigation (5 onglets), sous-blocs de chaque formulaire en `grid grid-cols-1 lg:grid-cols-2 gap-6 items-start`, bouton Save hors grille
+- **Page Réglages** : tabs de navigation (5 onglets), sous-blocs de chaque formulaire en `grid grid-cols-1 lg:grid-cols-2 gap-3 items-start` avec deux `<div className="flex flex-col gap-3">` explicites (colonne gauche + colonne droite) — ne jamais laisser CSS Grid auto-placer les cartes (crée des espaces vides égaux à la hauteur de la rangée la plus haute), bouton Save hors grille
 - **Style de carte admin** : `bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6` — utilisé uniformément pour formulaires et blocs métriques
 - **Blocs métriques** (OllamaMetrics, DbMetrics) : bouton Refresh dans l'en-tête du bloc Statut, blocs 2 et 3 côte à côte (`xl:grid-cols-2`)
 
@@ -407,6 +407,8 @@ Flux local :
 - Chaque entrée de glossaire a `source_lang` / `target_lang` (code BCP47 ou NULL = toutes les langues). Pour la réécriture (même langue), seules les entrées NULL+NULL sont injectées
 - Convention `user_glossary_prefs` : une ligne n'existe que si `enabled = FALSE` — absence de ligne = glossaire activé par défaut
 - Format CSV d'import glossaire : `source,target,source_lang,target_lang` (cols lang optionnelles, vide = toutes langues)
+- Export CSV glossaire : **100 % client-side** (`exportEntriesToCSV` dans `GlossaryAdmin.tsx`) — pas de route API. Bouton visible uniquement si des entrées existent. Nom de fichier : `{glossary_name}_glossary.csv`
+- L'API usage (`/api/admin/usage`) accepte un paramètre `limit` (1–500, défaut 100) pour contrôler le nombre de lignes retournées. `UsagePanel` expose un sélecteur 25/50/100/200/500
 - Migration DB : `scripts/migrate-glossary.sql` pour les installations existantes, `docker/init-schema.sql` pour les nouveaux déploiements Docker
 - Priorité : robustesse, lisibilité, maintenabilité
 - Les messages de commit git doivent toujours être **en anglais**
