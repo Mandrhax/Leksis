@@ -5,7 +5,6 @@ import { TextTranslationTab }   from '@/components/tabs/TextTranslationTab'
 import { DocumentStudioTab }    from '@/components/tabs/DocumentStudioTab'
 import { ImageExtractionTab }   from '@/components/tabs/ImageExtractionTab'
 import { AIRewriteTab }         from '@/components/tabs/AIRewriteTab'
-import { GlossaryPanel }        from '@/components/ui/GlossaryPanel'
 import { AccountMenu }          from '@/components/ui/AccountMenu'
 import { UILanguageSwitcher }   from '@/components/ui/UILanguageSwitcher'
 import { I18nProvider, useI18n } from '@/lib/i18n'
@@ -54,9 +53,8 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
 
   const visibleTabs = ALL_TABS.filter(tab => enabledTabs[tab.id])
 
-  const [activeTab, setActiveTab]       = useState<TabId>(() => visibleTabs[0]?.id ?? 'text')
-  const [glossaryOpen, setGlossaryOpen] = useState(false)
-  const [logoVisible, setLogoVisible]   = useState(true)
+  const [activeTab, setActiveTab] = useState<TabId>(() => visibleTabs[0]?.id ?? 'text')
+  const [logoVisible, setLogoVisible] = useState(true)
 
   // Si l'onglet actif est désactivé (rechargement dynamique), revenir au premier
   const safeActiveTab = enabledTabs[activeTab] ? activeTab : (visibleTabs[0]?.id ?? 'text')
@@ -107,7 +105,7 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
         {/* Right controls: UI language switcher + account menu */}
         <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
           <UILanguageSwitcher />
-          <AccountMenu onOpenGlossary={() => setGlossaryOpen(true)} />
+          <AccountMenu />
         </div>
       </div>
 
@@ -153,8 +151,6 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
         </footer>
       )}
 
-      {/* Glossary slide-in panel */}
-      <GlossaryPanel open={glossaryOpen} onClose={() => setGlossaryOpen(false)} />
     </div>
   )
 }

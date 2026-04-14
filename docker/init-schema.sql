@@ -112,6 +112,43 @@ CREATE TABLE IF NOT EXISTS usage_log (
 CREATE INDEX IF NOT EXISTS usage_log_created_at_idx ON usage_log(created_at DESC);
 
 -- ============================================================
+-- glossaries — named shared glossaries managed by admin
+-- ============================================================
+CREATE TABLE IF NOT EXISTS glossaries (
+  id          SERIAL PRIMARY KEY,
+  name        VARCHAR(100) NOT NULL,
+  description TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- glossary_entries — terms within each glossary
+-- source_lang / target_lang : BCP47 code or NULL = any language
+-- ============================================================
+CREATE TABLE IF NOT EXISTS glossary_entries (
+  id           SERIAL PRIMARY KEY,
+  glossary_id  INTEGER NOT NULL REFERENCES glossaries(id) ON DELETE CASCADE,
+  source_term  TEXT NOT NULL,
+  target_term  TEXT NOT NULL,
+  source_lang  VARCHAR(20),
+  target_lang  VARCHAR(20),
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS glossary_entries_glossary_id_idx ON glossary_entries(glossary_id);
+
+-- ============================================================
+-- user_glossary_prefs — per-user per-glossary opt-out
+-- Convention: a row only exists when enabled = FALSE
+-- Absence of row = glossary is enabled for that user (default)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user_glossary_prefs (
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  glossary_id  INTEGER NOT NULL REFERENCES glossaries(id) ON DELETE CASCADE,
+  enabled      BOOLEAN NOT NULL DEFAULT FALSE,
+  PRIMARY KEY (user_id, glossary_id)
+);
+
+-- ============================================================
 -- To add the first admin user after deployment, use the
 -- install.sh script, or run manually:
 --

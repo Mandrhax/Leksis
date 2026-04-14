@@ -9,6 +9,7 @@ import { logUsage } from '@/lib/usage'
 import { isFeatureEnabled } from '@/lib/features-guard'
 import { auth } from '@/auth'
 import { getConfiguredTones } from '@/lib/tones'
+import { fetchGlossaryEntries, buildRewriteGlossaryClause } from '@/lib/glossary'
 import type { RewriteMode, RewriteLength } from '@/types/leksis'
 
 export async function POST(req: NextRequest) {
@@ -20,7 +21,6 @@ export async function POST(req: NextRequest) {
     mode: RewriteMode
     tone?: string
     length?: RewriteLength
-    glossaryClause?: string
     sourceLang?: string
   }
 
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
   }
 
-  const { text, mode, tone, length, glossaryClause, sourceLang } = body
+  const { text, mode, tone, length, sourceLang } = body
 
   const { maxTextChars } = await getDynamicLimits()
   const validationError = validateTextInput(text, maxTextChars)
@@ -55,6 +55,18 @@ export async function POST(req: NextRequest) {
     toneInstruction = matched.instruction
   }
 
+  const [cfg, session] = await Promise.all([getOllamaConfig(), auth()])
+
+  // Fetch glossary server-side — rewrite is same-language, so only use "any → any" entries
+  const glossaryEntries = await fetchGlossaryEntries(
+    session?.user?.id,
+    '',
+    '',
+    text,
+    true, // nullLangOnly: only brand/product names that apply regardless of language
+  )
+  const glossaryClause = buildRewriteGlossaryClause(glossaryEntries)
+
   const { system, prompt } = mode === 'correct'
     ? buildCorrectPrompt({ langClause, glossaryClause, text })
     : buildRewritePrompt({
@@ -64,8 +76,6 @@ export async function POST(req: NextRequest) {
         glossaryClause,
         text,
       })
-
-  const [cfg, session] = await Promise.all([getOllamaConfig(), auth()])
 
   logUsage({
     userId:    session?.user?.id,

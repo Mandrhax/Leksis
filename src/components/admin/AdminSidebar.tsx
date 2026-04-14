@@ -18,10 +18,11 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
   ]
 
   const BOTTOM_ITEMS = [
-    { href: '/admin/users',  icon: 'group',           label: t.adminSidebar.navUsers  },
-    { href: '/admin/usage',  icon: 'bar_chart',       label: t.adminSidebar.navUsage  },
-    { href: '/admin/audit',  icon: 'manage_history',  label: t.adminSidebar.navAudit  },
-    { href: '/admin/backup', icon: 'cloud_download',  label: t.adminSidebar.navBackup },
+    { href: '/admin/users',     icon: 'group',           label: t.adminSidebar.navUsers    },
+    { href: '/admin/glossary',  icon: 'menu_book',       label: t.adminSidebar.navGlossary },
+    { href: '/admin/usage',     icon: 'bar_chart',       label: t.adminSidebar.navUsage    },
+    { href: '/admin/audit',     icon: 'manage_history',  label: t.adminSidebar.navAudit    },
+    { href: '/admin/backup',    icon: 'cloud_download',  label: t.adminSidebar.navBackup   },
   ]
 
   const servicesActive = pathname.startsWith('/admin/services')

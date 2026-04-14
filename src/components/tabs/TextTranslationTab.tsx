@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import { LANGUAGES, detectLanguage } from '@/lib/languages'
-import { getGlossary, buildTranslationGlossaryClause } from '@/lib/glossary'
 import { TEXT_MAX_CHARS } from '@/lib/validators'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
@@ -77,8 +76,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
     setError(null)
     setOutputText('')
 
-    const effectiveSrc   = src ?? detected
-    const glossaryClause = buildTranslationGlossaryClause(getGlossary(), text)
+    const effectiveSrc = src ?? detected
 
     try {
       const res = await fetch('/api/translate', {
@@ -91,7 +89,6 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
           targetLang: tgt.name,
           targetCode: tgt.code,
           formality: isFormalityActive(src, detected) ? fmt : null,
-          glossaryClause,
         }),
         signal: controller.signal,
       })

@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { detectLanguage } from '@/lib/languages'
-import { getGlossary, buildRewriteGlossaryClause } from '@/lib/glossary'
 import { TEXT_MAX_CHARS } from '@/lib/validators'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
@@ -68,8 +67,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
     setOutputText('')
     setAppliedMode(null)
 
-    const detectedLang   = detectLanguage(text)
-    const glossaryClause = buildRewriteGlossaryClause(getGlossary(), text)
+    const detectedLang = detectLanguage(text)
 
     try {
       const res = await fetch('/api/rewrite', {
@@ -80,7 +78,6 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
           mode: m,
           tone: tn,
           length: l,
-          glossaryClause,
           sourceLang: detectedLang?.name,
         }),
         signal: controller.signal,

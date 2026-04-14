@@ -27,6 +27,18 @@ export type RewriteLength = 'Shorter' | 'Keep' | 'Longer'
 export type RewriteMode = 'rewrite' | 'correct'
 
 export type GlossaryEntry = {
+  id: number
+  glossaryId: number
   source: string
   target: string
+  sourceLang: string | null  // null = any language
+  targetLang: string | null  // null = any language
+}
+
+export type Glossary = {
+  id: number
+  name: string
+  description: string | null
+  entryCount: number
+  createdAt: string
 }

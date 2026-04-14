@@ -8,6 +8,7 @@ import { getDynamicLimits } from '@/lib/limits'
 import { logUsage } from '@/lib/usage'
 import { isFeatureEnabled } from '@/lib/features-guard'
 import { auth } from '@/auth'
+import { fetchGlossaryEntries, buildTranslationGlossaryClause } from '@/lib/glossary'
 import type { Formality } from '@/types/leksis'
 
 export async function POST(req: NextRequest) {
@@ -21,7 +22,6 @@ export async function POST(req: NextRequest) {
     targetLang: string
     targetCode: string
     formality?: Formality | null
-    glossaryClause?: string
     markdownMode?: boolean
   }
 
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
   }
 
-  const { text, sourceLang, sourceCode, targetLang, targetCode, formality, glossaryClause, markdownMode } = body
+  const { text, sourceLang, sourceCode, targetLang, targetCode, formality, markdownMode } = body
 
   const { maxTextChars } = await getDynamicLimits()
   const validationError = validateTextInput(text, maxTextChars)
@@ -42,6 +42,17 @@ export async function POST(req: NextRequest) {
   if (!targetLang || !targetCode) {
     return NextResponse.json({ error: 'Target language is required.' }, { status: 400 })
   }
+
+  const [cfg, session] = await Promise.all([getOllamaConfig(), auth()])
+
+  // Fetch glossary server-side (respects user preferences)
+  const glossaryEntries = await fetchGlossaryEntries(
+    session?.user?.id,
+    sourceCode || 'auto',
+    targetCode,
+    text,
+  )
+  const glossaryClause = buildTranslationGlossaryClause(glossaryEntries)
 
   const prompt = markdownMode
     ? buildMarkdownTranslationPrompt({ sourceLang: sourceLang || 'Unknown', targetLang, text })
@@ -54,8 +65,6 @@ export async function POST(req: NextRequest) {
         glossaryClause,
         text,
       })
-
-  const [cfg, session] = await Promise.all([getOllamaConfig(), auth()])
 
   logUsage({
     userId:    session?.user?.id,
