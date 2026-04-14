@@ -131,10 +131,17 @@ src/
 │   │   ├── site-assets/[filename]/route.ts (Sert logo et bg image depuis /tmp/uploads)
 │   │   ├── auth/otp/route.ts            (Génère et retourne le code OTP)
 │   │   ├── auth/[...nextauth]/route.ts  (Handler NextAuth)
+│   │   ├── user/
+│   │   │   └── glossary-prefs/route.ts  (GET préférences glossaires user + PATCH toggle)
 │   │   └── admin/
 │   │       ├── audit/route.ts           (Journal d'audit paginé)
 │   │       ├── audit/purge/route.ts     (Suppression entrées avant date)
 │   │       ├── background/route.ts      (Mise à jour image de fond)
+│   │       ├── glossary/route.ts        (Liste glossaires GET + création POST)
+│   │       ├── glossary/[id]/route.ts   (Suppression glossaire DELETE)
+│   │       ├── glossary/[id]/entries/route.ts        (Liste + ajout entrées GET/POST)
+│   │       ├── glossary/[id]/entries/[eid]/route.ts  (Suppression entrée DELETE)
+│   │       ├── glossary/[id]/import/route.ts         (Import CSV POST)
 │   │       ├── logo/route.ts            (Upload/suppression du logo)
 │   │       ├── services/route.ts        (Config Ollama + PostgreSQL GET/PATCH)
 │   │       ├── services/ollama/test/route.ts    (Test connexion Ollama)
@@ -156,6 +163,7 @@ src/
 │   │   ├── services/page.tsx            (redirect → /admin/services/ai)
 │   │   ├── services/ai/page.tsx         (AdminPageHeader "servicesAi" + grille [2fr_3fr] : ServicesPanel | OllamaMetrics)
 │   │   ├── services/db/page.tsx         (AdminPageHeader "servicesDb" + grille [2fr_3fr] : ServicesPanel | DbMetrics)
+│   │   ├── glossary/page.tsx            (AdminPageHeader "glossary" + GlossaryAdmin)
 │   │   ├── users/page.tsx               (AdminPageHeader + UserList)
 │   │   ├── usage/page.tsx               (AdminPageHeader + UsagePanel)
 │   │   ├── audit/page.tsx               (AdminPageHeader + AuditTable)
@@ -165,7 +173,7 @@ src/
 │   ├── maintenance/
 │   │   └── page.tsx                     (Page maintenance — affichée si maintenanceMode actif)
 │   ├── settings/
-│   │   └── page.tsx                     (I18nProvider + profil + session)
+│   │   └── page.tsx                     (I18nProvider + profil + toggles glossaires + session)
 │   ├── globals.css                      (Tailwind v4 @theme + classes CSS custom)
 │   ├── layout.tsx                       (Fonts, Material Symbols, Bootstrap Icons CDN)
 │   └── page.tsx                         (Workspace — tabs centrés)
@@ -181,12 +189,11 @@ src/
 │   │   ├── HomeClient.tsx               (I18nProvider wrapper + HomeWorkspace interne)
 │   │   ├── AccountMenu.tsx              (Menu utilisateur — positionné par HomeClient)
 │   │   ├── UILanguageSwitcher.tsx       (Switcher EN/DE/FR/IT avec drapeaux SVG inline)
-│   │   ├── LanguageDropdown.tsx         (Liste alphabétique unifiée, favoris, portal fixe)
-│   │   └── GlossaryPanel.tsx            (Slide-in, add/remove/import/export CSV)
+│   │   └── LanguageDropdown.tsx         (Liste alphabétique unifiée, favoris, portal fixe)
 │   └── admin/
 │       ├── AdminClientLayout.tsx        (Fournit I18nProvider aux composants admin)
-│       ├── AdminPageHeader.tsx          (Titre + description traduits, section= : settings|servicesAi|servicesDb|users|usage|audit|backup)
-│       ├── AdminSidebar.tsx             (Navigation admin — Settings, Services [en-tête] > AI + Database, Users, Usage, Audit, Backup)
+│       ├── AdminPageHeader.tsx          (Titre + description traduits, section= : settings|servicesAi|servicesDb|glossary|users|usage|audit|backup)
+│       ├── AdminSidebar.tsx             (Navigation admin — Settings, Services [en-tête] > AI + Database, Glossary, Users, Usage, Audit, Backup)
 │       ├── AdminToast.tsx               (Composant toast + type ToastState)
 │       ├── AdminToastWrapper.tsx        (Wrapper de positionnement du toast)
 │       ├── SettingsTabs.tsx             (Onglets Identité/Interface/Fonctionnalités/Tonalités/Accès — sous-blocs en grille lg:grid-cols-2)
@@ -201,6 +208,7 @@ src/
 │       ├── DbServiceForm.tsx            (Config PostgreSQL, test connexion)
 │       ├── OllamaMetrics.tsx            (Métriques Ollama live : statut, modèles installés, modèles en mémoire + Unload)
 │       ├── DbMetrics.tsx                (Métriques PostgreSQL live : statut serveur, connexions, tables application)
+│       ├── GlossaryAdmin.tsx            (CRUD glossaires nommés + entrées avec paires de langues + import CSV)
 │       ├── UserList.tsx                 (Tableau utilisateurs, toggle rôle admin)
 │       ├── UsagePanel.tsx               (Stats IA filtrées par date, export CSV)
 │       ├── AuditTable.tsx               (Journal d'audit paginé)
@@ -224,7 +232,7 @@ src/
 │   ├── pdf-vision.ts                    (SERVER-ONLY: parsePdfWithVision — OCR via Ollama vision)
 │   ├── validators.ts                    (Limites: text=5000, doc=12000, image=10MB + validateFileExtension)
 │   ├── languages.ts                     (LANGUAGES[] triés BCP47 + detectLanguage())
-│   ├── glossary.ts                      (buildTranslationGlossaryClause, buildRewriteGlossaryClause, CSV)
+│   ├── glossary.ts                      (SERVER-ONLY: fetchGlossaryEntries, buildTranslationGlossaryClause, buildRewriteGlossaryClause, parseGlossaryCSV)
 │   ├── settings.ts                      (SERVER-ONLY: getSetting, updateSetting, getAllSettings)
 │   ├── db.ts                            (SERVER-ONLY: pool PostgreSQL + query() helper)
 │   ├── admin-guard.ts                   (SERVER-ONLY: requireAdmin, getAdminSession)
@@ -237,7 +245,7 @@ src/
 │   └── color-utils.ts                   (buildColorVars — génère variables CSS couleur depuis settings)
 │
 └── types/
-    ├── leksis.ts                        (Language, Block, Formality, RewriteTone, RewriteLength, ToneConfig, etc.)
+    ├── leksis.ts                        (Language, Block, Formality, RewriteTone, RewriteLength, ToneConfig, Glossary, GlossaryEntry, etc.)
     └── next-auth.d.ts                   (Extension Session + JWT pour next-auth)
 ```
 
@@ -276,7 +284,7 @@ Les composants appelant `useI18n()` doivent être enfants d'un `I18nProvider`.
 
 ### Espaces de noms définis
 
-`home`, `account`, `textTab`, `docTab`, `imgTab`, `rewriteTab`, `langDropdown`, `glossary`, `langSwitcher`, `settingsPage`, `adminSidebar`, `adminPages`, `settingsTabs`, `brandingForm`, `designForm`, `featuresForm`, `tonesForm`, `generalForm`, `ollamaForm`, `dbForm`, `userList`, `usagePanel`, `auditTable`, `purgeButton`, `backupForm`, `signIn`
+`home`, `account`, `textTab`, `docTab`, `imgTab`, `rewriteTab`, `langDropdown`, `langSwitcher`, `settingsPage`, `adminSidebar`, `adminPages`, `settingsTabs`, `brandingForm`, `designForm`, `featuresForm`, `tonesForm`, `generalForm`, `ollamaForm`, `dbForm`, `glossaryAdmin`, `userList`, `usagePanel`, `auditTable`, `purgeButton`, `backupForm`, `signIn`
 
 ---
 
@@ -393,6 +401,13 @@ Flux local :
 - Les valeurs envoyées à l'API (id de ton, longueurs, features) restent des slugs stables — seul l'affichage est traduit via `labels[locale]`
 - Les tons de réécriture sont dans `site_settings` (clé `rewrite_tones`, JSONB array). `src/lib/tones.ts` gère les défauts et la migration backward compat (`label: string` → `labels: { en }`)
 - `ToneConfig.labels` : `en` requis, `fr`, `de` et `it` optionnels avec fallback sur `en`
+- Le glossaire est **centralisé en base de données** (tables `glossaries`, `glossary_entries`, `user_glossary_prefs`) — plus de localStorage
+- `src/lib/glossary.ts` est **server-only** : `fetchGlossaryEntries()` lit la DB et respecte les préférences utilisateur
+- L'injection du glossaire dans les prompts est **exclusivement server-side** (routes `/api/translate` et `/api/rewrite`) — le client n'envoie jamais de `glossaryClause`
+- Chaque entrée de glossaire a `source_lang` / `target_lang` (code BCP47 ou NULL = toutes les langues). Pour la réécriture (même langue), seules les entrées NULL+NULL sont injectées
+- Convention `user_glossary_prefs` : une ligne n'existe que si `enabled = FALSE` — absence de ligne = glossaire activé par défaut
+- Format CSV d'import glossaire : `source,target,source_lang,target_lang` (cols lang optionnelles, vide = toutes langues)
+- Migration DB : `scripts/migrate-glossary.sql` pour les installations existantes, `docker/init-schema.sql` pour les nouveaux déploiements Docker
 - Priorité : robustesse, lisibilité, maintenabilité
 - Les messages de commit git doivent toujours être **en anglais**
 
