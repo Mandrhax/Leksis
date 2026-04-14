@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import type { Metadata } from 'next'
 import { Inter, Manrope } from 'next/font/google'
 import { SessionProvider } from 'next-auth/react'
+import 'bootstrap-icons/font/bootstrap-icons.css'
 import { auth } from '@/auth'
 import { GlobalBanner } from '@/components/GlobalBanner'
 import { buildColorVars } from '@/lib/color-utils'
@@ -97,16 +98,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Anti-flash : lit localStorage avant le premier paint pour éviter le scintillement */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var d=localStorage.getItem('leksisDarkMode');if(d!==null){var e=document.documentElement;if(d==='true'){e.classList.add('dark');e.classList.remove('light');}else{e.classList.remove('dark');e.classList.add('light');}}}catch(ex){}})();` }} />
         <style dangerouslySetInnerHTML={{ __html: `:root{${cssVarsString}}` }} />
-        {/* Material Symbols (icons) */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-          rel="stylesheet"
-        />
-        {/* Bootstrap Icons (file type icons in Document Studio) */}
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-        />
+        {/* Material Symbols + Bootstrap Icons : self-hébergés (next/font + npm) — pas de CDN tiers */}
       </head>
       <body
         className="antialiased font-body selection:bg-primary-container bg-background text-on-background min-h-screen"
