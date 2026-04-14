@@ -89,8 +89,8 @@ export function FeaturesForm({ initial, onToast }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
 
       {/* Section A — Modules actifs */}
       <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
@@ -132,7 +132,7 @@ export function FeaturesForm({ initial, onToast }: Props) {
       </div>
 
       {/* Section B + C stacked in right column */}
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
         {/* Section B — Langues par défaut */}
         <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
           <div>
