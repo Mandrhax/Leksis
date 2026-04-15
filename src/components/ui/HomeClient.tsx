@@ -7,6 +7,7 @@ import { ImageExtractionTab }   from '@/components/tabs/ImageExtractionTab'
 import { AIRewriteTab }         from '@/components/tabs/AIRewriteTab'
 import { AccountMenu }          from '@/components/ui/AccountMenu'
 import { UILanguageSwitcher }   from '@/components/ui/UILanguageSwitcher'
+import { HelpModal }            from '@/components/ui/HelpModal'
 import { I18nProvider, useI18n } from '@/lib/i18n'
 import { FR_QUOTES } from '@/lib/fr-quotes'
 import type { ToneConfig } from '@/types/leksis'
@@ -56,6 +57,7 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
 
   const [activeTab, setActiveTab] = useState<TabId>(() => visibleTabs[0]?.id ?? 'text')
   const [logoVisible, setLogoVisible] = useState(true)
+  const [helpOpen, setHelpOpen] = useState(false)
   const [randomQuote] = useState(() => FR_QUOTES[Math.floor(Math.random() * FR_QUOTES.length)])
 
   // Si l'onglet actif est désactivé (rechargement dynamique), revenir au premier
@@ -104,8 +106,15 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
           ))}
         </div>
 
-        {/* Right controls: UI language switcher + account menu */}
+        {/* Right controls: help + UI language switcher + account menu */}
         <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          <button
+            className="icon-btn"
+            onClick={() => setHelpOpen(true)}
+            aria-label={t.helpModal.title}
+          >
+            <span className="material-symbols-outlined">help</span>
+          </button>
           <UILanguageSwitcher />
           <AccountMenu />
         </div>
@@ -120,6 +129,8 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
           {safeActiveTab === 'rewrite'  && <AIRewriteTab maxTextChars={maxTextChars} configuredTones={configuredTones} />}
         </div>
       </main>
+
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} activeTab={safeActiveTab} />
 
       {/* ── Footer ── */}
       {(footerText || footerLinks.length > 0 || locale === 'fr') && (

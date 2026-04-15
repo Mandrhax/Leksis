@@ -473,6 +473,50 @@ export const messages = {
     errorGeneric:   'Error generating the code.',
     errorInvalid:   'Incorrect or expired code. Please try again.',
   },
+  helpModal: {
+    title: 'Help & Tips',
+    tabs: {
+      text:      'Text',
+      documents: 'Documents',
+      ocr:       'Image OCR',
+      rewrite:   'AI Rewrite',
+    },
+    text: {
+      howTitle:  'How it works',
+      how:       'Type or paste text in the left panel. Leksis auto-detects the language and translates in real time.',
+      tipsTitle: 'Tips',
+      tip1:      'Use the ⇄ swap button to invert source and target languages instantly.',
+      tip2:      'Formality (Informal / Formal) is available when the source language is English.',
+      tip3:      'Click the copy icon to copy the translation to your clipboard.',
+    },
+    documents: {
+      howTitle:     'How it works',
+      how:          'Upload a file (drag & drop or click). Leksis extracts the text and translates it segment by segment, preserving the structure.',
+      formatsTitle: 'Supported formats',
+      formats:      'PDF, DOCX, TXT, CSV',
+      tipsTitle:    'Tips',
+      tip1:         'Large documents may take a few moments to process.',
+      tip2:         'Tables and headings are preserved as closely as possible in the translated output.',
+    },
+    ocr: {
+      howTitle:  'How it works',
+      how:       'Upload an image (photo, screenshot, scan). Leksis extracts the visible text using AI vision.',
+      tipsTitle: 'Tips',
+      tip1:      'Enable \u201cExtract & Translate\u201d to also translate the extracted text in one step.',
+      tip2:      'Tables in images are converted to Markdown format.',
+      tip3:      'Maximum image size: 10\u00a0MB. Best results with clear, well-lit images.',
+    },
+    rewrite: {
+      howTitle:    'How it works',
+      how:         'Paste your text, choose a tone and a target length, then click Rewrite or Correct Only.',
+      modesTitle:  'Modes',
+      modeRewrite: 'Rewrite \u2014 Reformulates the text in the chosen tone.',
+      modeCorrect: 'Correct only \u2014 Fixes grammar and spelling without changing the style.',
+      tipsTitle:   'Tips',
+      tip1:        'Different tones produce very different results \u2014 try several to find the right fit.',
+      tip2:        'Use \u201cCorrect only\u201d for proofreading without altering the voice of the text.',
+    },
+  },
 } as const
 
 type DeepString<T> = { -readonly [K in keyof T]: T[K] extends object ? DeepString<T[K]> : string }
