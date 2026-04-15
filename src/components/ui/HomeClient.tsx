@@ -8,6 +8,7 @@ import { AIRewriteTab }         from '@/components/tabs/AIRewriteTab'
 import { AccountMenu }          from '@/components/ui/AccountMenu'
 import { UILanguageSwitcher }   from '@/components/ui/UILanguageSwitcher'
 import { I18nProvider, useI18n } from '@/lib/i18n'
+import { FR_QUOTES } from '@/lib/fr-quotes'
 import type { ToneConfig } from '@/types/leksis'
 
 type TabId = 'text' | 'document' | 'image' | 'rewrite'
@@ -42,7 +43,7 @@ export function HomeClient(props: Props) {
 }
 
 function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, maxTextChars, configuredTones }: Props) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
 
   const ALL_TABS: { id: TabId; label: string; icon: string }[] = [
     { id: 'text',     label: t.home.tabText,     icon: 'translate'     },
@@ -55,6 +56,7 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
 
   const [activeTab, setActiveTab] = useState<TabId>(() => visibleTabs[0]?.id ?? 'text')
   const [logoVisible, setLogoVisible] = useState(true)
+  const [randomQuote] = useState(() => FR_QUOTES[Math.floor(Math.random() * FR_QUOTES.length)])
 
   // Si l'onglet actif est désactivé (rechargement dynamique), revenir au premier
   const safeActiveTab = enabledTabs[activeTab] ? activeTab : (visibleTabs[0]?.id ?? 'text')
@@ -120,9 +122,14 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
       </main>
 
       {/* ── Footer ── */}
-      {(footerText || footerLinks.length > 0) && (
+      {(footerText || footerLinks.length > 0 || locale === 'fr') && (
         <footer className="border-t border-outline-variant/10 px-6 md:px-8 py-4">
           <div className="flex flex-wrap items-center gap-3">
+            {locale === 'fr' && (
+              <p className="w-full text-center text-xs italic text-on-surface-variant/60">
+                {randomQuote}
+              </p>
+            )}
             {footerText && (
               <span
                 className="text-xs text-on-surface-variant"
