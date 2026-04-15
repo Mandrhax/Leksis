@@ -5,8 +5,9 @@ import { detectLanguage } from '@/lib/languages'
 import { TEXT_MAX_CHARS } from '@/lib/validators'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
+import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import type { Messages } from '@/locales/en'
-import type { RewriteMode, RewriteLength, ToneConfig } from '@/types/leksis'
+import type { RewriteMode, RewriteLength, ToneConfig, Language } from '@/types/leksis'
 
 const LENGTHS: RewriteLength[] = ['Shorter', 'Keep', 'Longer']
 
@@ -39,6 +40,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
 
   const [inputText, setInputText]   = useState('')
   const [outputText, setOutputText] = useState('')
+  const [sourceLang, setSourceLang] = useState<Language | null>(null)
   const [mode, setMode]     = useState<RewriteMode>('rewrite')
   const [tone, setTone]     = useState<string>(() => activeTones[0]?.id ?? 'professional')
   const [length, setLength] = useState<RewriteLength>('Keep')
@@ -73,7 +75,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
     setOutputText('')
     setAppliedMode(null)
 
-    const detectedLang = detectLanguage(text)
+    const resolvedLang = sourceLang ?? detectLanguage(text)
 
     try {
       const res = await fetch('/api/rewrite', {
@@ -84,7 +86,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
           mode: m,
           tone: tn,
           length: l,
-          sourceLang: detectedLang?.name,
+          sourceLang: resolvedLang?.name,
         }),
         signal: controller.signal,
       })
@@ -127,7 +129,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
         {/* Left — Input */}
         <div className="bg-surface-container-lowest p-8 flex flex-col h-[600px]">
           <div className="flex justify-between items-center mb-6">
-            <span className="text-xs font-bold text-on-surface-variant tracking-wider uppercase">{t.rewriteTab.autoDetect}</span>
+            <LanguageDropdown value={sourceLang} onChange={setSourceLang} includeAutoDetect variant="source" />
             <button onClick={handleClearInput} className="text-button">
               <span>{t.rewriteTab.clear}</span>
               <span className="material-symbols-outlined text-lg" aria-hidden="true">close</span>
