@@ -1073,6 +1073,15 @@ main() {
   # Install dialog TUI library if needed (apt / dnf / yum)
   ensure_dialog
 
+  # Fix box-drawing characters: force ncurses to use Unicode codepoints
+  # (U+2500…) instead of the terminal ACS escape sequences, which renders
+  # as raw letters (q, x, l, m…) when the terminal's ACS mapping is broken.
+  export NCURSES_NO_UTF8_ACS=1
+  # Ensure a UTF-8 locale so the Unicode box chars are encoded correctly.
+  if [[ "${LANG:-}" != *UTF-8* && "${LC_ALL:-}" != *UTF-8* ]]; then
+    export LANG=C.UTF-8
+  fi
+
   # Set globals now that dialog is available
   BACKTITLE="Leksis v${VERSION} — Deployment Tool"
   DIALOG_TMP=$(mktemp)
