@@ -88,7 +88,7 @@ Cette fonctionnalité **n'est pas une traduction**, mais une transformation du t
 - **zod** (validation des entrées dans les routes API admin)
 - **@napi-rs/canvas** (conversion PDF → PNG pour l'OCR vision)
 - **server-only** (protection des modules serveur)
-- À terme : Docker / Docker Compose (appliance)
+- Docker / Docker Compose (appliance on-premise)
 
 ---
 
@@ -375,6 +375,46 @@ Tous les prompts sont dans `src/lib/prompts.ts` :
 - Mots de passe DB chiffrés AES-256-GCM via `src/lib/crypto.ts` avant stockage en base
 - Admin protégé par `requireAdmin()` dans chaque page et route admin
 - Logs d'audit fire-and-forget via `src/lib/audit.ts`
+
+---
+
+## 🚀 Script de déploiement (`install.sh`)
+
+Le script `install.sh` à la racine du projet gère le cycle de vie complet de l'appliance on-premise.
+
+### Interface TUI
+
+- Utilise **`dialog`** pour une interface plein-écran dans le terminal
+- `dialog` est **installé automatiquement** au démarrage si absent (`apt-get` / `dnf` / `yum`)
+- Rendu : `NCURSES_NO_UTF8_ACS=1` + `LANG=C.UTF-8` pour les caractères box-drawing Unicode (─ │ ┌ └…). Fallback `--ascii-lines` automatique si `TERM=linux` ou `TERM=dumb`
+- Tous les appels `dialog` utilisent `</dev/tty >/dev/tty` pour garantir le rendu même en sous-shell (`$(...)`)
+
+### Commandes disponibles
+
+| Commande | Description |
+|----------|-------------|
+| `install` | Installation guidée (5 formulaires `--form` + build Docker) |
+| `update` | Mise à jour sélective via `--checklist` |
+| `uninstall` | Suppression complète avec confirmation `DELETE` |
+| `status` | État des services, GPU, modèles, volumes dans un `--textbox` |
+| `config` | Édition des variables `.env` via `--form` (8 champs) |
+| `logs` | Streaming des logs via `--programbox` |
+
+### Architecture interne
+
+- **Wrappers dialog** : `d_input`, `d_yesno`, `d_password`, `d_msg`, `d_info` — ne jamais appeler `dialog` directement depuis les commandes
+- **`DIALOG_TMP`** : fichier temp global (mktemp) pour capturer les sorties dialog — ne pas utiliser `$()` pour capturer `dialog`, toujours lire `$DIALOG_TMP` après l'appel
+- **`BACKTITLE`** : titre global affiché dans toutes les fenêtres dialog
+- Opérations longues (build Docker, pull modèles, git clone) → `--programbox` avec pipe
+- Aperçu `.env` avant écriture → `--textbox` sur fichier tmp avec secrets masqués
+
+### Règles pour modifier install.sh
+
+- Toujours passer par les wrappers `d_*` — ne jamais appeler `dialog` directement dans les fonctions `cmd_*`
+- Ajouter `</dev/tty >/dev/tty` sur tout nouveau appel `dialog` dans les wrappers
+- Parser la sortie `--form` avec `mapfile -t _f < "$DIALOG_TMP"` (ordre des champs = ordre de déclaration)
+- Parser la sortie `--checklist` avec `tr -d '"'` puis `IFS=' ' read -ra arr`
+- Ne jamais supprimer `NCURSES_NO_UTF8_ACS=1` ni le fallback `--ascii-lines`
 
 ---
 
