@@ -66,9 +66,14 @@ ensure_dialog() {
 # ── dialog wrappers ───────────────────────────────────────────
 
 # d_input "title" "prompt" "default"  →  echoes value; exit 1 on Cancel
+#
+# </dev/tty >/dev/tty forces dialog to render on the real terminal even when
+# called inside a command substitution $(...) — without this, ncurses can fail
+# to initialise and the script appears to block.
 d_input() {
   dialog --backtitle "$BACKTITLE" --title "$1" \
-         --inputbox "$2" 0 74 "$3" 2>"$DIALOG_TMP" || return 1
+         --inputbox "$2" 0 74 "$3" \
+         </dev/tty >/dev/tty 2>"$DIALOG_TMP" || return 1
   cat "$DIALOG_TMP"
 }
 
@@ -76,7 +81,9 @@ d_input() {
 d_yesno() {
   local _args=()
   [[ "${3:-yes}" == "no" ]] && _args+=("--defaultno")
-  dialog --backtitle "$BACKTITLE" "${_args[@]}" --title "$1" --yesno "$2" 0 74
+  dialog --backtitle "$BACKTITLE" "${_args[@]}" --title "$1" \
+         --yesno "$2" 0 74 \
+         </dev/tty >/dev/tty
 }
 
 # d_password "title" "prompt"  →  echoes password; exit 1 on Cancel
@@ -84,11 +91,13 @@ d_password() {
   local _p1 _p2
   while true; do
     dialog --backtitle "$BACKTITLE" --title "$1" \
-           --passwordbox "$2" 8 62 2>"$DIALOG_TMP" || return 1
+           --passwordbox "$2" 8 62 \
+           </dev/tty >/dev/tty 2>"$DIALOG_TMP" || return 1
     _p1=$(cat "$DIALOG_TMP")
     if [[ -z "$_p1" ]]; then echo ""; return 0; fi
     dialog --backtitle "$BACKTITLE" --title "$1" \
-           --passwordbox "Confirm password:" 8 62 2>"$DIALOG_TMP" || return 1
+           --passwordbox "Confirm password:" 8 62 \
+           </dev/tty >/dev/tty 2>"$DIALOG_TMP" || return 1
     _p2=$(cat "$DIALOG_TMP")
     if [[ "$_p1" == "$_p2" ]]; then echo "$_p1"; return 0; fi
     d_msg "Error" "Passwords do not match. Try again."
@@ -97,12 +106,16 @@ d_password() {
 
 # d_msg "title" "message"  —  message box with OK button
 d_msg() {
-  dialog --backtitle "$BACKTITLE" --title "$1" --msgbox "$2" 0 74
+  dialog --backtitle "$BACKTITLE" --title "$1" \
+         --msgbox "$2" 0 74 \
+         </dev/tty >/dev/tty
 }
 
 # d_info "message"  —  non-blocking status (no button, auto-replaced by next dialog)
 d_info() {
-  dialog --backtitle "$BACKTITLE" --title "Please wait…" --infobox "$1" 5 74
+  dialog --backtitle "$BACKTITLE" --title "Please wait…" \
+         --infobox "$1" 5 74 \
+         </dev/tty >/dev/tty
 }
 
 # ── Validation helpers ────────────────────────────────────────
