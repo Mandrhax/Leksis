@@ -1081,6 +1081,11 @@ main() {
   if [[ "${LANG:-}" != *UTF-8* && "${LC_ALL:-}" != *UTF-8* ]]; then
     export LANG=C.UTF-8
   fi
+  # Fallback: if the terminal still can't render Unicode box-drawing chars,
+  # use ASCII-only borders (+, -, |) which always render correctly.
+  if [[ "${TERM:-}" == "linux" || "${TERM:-}" == "dumb" ]]; then
+    export DIALOGOPTS="${DIALOGOPTS:+$DIALOGOPTS }--ascii-lines"
+  fi
 
   # Set globals now that dialog is available
   BACKTITLE="Leksis v${VERSION} — Deployment Tool"
