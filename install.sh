@@ -990,8 +990,9 @@ show_menu() {
     echo "  6) logs       Tail service logs"
     echo "  0) exit"
     echo "------------------------------------------------------------"
+    printf '  Choice: ' >/dev/tty
     local choice
-    choice=$(p_input "Choice" "")
+    read -r choice </dev/tty
     case "$choice" in
       1|install)   cmd_install ;;
       2|update)    cmd_update ;;
