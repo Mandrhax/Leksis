@@ -253,20 +253,27 @@ _install_nvidia_driver() {
 
   local nouveau_conf="/etc/modprobe.d/blacklist-nouveau.conf"
   if [[ ! -f "$nouveau_conf" ]]; then
+    p_info "Blacklisting nouveau driver..."
     tee "$nouveau_conf" >/dev/null <<'EOF'
 blacklist nouveau
 options nouveau modeset=0
 EOF
     update-initramfs -u >/dev/null 2>&1 || true
+    echo ""
+    p_warn "Nouveau has been blacklisted. A reboot is required to unload it."
+    p_warn "Please reboot now and re-run the installer:"
+    p_warn "  sudo reboot"
+    echo ""
+    exit 0
   fi
 
-  if lsmod | grep -q "^nouveau "; then
+  # After reboot: confirm nouveau is fully unloaded (lsmod + sysfs)
+  if lsmod | grep -q "nouveau" || ls /sys/bus/pci/drivers/nouveau/ 2>/dev/null | grep -q "."; then
     echo ""
-    p_warn "The nouveau driver is currently active."
-    p_warn "The system must be rebooted before NVIDIA drivers can be installed."
-    p_warn "Please reboot and re-run install.sh:"
+    p_warn "The nouveau driver is still active after reboot."
+    p_warn "Please reboot again and re-run the installer:"
     p_warn "  sudo reboot"
-    p_warn "  sudo ./install.sh"
+    echo ""
     exit 0
   fi
 
