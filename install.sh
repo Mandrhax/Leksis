@@ -75,7 +75,7 @@ p_yesno() {
   local question="$1" default="${2:-y}" answer hint
   [[ "$default" == "y" ]] && hint="[Y/n]" || hint="[y/N]"
   while true; do
-    printf '  %s %s: ' "$question" "$hint"
+    printf '  %s %s: ' "$question" "$hint" >/dev/tty
     read -r answer </dev/tty
     answer="${answer:-$default}"
     case "${answer,,}" in
@@ -90,11 +90,11 @@ p_yesno() {
 p_password() {
   local p1 p2
   while true; do
-    printf '  %s (empty = auto-generate): ' "$1"
-    read -rs p1 </dev/tty; echo
+    printf '  %s (empty = auto-generate): ' "$1" >/dev/tty
+    read -rs p1 </dev/tty; echo >/dev/tty
     if [[ -z "$p1" ]]; then printf '%s' ""; return 0; fi
-    printf '  Confirm password: '
-    read -rs p2 </dev/tty; echo
+    printf '  Confirm password: ' >/dev/tty
+    read -rs p2 </dev/tty; echo >/dev/tty
     if [[ "$p1" == "$p2" ]]; then printf '%s' "$p1"; return 0; fi
     p_warn "Passwords do not match. Try again."
   done
