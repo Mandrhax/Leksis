@@ -835,8 +835,15 @@ cmd_uninstall() {
   fi
 
   # Volume info
-  local _vol_info; _vol_info=$(show_volumes_info "$INSTALL_DIR" 2>/dev/null || echo "  (unavailable)")
-  d_msg "Volume Disk Usage" "Current data volumes:\n\n${_vol_info}"
+  local _tmp_vol; _tmp_vol=$(mktemp)
+  {
+    printf "Current data volumes:\n\n"
+    show_volumes_info "$INSTALL_DIR" 2>/dev/null || printf "  (unavailable)\n"
+  } > "$_tmp_vol"
+  dialog --backtitle "$BACKTITLE" --title "Volume Disk Usage" \
+         --textbox "$_tmp_vol" 12 74 \
+         </dev/tty >/dev/tty || true
+  rm -f "$_tmp_vol"
 
   # Optional pre-uninstall backup
   if d_yesno "Pre-Uninstall Backup" \
