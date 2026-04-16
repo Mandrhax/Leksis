@@ -180,27 +180,50 @@ detect_gpu() {
   GPU_VENDOR=""
   GPU_NAME=""
 
+  # 1. lspci: scan ALL lines for vendor keywords (not just VGA/3D controller class)
   if command -v lspci &>/dev/null; then
-    local line
-    line=$(lspci | grep -iE "vga|3d controller|display controller" | head -1 || true)
-    if   echo "$line" | grep -qi "nvidia";                      then GPU_VENDOR="nvidia"
-    elif echo "$line" | grep -qi "amd\|radeon\|advanced micro"; then GPU_VENDOR="amd"
-    elif echo "$line" | grep -qi "intel";                       then GPU_VENDOR="intel"
-    fi
-    GPU_NAME=$(echo "$line" | sed 's/.*: //')
-  fi
-
-  if [[ -z "$GPU_VENDOR" ]]; then
-    if command -v nvidia-smi &>/dev/null \
-        && nvidia-smi --query-gpu=name --format=csv,noheader &>/dev/null 2>&1; then
+    local nvidia_line amd_line
+    nvidia_line=$(lspci | grep -i "nvidia" | head -1 || true)
+    amd_line=$(lspci | grep -iE "amd|radeon|advanced micro" | grep -iE "vga|3d|display|gpu" | head -1 || true)
+    if [[ -n "$nvidia_line" ]]; then
       GPU_VENDOR="nvidia"
-      GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1 || true)
-    elif command -v rocm-smi &>/dev/null; then
+      GPU_NAME=$(echo "$nvidia_line" | sed 's/.*\[//' | sed 's/\].*//' || echo "$nvidia_line" | sed 's/.*: //')
+    elif [[ -n "$amd_line" ]]; then
       GPU_VENDOR="amd"
+      GPU_NAME=$(echo "$amd_line" | sed 's/.*: //')
     fi
   fi
 
-  # Intel GPU: experimental SYCL only -- fall back to CPU
+  # 2. nvidia-smi (works if driver already installed, even without lspci)
+  if [[ -z "$GPU_VENDOR" ]] && command -v nvidia-smi &>/dev/null \
+      && nvidia-smi --query-gpu=name --format=csv,noheader &>/dev/null 2>&1; then
+    GPU_VENDOR="nvidia"
+    GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1 || true)
+  fi
+
+  # 3. /dev/nvidia0 device node (driver loaded but nvidia-smi not in PATH)
+  if [[ -z "$GPU_VENDOR" ]] && [[ -e /dev/nvidia0 ]]; then
+    GPU_VENDOR="nvidia"
+    GPU_NAME="NVIDIA GPU"
+  fi
+
+  # 4. lsmod (kernel module loaded)
+  if [[ -z "$GPU_VENDOR" ]] && command -v lsmod &>/dev/null; then
+    if lsmod | grep -q "^nvidia "; then
+      GPU_VENDOR="nvidia"
+      GPU_NAME="NVIDIA GPU"
+    elif lsmod | grep -q "^amdgpu "; then
+      GPU_VENDOR="amd"
+      GPU_NAME="AMD GPU"
+    fi
+  fi
+
+  # 5. rocm-smi
+  if [[ -z "$GPU_VENDOR" ]] && command -v rocm-smi &>/dev/null; then
+    GPU_VENDOR="amd"
+  fi
+
+  # Intel GPU: experimental SYCL only — fall back to CPU
   if [[ "$GPU_VENDOR" == "intel" ]]; then
     GPU_VENDOR=""
     GPU_NAME=""
