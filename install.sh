@@ -152,7 +152,7 @@ check_root() {
 # ── Dependency checks ─────────────────────────────────────────
 check_deps() {
   local missing=()
-  for dep in docker git openssl curl; do
+  for dep in docker git openssl curl pciutils; do
     command -v "$dep" &>/dev/null || missing+=("$dep")
   done
   if ! docker compose version &>/dev/null 2>&1; then
@@ -176,7 +176,8 @@ install_docker() {
   curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
   (sh /tmp/get-docker.sh 2>&1) | \
     dialog --backtitle "$BACKTITLE" --title "Installing Docker" \
-           --programbox "Installing Docker via get.docker.com — please wait" 25 82
+           --ok-label "Continue" \
+           --programbox "Installing Docker via get.docker.com - please wait" 25 82
   rm -f /tmp/get-docker.sh
 
   systemctl enable docker 2>/dev/null || true
@@ -278,6 +279,7 @@ Please reboot and re-run install.sh:\n\
     d_info "Downloading NVIDIA driver ${NVIDIA_DRIVER_VERSION}..."
     curl -fL "$NVIDIA_DRIVER_URL" -o "$NVIDIA_DRIVER_RUN" 2>&1 | \
       dialog --backtitle "$BACKTITLE" --title "Downloading NVIDIA Driver ${NVIDIA_DRIVER_VERSION}" \
+             --ok-label "Continue" \
              --programbox "Downloading..." 10 82 || true
   fi
   chmod +x "$NVIDIA_DRIVER_RUN"
@@ -285,7 +287,8 @@ Please reboot and re-run install.sh:\n\
   ("$NVIDIA_DRIVER_RUN" --silent --dkms --no-questions 2>&1) | \
     dialog --backtitle "$BACKTITLE" \
            --title "Installing NVIDIA Driver ${NVIDIA_DRIVER_VERSION}" \
-           --programbox "Installing via .run installer — this may take several minutes" 22 82
+           --ok-label "Continue" \
+           --programbox "Installing via .run installer - this may take several minutes" 22 82
 }
 
 _install_nvidia_toolkit() {
@@ -307,6 +310,7 @@ _install_nvidia_toolkit() {
     systemctl restart docker
   ) 2>&1 | \
     dialog --backtitle "$BACKTITLE" --title "Installing nvidia-container-toolkit" \
+           --ok-label "Continue" \
            --programbox "Configuring NVIDIA container runtime..." 22 82
 }
 
@@ -327,6 +331,7 @@ _install_amd_rocm() {
     usermod -aG render,video root
   ) 2>&1 | \
     dialog --backtitle "$BACKTITLE" --title "Installing AMD ROCm" \
+           --ok-label "Continue" \
            --programbox "Installing ROCm toolkit..." 22 82
 }
 
@@ -396,7 +401,8 @@ pull_model_if_needed() {
     ($COMPOSE_CMD exec -T ollama ollama pull "$model" 2>&1) | \
       dialog --backtitle "$BACKTITLE" \
              --title "Pulling model: ${model}" \
-             --programbox "Downloading model from Ollama hub — press OK when done" 22 82
+             --ok-label "Continue" \
+             --programbox "Downloading model from Ollama hub..." 22 82
   fi
 }
 
@@ -450,6 +456,10 @@ cmd_install() {
   d_info "Setting up Docker..."
   install_docker
   d_info "Detecting GPU..."
+  if ! command -v lspci &>/dev/null && [[ -n "$PKG_INSTALL" ]]; then
+    d_info "Installing pciutils for GPU detection..."
+    $PKG_INSTALL pciutils >/dev/null 2>&1 || true
+  fi
   detect_gpu
 
   local _gpu_label="CPU-only mode"
@@ -464,7 +474,7 @@ cmd_install() {
   # ── Form 1/5 — Installation paths ─────────────────────────
   local INSTALL_DIR REPO_URL
   if ! dialog --backtitle "$BACKTITLE" \
-    --title "Configuration — 1/5: Installation Paths" \
+    --title "Configuration - 1/5: Installation Paths" \
     --form "" 10 78 2 \
     "Install directory:" 1 1 "/opt/leksis"                            1 22 52 255 \
     "Repository URL:"    2 1 "https://github.com/Mandrhax/Leksis.git" 2 22 52 255 \
@@ -480,17 +490,18 @@ cmd_install() {
   APP_DOMAIN=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
 
   while true; do
-    if ! dialog --backtitle "$BACKTITLE" \
-      --title "Configuration — 2/5: Application URL" \
-      --form "URL used to access Leksis from a browser." 11 78 3 \
-      "Protocol (http / https):" 1 1 "$PROTO"       1 28 12  0 \
-      "Domain or IP address:"    2 1 "$APP_DOMAIN"  2 28 44  0 \
-      "Exposed port:"            3 1 "$APP_PORT"    3 28 10  0 \
-      2>"$DIALOG_TMP"; then
+    PROTO=$(d_input "Configuration - 2/5: Application URL (1/3)" \
+      "Protocol (http or https):" "$PROTO") || {
       d_msg "Cancelled" "Installation aborted."; return 0
-    fi
-    mapfile -t _f < "$DIALOG_TMP"
-    PROTO="${_f[0]}"; APP_DOMAIN="${_f[1]}"; APP_PORT="${_f[2]}"
+    }
+    APP_DOMAIN=$(d_input "Configuration - 2/5: Application URL (2/3)" \
+      "Domain or IP address of this server:" "$APP_DOMAIN") || {
+      d_msg "Cancelled" "Installation aborted."; return 0
+    }
+    APP_PORT=$(d_input "Configuration - 2/5: Application URL (3/3)" \
+      "Exposed port (e.g. 3000):" "$APP_PORT") || {
+      d_msg "Cancelled" "Installation aborted."; return 0
+    }
     APP_URL="${PROTO}://${APP_DOMAIN}:${APP_PORT}"
     validate_url "$APP_URL" && break
     d_msg "Invalid URL" \
@@ -501,7 +512,7 @@ cmd_install() {
   local ADMIN_EMAIL="" ADMIN_NAME="Admin"
   while true; do
     if ! dialog --backtitle "$BACKTITLE" \
-      --title "Configuration — 3/5: Admin Account" \
+      --title "Configuration - 3/5: Admin Account" \
       --form "Leave email empty to skip admin user creation." 10 78 2 \
       "Admin email (optional):" 1 1 ""       1 28 44 0 \
       "Admin display name:"     2 1 "Admin"  2 28 30 0 \
@@ -519,7 +530,7 @@ cmd_install() {
   # ── Form 4/5 — Ollama models ───────────────────────────────
   local OLLAMA_MODEL OLLAMA_OCR_MODEL OLLAMA_REWRITE_MODEL
   if ! dialog --backtitle "$BACKTITLE" \
-    --title "Configuration — 4/5: Ollama Models" \
+    --title "Configuration - 4/5: Ollama Models" \
     --form "Models pulled from the Ollama hub on first start." 12 78 3 \
     "Translation model:" 1 1 "translategemma:27b"     1 22 52 0 \
     "OCR model:"         2 1 "maternion/LightOnOCR-2" 2 22 52 0 \
@@ -535,7 +546,7 @@ cmd_install() {
   # ── Form 5/5 — Ollama runtime ──────────────────────────────
   local OLLAMA_KEEP_ALIVE OLLAMA_SCHED_SPREAD OLLAMA_MAX_LOADED_MODELS
   if ! dialog --backtitle "$BACKTITLE" \
-    --title "Configuration — 5/5: Ollama Runtime" \
+    --title "Configuration - 5/5: Ollama Runtime" \
     --form "" 11 78 3 \
     "Keep alive  (-1=forever, 5m=5 min, 0=unload):" 1 1 "-1"    1 50 10 0 \
     "GPU scheduling spread             (true/false):" 2 1 "false" 2 50 10 0 \
@@ -570,6 +581,7 @@ cmd_install() {
     local BRANCH; BRANCH=$(detect_branch "$INSTALL_DIR")
     (git -C "$INSTALL_DIR" pull origin "$BRANCH" 2>&1) | \
       dialog --backtitle "$BACKTITLE" --title "Updating Repository" \
+             --ok-label "Continue" \
              --programbox "Pulling latest changes (branch: ${BRANCH})..." 15 78 || true
   elif [[ -d "$INSTALL_DIR" ]]; then
     if d_yesno "Directory Exists" \
@@ -578,6 +590,7 @@ cmd_install() {
       rm -rf "$INSTALL_DIR"
       (git clone "$REPO_URL" "$INSTALL_DIR" 2>&1) | \
         dialog --backtitle "$BACKTITLE" --title "Cloning Repository" \
+               --ok-label "Continue" \
                --programbox "Cloning from GitHub..." 15 78
     else
       d_msg "Cancelled" "Installation aborted."; return 0
@@ -585,6 +598,7 @@ cmd_install() {
   else
     (git clone "$REPO_URL" "$INSTALL_DIR" 2>&1) | \
       dialog --backtitle "$BACKTITLE" --title "Cloning Repository" \
+             --ok-label "Continue" \
              --programbox "Cloning from GitHub..." 15 78
   fi
 
@@ -650,10 +664,12 @@ EOF
     "Rebuild the app Docker image from source?\n\n(Recommended for a first install)" "yes"; then
     (BUILDKIT_PROGRESS=plain $COMPOSE_CMD up -d --build 2>&1) | \
       dialog --backtitle "$BACKTITLE" --title "Building Docker Image" \
-             --programbox "Building app image — this may take several minutes" 32 82
+             --ok-label "Continue" \
+             --programbox "Building app image - this may take several minutes" 32 82
   else
     ($COMPOSE_CMD up -d 2>&1) | \
       dialog --backtitle "$BACKTITLE" --title "Starting Containers" \
+             --ok-label "Continue" \
              --programbox "Starting services..." 15 78
   fi
 
@@ -690,7 +706,7 @@ EOF
   fi
 
   # ── Summary ────────────────────────────────────────────────
-  local _gpu_summary="${GPU_VENDOR:-CPU}${GPU_NAME:+ — ${GPU_NAME}}"
+  local _gpu_summary="${GPU_VENDOR:-CPU}${GPU_NAME:+ - ${GPU_NAME}}"
   d_msg "Installation Complete!" "\
 Leksis has been successfully deployed.
 
@@ -701,9 +717,9 @@ Leksis has been successfully deployed.
   Ollama image  : ${OLLAMA_IMAGE}
 
 Useful commands:
-  ./install.sh status  — show service status
-  ./install.sh logs    — tail app logs
-  ./install.sh config  — edit configuration"
+  ./install.sh status  - show service status
+  ./install.sh logs    - tail app logs
+  ./install.sh config  - edit configuration"
 }
 
 # ── Mode: update ──────────────────────────────────────────────
@@ -748,6 +764,7 @@ cmd_update() {
   local BRANCH; BRANCH=$(detect_branch "$INSTALL_DIR")
   (git -C "$INSTALL_DIR" pull origin "$BRANCH" 2>&1) | \
     dialog --backtitle "$BACKTITLE" --title "Updating Sources" \
+           --ok-label "Continue" \
            --programbox "Pulling branch: ${BRANCH}..." 15 78
 
   detect_gpu
@@ -755,7 +772,7 @@ cmd_update() {
 
   # Select components
   if ! dialog --backtitle "$BACKTITLE" \
-    --title "Update — Select Components" \
+    --title "Update - Select Components" \
     --checklist "SPACE to toggle, ENTER to confirm:" 13 62 5 \
     "app"      "Application container"           "on"  \
     "postgres" "PostgreSQL container"            "off" \
@@ -780,6 +797,7 @@ cmd_update() {
     local svc="$1"
     (BUILDKIT_PROGRESS=plain $COMPOSE_CMD up -d --build "$svc" 2>&1) | \
       dialog --backtitle "$BACKTITLE" --title "Updating: ${svc}" \
+             --ok-label "Continue" \
              --programbox "Rebuilding and restarting ${svc}..." 28 82
     wait_healthy "$svc" 180
   }
@@ -835,10 +853,10 @@ cmd_uninstall() {
 
   # Final typed confirmation
   local _confirm
-  _confirm=$(d_input "DANGER — Confirm Uninstall" \
-    "This will remove:\n• Containers: leksis-app, leksis-postgres, leksis-ollama\n• Image: leksis-app\n• Directory: ${INSTALL_DIR}\n\nType DELETE to confirm:" "") || true
+  _confirm=$(d_input "DANGER - Confirm Uninstall" \
+    "This will remove:\n- Containers: leksis-app, leksis-postgres, leksis-ollama\n- Image: leksis-app\n- Directory: ${INSTALL_DIR}\n\nType DELETE to confirm:" "") || true
   if [[ "$_confirm" != "DELETE" ]]; then
-    d_msg "Cancelled" "Uninstall cancelled — no changes made."; return 0
+    d_msg "Cancelled" "Uninstall cancelled - no changes made."; return 0
   fi
 
   cd "$INSTALL_DIR" 2>/dev/null || true
@@ -851,7 +869,7 @@ cmd_uninstall() {
   fi
 
   if d_yesno "Remove Ollama Image?" \
-    "Also remove the Ollama Docker image?\n(may free 5–10 GB)" "no"; then
+    "Also remove the Ollama Docker image?\n(may free 5-10 GB)" "no"; then
     docker image rm ollama/ollama:latest ollama/ollama:rocm 2>/dev/null || true
   fi
 
@@ -882,7 +900,7 @@ cmd_status() {
 
   local _tmp_st; _tmp_st=$(mktemp)
   {
-    echo "=== Leksis v${VERSION} — Service Status ==="
+    echo "=== Leksis v${VERSION} - Service Status ==="
     echo ""
     echo "=== Containers ==="
     docker compose -f "$INSTALL_DIR/docker-compose.yml" ps 2>/dev/null \
@@ -892,7 +910,7 @@ cmd_status() {
     case "${GPU_VENDOR:-}" in
       nvidia) echo "  NVIDIA GPU: ${GPU_NAME}" ;;
       amd)    echo "  AMD GPU: ${GPU_NAME}" ;;
-      *)      echo "  No GPU detected — CPU-only mode" ;;
+      *)      echo "  No GPU detected - CPU-only mode" ;;
     esac
     echo ""
     echo "=== Ollama Models ==="
@@ -937,7 +955,8 @@ cmd_logs() {
 
   docker compose -f "$INSTALL_DIR/docker-compose.yml" logs -f "$service" 2>&1 | \
     dialog --backtitle "$BACKTITLE" \
-           --title "Logs — ${service}  (Ctrl+C to stop)" \
+           --title "Logs - ${service} (Ctrl+C to stop)" \
+           --ok-label "Continue" \
            --programbox "Streaming live logs from ${service}..." 40 84
 }
 
@@ -1020,6 +1039,7 @@ cmd_config() {
       "Ollama configuration changed.\n\nRecreate the Ollama container to apply changes?" "yes" && \
       ($COMPOSE_CMD up -d ollama 2>&1 | \
         dialog --backtitle "$BACKTITLE" --title "Restarting Ollama" \
+               --ok-label "Continue" \
                --programbox "Applying new configuration..." 12 72) || true
   fi
 
@@ -1028,6 +1048,7 @@ cmd_config() {
       "Application configuration changed.\n\nRecreate the app container to apply changes?" "yes" && \
       ($COMPOSE_CMD up -d app 2>&1 | \
         dialog --backtitle "$BACKTITLE" --title "Restarting App" \
+               --ok-label "Continue" \
                --programbox "Applying new configuration..." 12 72) || true
   fi
 
@@ -1043,7 +1064,7 @@ cmd_config() {
 show_menu() {
   while true; do
     if ! dialog --backtitle "$BACKTITLE" \
-      --title "Leksis — Deployment Manager" \
+      --title "Leksis - Deployment Manager" \
       --menu "Select an option:" 15 68 6 \
       "install"   "Full installation on a fresh server" \
       "update"    "Update containers selectively" \
@@ -1108,7 +1129,7 @@ main() {
   fi
 
   # Set globals now that dialog is available
-  BACKTITLE="Leksis v${VERSION} — Deployment Tool"
+  BACKTITLE="Leksis v${VERSION} - Deployment Tool"
   DIALOG_TMP=$(mktemp)
   trap 'rm -f "$DIALOG_TMP"' EXIT ERR
 
