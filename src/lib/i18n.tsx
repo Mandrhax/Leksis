@@ -30,7 +30,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(LOCALE_KEY) as UILocale | null
-      if (stored && stored in LOCALE_MAP) setLocaleState(stored)
+      if (stored && stored in LOCALE_MAP) {
+        setLocaleState(stored)
+      } else {
+        const browserLang = navigator.language.split('-')[0] as UILocale
+        if (browserLang in LOCALE_MAP) setLocaleState(browserLang)
+      }
     } catch { /* ignore */ }
   }, [])
 
