@@ -82,7 +82,7 @@ d_yesno() {
   local _args=()
   [[ "${3:-yes}" == "no" ]] && _args+=("--defaultno")
   dialog --backtitle "$BACKTITLE" "${_args[@]}" --title "$1" \
-         --yesno "$2" 0 74 \
+         --yesno "$2" 10 74 \
          </dev/tty >/dev/tty
 }
 
@@ -107,7 +107,7 @@ d_password() {
 # d_msg "title" "message"  —  message box with OK button
 d_msg() {
   dialog --backtitle "$BACKTITLE" --title "$1" \
-         --msgbox "$2" 0 74 \
+         --msgbox "$2" 0 0 \
          </dev/tty >/dev/tty
 }
 
@@ -835,15 +835,13 @@ cmd_uninstall() {
   fi
 
   # Volume info
-  local _tmp_vol; _tmp_vol=$(mktemp)
-  {
-    printf "Current data volumes:\n\n"
-    show_volumes_info "$INSTALL_DIR" 2>/dev/null || printf "  (unavailable)\n"
-  } > "$_tmp_vol"
-  dialog --backtitle "$BACKTITLE" --title "Volume Disk Usage" \
-         --textbox "$_tmp_vol" 12 74 \
-         </dev/tty >/dev/tty || true
-  rm -f "$_tmp_vol"
+  local _pg_mp _ol_mp _pg_sz _ol_sz
+  _pg_mp=$(docker volume inspect leksis_postgres_data --format='{{.Mountpoint}}' 2>/dev/null || true)
+  _ol_mp=$(docker volume inspect leksis_ollama_data   --format='{{.Mountpoint}}' 2>/dev/null || true)
+  _pg_sz="(not found)"; [[ -n "$_pg_mp" ]] && _pg_sz=$(du -sh "$_pg_mp" 2>/dev/null | cut -f1 || echo "?")
+  _ol_sz="(not found)"; [[ -n "$_ol_mp" ]] && _ol_sz=$(du -sh "$_ol_mp" 2>/dev/null | cut -f1 || echo "?")
+  d_msg "Volume Disk Usage" \
+    "Current data volumes:\n\n  leksis_postgres_data    ${_pg_sz}\n  leksis_ollama_data      ${_ol_sz}"
 
   # Optional pre-uninstall backup
   if d_yesno "Pre-Uninstall Backup" \
