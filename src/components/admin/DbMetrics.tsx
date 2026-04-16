@@ -14,6 +14,9 @@ const KNOWN_TABLES = [
   'site_settings',
   'audit_log',
   'usage_log',
+  'glossaries',
+  'glossary_entries',
+  'user_glossary_prefs',
 ]
 
 function formatUptime(startedAt: string): string {
