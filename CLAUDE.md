@@ -399,7 +399,7 @@ Le script `install.sh` à la racine du projet gère le cycle de vie complet de l
 | `update` | Mise à jour sélective via `--checklist` |
 | `uninstall` | Suppression complète avec confirmation `DELETE` |
 | `status` | État des services, GPU, modèles, volumes dans un `--textbox` |
-| `config` | Édition des variables `.env` via `--form` (8 champs) |
+| `config` | Édition des variables `.env` via `--form` (9 champs, dont `POSTGRES_VERSION`) |
 | `logs` | Streaming des logs via `--programbox` |
 
 ### Architecture interne
@@ -417,6 +417,7 @@ Le script `install.sh` à la racine du projet gère le cycle de vie complet de l
 - Parser la sortie `--form` avec `mapfile -t _f < "$DIALOG_TMP"` (ordre des champs = ordre de déclaration)
 - Parser la sortie `--checklist` avec `tr -d '"'` puis `IFS=' ' read -ra arr`
 - Ne jamais supprimer `NCURSES_NO_UTF8_ACS=1` ni le fallback `--ascii-lines`
+- `cmd_update` contient un **guard de backfill** : si `.env` ne contient pas `POSTGRES_VERSION`, il écrit automatiquement `POSTGRES_VERSION=16` pour protéger les données existantes contre une migration accidentelle de version majeure PostgreSQL
 
 ---
 
@@ -455,6 +456,7 @@ Flux local :
 - Export CSV glossaire : **100 % client-side** (`exportEntriesToCSV` dans `GlossaryAdmin.tsx`) — pas de route API. Bouton visible uniquement si des entrées existent. Nom de fichier : `{glossary_name}_glossary.csv`
 - L'API usage (`/api/admin/usage`) accepte un paramètre `limit` (1–500, défaut 100) pour contrôler le nombre de lignes retournées. `UsagePanel` expose un sélecteur 25/50/100/200/500
 - Migration DB : `scripts/migrate-glossary.sql` pour les installations existantes, `docker/init-schema.sql` pour les nouveaux déploiements Docker
+- **Versions Docker** : `postgres` utilise `${POSTGRES_VERSION:-18}-alpine` (configurable via `.env`). `node:22-slim` est épinglé (LTS actuel, Debian requis pour `@napi-rs/canvas`). Ne jamais hardcoder `postgres:NN-alpine` — toujours passer par la variable. Changer la version majeure PostgreSQL sur une installation existante nécessite une migration de données (`pg_upgrade` ou dump/restore)
 - **Aucun CDN tiers** : Material Symbols et Bootstrap Icons sont self-hébergés. Ne pas réintroduire de `<link>` vers `fonts.googleapis.com` ou `cdn.jsdelivr.net`. Pour mettre à jour Material Symbols, re-télécharger le woff2 depuis `fonts.gstatic.com` (URL versionnée `v{N}`)
 - Priorité : robustesse, lisibilité, maintenabilité
 - Les messages de commit git doivent toujours être **en anglais**
