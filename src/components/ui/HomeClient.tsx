@@ -109,7 +109,7 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
         {/* Right controls: help + UI language switcher + account menu */}
         <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
           <button
-            className="icon-btn"
+            className="icon-btn flex items-center justify-center"
             onClick={() => setHelpOpen(true)}
             aria-label={t.helpModal.title}
           >
