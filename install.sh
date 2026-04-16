@@ -283,8 +283,9 @@ EOF
   fi
   chmod +x "$NVIDIA_DRIVER_RUN"
 
-  p_info "Installing NVIDIA driver ${NVIDIA_DRIVER_VERSION} (this may take several minutes)..."
-  "$NVIDIA_DRIVER_RUN" --silent --dkms --no-questions
+  p_info "Installing NVIDIA driver ${NVIDIA_DRIVER_VERSION} (this may take 10-15 minutes)..."
+  p_info "Compiling kernel module via DKMS — do not interrupt..."
+  "$NVIDIA_DRIVER_RUN" --dkms --no-questions --accept-license 2>&1 | tee /var/log/nvidia-install.log
 }
 
 _install_nvidia_toolkit() {
@@ -294,6 +295,7 @@ _install_nvidia_toolkit() {
   fi
 
   p_info "Installing nvidia-container-toolkit..."
+  command -v gpg &>/dev/null || $PKG_INSTALL gnupg2 >/dev/null 2>&1
   curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
     | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
   curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
