@@ -169,7 +169,7 @@ src/
 │   │   ├── audit/page.tsx               (AdminPageHeader + AuditTable)
 │   │   └── backup/page.tsx              (AdminPageHeader + ExportImportForm)
 │   ├── auth/
-│   │   └── signin/page.tsx              (I18nProvider + UILanguageSwitcher + formulaire OTP)
+│   │   └── signin/page.tsx              (Server component async — charge siteName depuis settings, passe en prop à SignInForm)
 │   ├── maintenance/
 │   │   └── page.tsx                     (Page maintenance — affichée si maintenanceMode actif)
 │   ├── settings/
@@ -188,6 +188,7 @@ src/
 │   ├── ui/
 │   │   ├── HomeClient.tsx               (I18nProvider wrapper + HomeWorkspace interne)
 │   │   ├── AccountMenu.tsx              (Menu utilisateur — positionné par HomeClient)
+│   │   ├── SignInForm.tsx               (Client component — formulaire OTP signin, reçoit siteName en prop)
 │   │   ├── UILanguageSwitcher.tsx       (Switcher EN/DE/FR/IT avec drapeaux SVG inline)
 │   │   └── LanguageDropdown.tsx         (Liste alphabétique unifiée, favoris, portal fixe)
 │   └── admin/
@@ -258,7 +259,8 @@ L'interface est entièrement traduite en **Anglais (EN), Allemand (DE), Françai
 ### Architecture
 
 - **Zéro dépendance** : contexte React custom (`src/lib/i18n.tsx`) en ~50 lignes
-- Préférence persistée dans `localStorage` (clé : `leksisUILocale`)
+- Locale initiale : détectée depuis `navigator.language` (ex. `fr-CH` → `fr`) si supportée, sinon `en`
+- Préférence persistée dans `localStorage` (clé : `leksisUILocale`) — prioritaire sur la détection navigateur
 - Strings imbriquées à 2 niveaux : `composant.clé` (ex: `t.textTab.translate`)
 - `en.ts` est la **source de type** via `DeepString<typeof messages>` → `Messages`
 - `de.ts`, `fr.ts` et `it.ts` utilisent `satisfies Messages` pour garantir la couverture complète à la compilation
@@ -280,7 +282,7 @@ Les composants appelant `useI18n()` doivent être enfants d'un `I18nProvider`.
 | Workspace principal | `HomeClient` wraps `I18nProvider` → `HomeWorkspace` |
 | Section admin | `AdminClientLayout` (importé dans `admin/layout.tsx`) |
 | Page settings | `SettingsPage` wraps `I18nProvider` → `SettingsContent` |
-| Page signin | `SignInPage` wraps `I18nProvider` → `SignInForm` |
+| Page signin | `SignInPage` (server) wraps `I18nProvider` → `SignInForm` (client, reçoit `siteName` prop) |
 
 ### Espaces de noms définis
 
@@ -438,6 +440,8 @@ Flux local :
 - Conserver la structure exacte des panneaux (`gap-px bg-surface-container rounded-xl`)
 - La liste des langues doit toujours être **triée alphabétiquement** (base + régionales mélangées)
 - Tous les strings UI doivent passer par `useI18n()` → `t.*` — ne jamais hardcoder de libellés
+- Le titre affiché sur la page signin vient de `branding.siteName` (settings DB), chargé server-side dans `signin/page.tsx` — ne pas le hardcoder
+- `getAllSettings()` retourne `Record<string, unknown>` — caster en `Record<string, Record<string, unknown>>` pour accéder aux propriétés imbriquées (ex. `branding.siteName`)
 - Tout nouveau namespace i18n doit être ajouté dans les **4 fichiers** (`en.ts`, `de.ts`, `fr.ts`, `it.ts`) simultanément
 - Les valeurs envoyées à l'API (id de ton, longueurs, features) restent des slugs stables — seul l'affichage est traduit via `labels[locale]`
 - Les tons de réécriture sont dans `site_settings` (clé `rewrite_tones`, JSONB array). `src/lib/tones.ts` gère les défauts et la migration backward compat (`label: string` → `labels: { en }`)
