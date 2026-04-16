@@ -78,6 +78,36 @@ CREATE TABLE verification_token (
 );
 
 -- ============================================================
+-- Glossaires centralisés
+-- ============================================================
+CREATE TABLE glossaries (
+  id          SERIAL PRIMARY KEY,
+  name        VARCHAR(100) NOT NULL,
+  description TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE glossary_entries (
+  id           SERIAL PRIMARY KEY,
+  glossary_id  INTEGER NOT NULL REFERENCES glossaries(id) ON DELETE CASCADE,
+  source_term  TEXT NOT NULL,
+  target_term  TEXT NOT NULL,
+  source_lang  VARCHAR(20),
+  target_lang  VARCHAR(20),
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX glossary_entries_glossary_id_idx ON glossary_entries(glossary_id);
+
+-- Convention : une ligne n'est insérée QUE lorsque enabled = FALSE
+-- Absence de ligne → glossaire activé par défaut pour cet utilisateur
+CREATE TABLE user_glossary_prefs (
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  glossary_id  INTEGER NOT NULL REFERENCES glossaries(id) ON DELETE CASCADE,
+  enabled      BOOLEAN NOT NULL DEFAULT FALSE,
+  PRIMARY KEY (user_id, glossary_id)
+);
+
+-- ============================================================
 -- Exemple : ajouter un utilisateur autorisé
 -- INSERT INTO users (email, name) VALUES ('admin@example.com', 'Admin');
 -- ============================================================
