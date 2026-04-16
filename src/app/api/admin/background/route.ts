@@ -18,9 +18,10 @@ function uploadsDir(): string {
 }
 
 function urlToPath(url: string): string {
-  const newFormat = url.match(/^\/api\/site-assets\/(.+)$/)
+  const withoutQuery = url.split('?')[0]
+  const newFormat = withoutQuery.match(/^\/api\/site-assets\/(.+)$/)
   if (newFormat) return join(uploadsDir(), basename(newFormat[1]))
-  return join(process.cwd(), 'public', basename(url))
+  return join(process.cwd(), 'public', basename(withoutQuery))
 }
 
 async function removeExistingBgFile() {
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
     await writeFile(dest, Buffer.from(await file.arrayBuffer()))
     console.log('[background] Fichier écrit :', dest)
 
-    const backgroundImage = `/api/site-assets/${filename}`
+    const backgroundImage = `/api/site-assets/${filename}?v=${Date.now()}`
     const branding = (await getSetting<Record<string, unknown>>('branding')) ?? {}
     await updateSetting('branding', { ...branding, backgroundImage }, session.user.id, session.user.email!)
 

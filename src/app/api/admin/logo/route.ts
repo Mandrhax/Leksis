@@ -20,10 +20,11 @@ function uploadsDir(): string {
 
 /** Retourne le chemin disque d'une URL d'asset (ancienne ou nouvelle convention). */
 function urlToPath(url: string): string {
-  const newFormat = url.match(/^\/api\/site-assets\/(.+)$/)
+  const withoutQuery = url.split('?')[0]
+  const newFormat = withoutQuery.match(/^\/api\/site-assets\/(.+)$/)
   if (newFormat) return join(uploadsDir(), basename(newFormat[1]))
   // Ancienne convention : /site-logo.png dans public/
-  return join(process.cwd(), 'public', basename(url))
+  return join(process.cwd(), 'public', basename(withoutQuery))
 }
 
 async function removeExistingLogoFile() {
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
     await writeFile(dest, Buffer.from(await file.arrayBuffer()))
     console.log('[logo] Fichier écrit :', dest)
 
-    const logoUrl = `/api/site-assets/${filename}`
+    const logoUrl = `/api/site-assets/${filename}?v=${Date.now()}`
     const branding = (await getSetting<Record<string, unknown>>('branding')) ?? {}
     await updateSetting('branding', { ...branding, logoUrl }, session.user.id, session.user.email!)
 

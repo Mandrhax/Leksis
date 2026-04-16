@@ -51,7 +51,7 @@ export function BrandingForm({ initial, onToast }: Props) {
       const res  = await fetch('/api/admin/logo', { method: 'POST', body: form })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? t.brandingForm.toastUploadError)
-      setLogoPreview(`${json.logoUrl}?v=${Date.now()}`)
+      setLogoPreview(json.logoUrl)
       set('logoUrl', json.logoUrl)
       onToast({ message: t.brandingForm.toastLogoUpdated, type: 'success' })
     } catch (e: unknown) {
@@ -86,7 +86,7 @@ export function BrandingForm({ initial, onToast }: Props) {
       const res  = await fetch('/api/admin/background', { method: 'POST', body: form })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? t.brandingForm.toastUploadError)
-      setBgPreview(`${json.backgroundImage}?v=${Date.now()}`)
+      setBgPreview(json.backgroundImage)
       set('backgroundImage', json.backgroundImage)
       onToast({ message: t.brandingForm.toastBgUpdated, type: 'success' })
     } catch (e: unknown) {
