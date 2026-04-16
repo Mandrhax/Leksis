@@ -61,6 +61,10 @@ RUN groupadd --system --gid 1001 nodejs \
 # Copy the standalone server output (includes server.js + minimal node_modules)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 
+# pdfjs-dist dynamically loads pdf.worker.mjs — NFT misses it.
+# Copy the full legacy build explicitly from builder node_modules.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pdfjs-dist/legacy/build/ ./node_modules/pdfjs-dist/legacy/build/
+
 # Copy static assets (CSS, JS chunks — not included in standalone output)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
