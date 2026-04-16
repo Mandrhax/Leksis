@@ -62,9 +62,9 @@ p_err()  { printf '  [ERROR] %s\n' "$1" >&2; }
 p_input() {
   local prompt="$1" default="${2:-}" value
   if [[ -n "$default" ]]; then
-    printf '  %s [%s]: ' "$prompt" "$default"
+    printf '  %s [%s]: ' "$prompt" "$default" >/dev/tty
   else
-    printf '  %s: ' "$prompt"
+    printf '  %s: ' "$prompt" >/dev/tty
   fi
   read -r value </dev/tty
   printf '%s' "${value:-$default}"
