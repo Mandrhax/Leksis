@@ -440,6 +440,25 @@ cmd_install() {
   p_info "Detecting GPU..."
   detect_gpu
 
+  # Manual fallback: if lspci sees a GPU but auto-detection failed, let user confirm
+  if [[ -z "${GPU_VENDOR:-}" ]]; then
+    local _lspci_hint
+    _lspci_hint=$(lspci 2>/dev/null | grep -iE "nvidia|radeon|amd" | head -3 || true)
+    if [[ -n "$_lspci_hint" ]]; then
+      echo ""
+      p_warn "GPU hardware detected by lspci but vendor could not be identified automatically:"
+      echo "$_lspci_hint" | while IFS= read -r l; do printf '    %s\n' "$l"; done
+      echo ""
+      if p_yesno "Is this an NVIDIA GPU?" "y"; then
+        GPU_VENDOR="nvidia"
+        GPU_NAME=$(echo "$_lspci_hint" | head -1 | sed 's/.*\[//' | sed 's/\].*//' || true)
+      elif p_yesno "Is this an AMD GPU?" "n"; then
+        GPU_VENDOR="amd"
+        GPU_NAME=$(echo "$_lspci_hint" | head -1 | sed 's/.*: //' || true)
+      fi
+    fi
+  fi
+
   local _gpu_label="CPU-only mode"
   case "${GPU_VENDOR:-}" in
     nvidia) _gpu_label="NVIDIA GPU${GPU_NAME:+: ${GPU_NAME}}" ;;
