@@ -1,6 +1,5 @@
-import type { NextConfig } from 'next'
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   output: 'standalone',
   serverExternalPackages: ['@napi-rs/canvas', 'pdfjs-dist', 'pdf-parse'],
 }
