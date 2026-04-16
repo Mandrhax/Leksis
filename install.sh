@@ -133,14 +133,13 @@ check_root() {
 # ── Dependency checks ─────────────────────────────────────────
 check_deps() {
   local missing=()
-  for dep in docker git openssl curl pciutils; do
-    command -v "$dep" &>/dev/null || missing+=("$dep")
-  done
-  if ! docker compose version &>/dev/null 2>&1; then
-    missing+=("docker-compose-plugin")
-  fi
+  command -v git     &>/dev/null || missing+=("git")
+  command -v openssl &>/dev/null || missing+=("openssl")
+  command -v curl    &>/dev/null || missing+=("curl")
+  command -v lspci   &>/dev/null || missing+=("pciutils")
   if [[ ${#missing[@]} -gt 0 ]]; then
-    p_info "The following will be installed automatically: ${missing[*]}"
+    p_info "Installing missing system packages: ${missing[*]}"
+    $PKG_INSTALL "${missing[@]}" >/dev/null 2>&1 || true
   fi
 }
 
@@ -416,10 +415,6 @@ cmd_install() {
   p_info "Setting up Docker..."
   install_docker
   p_info "Detecting GPU..."
-  if ! command -v lspci &>/dev/null && [[ -n "$PKG_INSTALL" ]]; then
-    p_info "Installing pciutils for GPU detection..."
-    $PKG_INSTALL pciutils >/dev/null 2>&1 || true
-  fi
   detect_gpu
 
   local _gpu_label="CPU-only mode"
