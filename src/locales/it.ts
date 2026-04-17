@@ -356,6 +356,10 @@ export const messages = {
     blockRunningExpires:    'Scade tra',
     actionUnload:           'Scarica',
     actionUnloading:        'Scaricamento…',
+    warmup:                 'Carica in VRAM',
+    warmupLoading:          'Caricamento…',
+    toastWarmupDone:        '{0} modello/i caricato/i in VRAM',
+    toastWarmupError:       'Errore durante il caricamento dei modelli',
   },
   dbForm: {
     hostLabel:        'Host',

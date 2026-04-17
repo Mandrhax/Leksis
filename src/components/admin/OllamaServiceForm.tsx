@@ -29,9 +29,10 @@ export function OllamaServiceForm({ initial, onToast }: Props) {
     rewriteModel:     initial.rewriteModel     ?? legacyModel,
     sameModelForAll:  initial.sameModelForAll  ?? false,
   })
-  const [saving, setSaving]   = useState(false)
-  const [testing, setTesting] = useState(false)
-  const [result, setResult]   = useState<TestResult | null>(null)
+  const [saving,   setSaving]   = useState(false)
+  const [testing,  setTesting]  = useState(false)
+  const [warming,  setWarming]  = useState(false)
+  const [result,   setResult]   = useState<TestResult | null>(null)
 
   function setField<K extends keyof OllamaData>(k: K, v: OllamaData[K]) {
     setData(prev => {
@@ -73,6 +74,32 @@ export function OllamaServiceForm({ initial, onToast }: Props) {
       onToast({ message: t.ollamaForm.toastError, type: 'error' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleWarmup() {
+    const models = [...new Set([
+      data.translationModel,
+      data.sameModelForAll ? data.translationModel : data.rewriteModel,
+      data.ocrModel,
+    ].filter(Boolean))]
+    setWarming(true)
+    try {
+      const res = await fetch('/api/admin/services/ollama/warmup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ models }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.errors?.length) {
+        onToast({ message: t.ollamaForm.toastWarmupError, type: 'error' })
+      } else {
+        onToast({ message: t.ollamaForm.toastWarmupDone.replace('{0}', String(json.loaded.length)), type: 'success' })
+      }
+    } catch {
+      onToast({ message: t.ollamaForm.toastWarmupError, type: 'error' })
+    } finally {
+      setWarming(false)
     }
   }
 
@@ -202,7 +229,7 @@ export function OllamaServiceForm({ initial, onToast }: Props) {
       <div className="flex items-center gap-3 pt-1">
         <button
           onClick={handleTest}
-          disabled={testing || !data.baseUrl}
+          disabled={testing || warming || !data.baseUrl}
           className="text-button disabled:opacity-40"
         >
           {testing ? (
@@ -211,6 +238,18 @@ export function OllamaServiceForm({ initial, onToast }: Props) {
             <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">network_check</span>
           )}
           {t.ollamaForm.testConnection}
+        </button>
+        <button
+          onClick={handleWarmup}
+          disabled={warming || testing || !data.baseUrl}
+          className="text-button disabled:opacity-40"
+        >
+          {warming ? (
+            <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
+          ) : (
+            <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">memory</span>
+          )}
+          {warming ? t.ollamaForm.warmupLoading : t.ollamaForm.warmup}
         </button>
         <div className="flex-1" />
         <button onClick={handleSave} disabled={saving} className="action-btn disabled:opacity-40">

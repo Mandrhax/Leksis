@@ -650,16 +650,6 @@ EOF
   pull_model_if_needed "$OLLAMA_OCR_MODEL"
   pull_model_if_needed "$OLLAMA_REWRITE_MODEL"
 
-  # ── Pre-warm models into VRAM ──────────────────────────────
-  p_info "Pre-warming models into VRAM (this may take a few minutes)..."
-  for _m in "$OLLAMA_MODEL" "$OLLAMA_OCR_MODEL" "$OLLAMA_REWRITE_MODEL"; do
-    $COMPOSE_CMD exec -T ollama sh -c \
-      "curl -s --max-time 120 -X POST http://localhost:11434/api/generate \
-       -d '{\"model\":\"${_m}\",\"prompt\":\"\",\"stream\":false,\"keep_alive\":-1}' \
-       >/dev/null 2>&1" || true
-  done
-  p_ok "Models pre-warmed."
-
   # ── Create admin user ──────────────────────────────────────
   if [[ -n "$ADMIN_EMAIL" ]]; then
     p_info "Creating admin user: ${ADMIN_EMAIL}..."

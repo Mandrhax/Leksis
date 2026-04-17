@@ -356,6 +356,10 @@ export const messages = {
     blockRunningExpires:    'Läuft ab in',
     actionUnload:           'Entladen',
     actionUnloading:        'Wird entladen…',
+    warmup:                 'In VRAM laden',
+    warmupLoading:          'Laden…',
+    toastWarmupDone:        '{0} Modell(e) in VRAM geladen',
+    toastWarmupError:       'Fehler beim Laden der Modelle',
   },
   dbForm: {
     hostLabel:        'Host',
