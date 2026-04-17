@@ -491,9 +491,11 @@ cmd_install() {
   CADDY_HOST=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
   CADDY_HOST=$(p_input "Domain name or IP address (no protocol, no port)" "$CADDY_HOST")
 
-  # Bare IPv4 → HTTP only, anything else (domain) → HTTPS + Let's Encrypt
+  # Bare IPv4 → HTTP only (prefix http:// so Caddy doesn't default to HTTPS)
+  # Domain → HTTPS + Let's Encrypt
   if [[ "$CADDY_HOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    APP_URL="http://${CADDY_HOST}"
+    CADDY_HOST="http://${CADDY_HOST}"
+    APP_URL="$CADDY_HOST"
   else
     APP_URL="https://${CADDY_HOST}"
   fi
@@ -956,8 +958,14 @@ cmd_config() {
   new_keep=$(p_input       "Keep alive"                     "${OLLAMA_KEEP_ALIVE:--1}")
   new_spread=$(p_input     "Sched spread"                   "${OLLAMA_SCHED_SPREAD:-false}")
   new_max=$(p_input        "Max loaded models"              "${OLLAMA_MAX_LOADED_MODELS:-3}")
-  new_caddy_host=$(p_input "Caddy host (domain or IP)"      "${CADDY_HOST:-}")
+  new_caddy_host=$(p_input "Caddy host (domain or IP, no protocol)" \
+    "$(echo "${CADDY_HOST:-}" | sed 's|^http://||')")
   new_pgver=$(p_input      "PostgreSQL version"             "${POSTGRES_VERSION:-18}")
+
+  # Normalize: bare IPv4 gets http:// prefix so Caddy doesn't default to HTTPS
+  if [[ "$new_caddy_host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    new_caddy_host="http://${new_caddy_host}"
+  fi
 
   # Determine what changed
   local _changed_ollama=false _changed_app=false _changed_postgres=false
@@ -979,10 +987,10 @@ cmd_config() {
   _env_set "OLLAMA_MAX_LOADED_MODELS" "$new_max"         "$INSTALL_DIR/.env"
   _env_set "CADDY_HOST"               "$new_caddy_host"  "$INSTALL_DIR/.env"
   # Recalcule NEXTAUTH_URL depuis CADDY_HOST
-  if [[ "$new_caddy_host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    _env_set "NEXTAUTH_URL" "http://${new_caddy_host}"  "$INSTALL_DIR/.env"
+  if [[ "$new_caddy_host" =~ ^http:// ]]; then
+    _env_set "NEXTAUTH_URL" "$new_caddy_host"                    "$INSTALL_DIR/.env"
   else
-    _env_set "NEXTAUTH_URL" "https://${new_caddy_host}" "$INSTALL_DIR/.env"
+    _env_set "NEXTAUTH_URL" "https://${new_caddy_host}"          "$INSTALL_DIR/.env"
   fi
   _env_set "POSTGRES_VERSION"         "$new_pgver"       "$INSTALL_DIR/.env"
 
