@@ -739,13 +739,15 @@ cmd_update() {
   echo "  (press Enter to accept default)"
   echo ""
 
-  local update_app update_postgres update_ollama update_models
+  local update_app update_caddy update_postgres update_ollama update_models
   p_yesno "Update app container?"      "y" && update_app=true      || update_app=false
+  p_yesno "Update caddy container?"    "n" && update_caddy=true    || update_caddy=false
   p_yesno "Update postgres container?" "n" && update_postgres=true || update_postgres=false
   p_yesno "Update ollama container?"   "n" && update_ollama=true   || update_ollama=false
   p_yesno "Update Ollama models only?" "n" && update_models=true   || update_models=false
 
-  if [[ "$update_app" == false && "$update_postgres" == false && \
+  if [[ "$update_app" == false && "$update_caddy" == false && \
+        "$update_postgres" == false && \
         "$update_ollama" == false && "$update_models" == false ]]; then
     p_info "Nothing selected. Update cancelled."
     return 0
@@ -767,6 +769,7 @@ cmd_update() {
   }
 
   [[ "$update_app"      == true ]] && _update_service "app"
+  [[ "$update_caddy"    == true ]] && _update_service "caddy"
   [[ "$update_postgres" == true ]] && _update_service "postgres"
   [[ "$update_ollama"   == true ]] && _update_service "ollama"
   [[ "$update_models"   == true ]] && _update_models
