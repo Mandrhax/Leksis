@@ -22,14 +22,17 @@ export async function GET() {
 
   try {
     const [infoRes, upstreamsRes] = await Promise.allSettled([
-      fetch('http://caddy:2019/', { signal: AbortSignal.timeout(3000) }),
+      fetch('http://caddy:2019/config/', { signal: AbortSignal.timeout(3000) }),
       fetch('http://caddy:2019/reverse_proxy/upstreams', { signal: AbortSignal.timeout(3000) }),
     ])
 
-    if (infoRes.status === 'fulfilled' && infoRes.value.ok) {
+    if (infoRes.status === 'fulfilled') {
+      // Any HTTP response (including 404) means the admin API is reachable
       result.reachable = true
-      const info = await infoRes.value.json().catch(() => ({}))
-      result.version = info.version as string | undefined
+      if (infoRes.value.ok) {
+        const info = await infoRes.value.json().catch(() => ({}))
+        result.version = info.version as string | undefined
+      }
     }
 
     if (upstreamsRes.status === 'fulfilled' && upstreamsRes.value.ok) {
