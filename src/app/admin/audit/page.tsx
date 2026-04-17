@@ -8,7 +8,7 @@ export default async function AdminAuditPage() {
   await requireAdmin()
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl">
+    <div className="p-4 md:p-8 max-w-[1400px]">
       <AdminPageHeader section="audit" />
       <AuditTable />
     </div>

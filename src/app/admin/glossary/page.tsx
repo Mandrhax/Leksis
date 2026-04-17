@@ -8,7 +8,7 @@ export default async function AdminGlossaryPage() {
   await requireAdmin()
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl">
+    <div className="p-4 md:p-8 max-w-[1400px]">
       <AdminPageHeader section="glossary" />
       <GlossaryAdmin />
     </div>

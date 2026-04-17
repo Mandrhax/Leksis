@@ -8,7 +8,7 @@ export default async function AdminBackupPage() {
   await requireAdmin()
 
   return (
-    <div className="p-4 md:p-8 max-w-3xl">
+    <div className="p-4 md:p-8 max-w-[1400px]">
       <AdminPageHeader section="backup" />
       <ExportImportForm />
     </div>
