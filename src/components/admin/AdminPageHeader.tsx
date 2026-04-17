@@ -2,7 +2,7 @@
 
 import { useI18n } from '@/lib/i18n'
 
-type AdminSection = 'settings' | 'services' | 'servicesAi' | 'servicesDb' | 'users' | 'glossary' | 'usage' | 'audit' | 'backup'
+type AdminSection = 'settings' | 'services' | 'servicesAi' | 'servicesDb' | 'servicesCaddy' | 'users' | 'glossary' | 'usage' | 'audit' | 'backup'
 
 export function AdminPageHeader({ section }: { section: AdminSection }) {
   const { t } = useI18n()
@@ -11,7 +11,8 @@ export function AdminPageHeader({ section }: { section: AdminSection }) {
     settings:   t.adminPages.settingsTitle,
     services:   t.adminPages.servicesTitle,
     servicesAi: t.adminPages.servicesAiTitle,
-    servicesDb: t.adminPages.servicesDbTitle,
+    servicesDb:    t.adminPages.servicesDbTitle,
+    servicesCaddy: t.adminPages.servicesCaddyTitle,
     users:      t.adminPages.usersTitle,
     glossary:   t.adminPages.glossaryTitle,
     usage:      t.adminPages.usageTitle,
@@ -22,7 +23,8 @@ export function AdminPageHeader({ section }: { section: AdminSection }) {
     settings:   t.adminPages.settingsDesc,
     services:   t.adminPages.servicesDesc,
     servicesAi: t.adminPages.servicesAiDesc,
-    servicesDb: t.adminPages.servicesDbDesc,
+    servicesDb:    t.adminPages.servicesDbDesc,
+    servicesCaddy: t.adminPages.servicesCaddyDesc,
     users:      t.adminPages.usersDesc,
     glossary:   t.adminPages.glossaryDesc,
     usage:      t.adminPages.usageDesc,

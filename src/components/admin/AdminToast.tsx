@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 
-export type ToastState = { message: string; type: 'success' | 'error' } | null
+export type ToastState = { message: string; type: 'success' | 'warning' | 'error' } | null
 
 interface Props {
   toast: ToastState
@@ -19,6 +19,7 @@ export function AdminToast({ toast, onDismiss }: Props) {
   if (!toast) return null
 
   const isSuccess = toast.type === 'success'
+  const isWarning = toast.type === 'warning'
   return (
     <div
       role="status"
@@ -26,11 +27,13 @@ export function AdminToast({ toast, onDismiss }: Props) {
       className={`fixed bottom-6 right-6 z-[400] flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-sm font-medium
         ${isSuccess
           ? 'bg-surface-container-lowest border border-primary/20 text-on-surface'
+          : isWarning
+          ? 'bg-surface-container-lowest border border-yellow-500/30 text-yellow-700 dark:text-yellow-400'
           : 'bg-surface-container-lowest border border-error/20 text-error'
         }`}
     >
       <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">
-        {isSuccess ? 'check_circle' : 'error'}
+        {isSuccess ? 'check_circle' : isWarning ? 'warning' : 'error'}
       </span>
       {toast.message}
       <button

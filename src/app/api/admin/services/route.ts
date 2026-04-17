@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { getAdminSession } from '@/lib/admin-guard'
 import { updateSetting, getSetting } from '@/lib/settings'
 import { encrypt } from '@/lib/crypto'
+import { generateCaddyfile, reloadCaddy } from '@/lib/caddy'
 
 const OllamaSchema = z.object({
   service:          z.literal('ollama'),
@@ -24,7 +25,13 @@ const DbSchema = z.object({
   password: z.string().optional(), // vide = ne pas modifier
 })
 
-const Schema = z.discriminatedUnion('service', [OllamaSchema, DbSchema])
+const CaddySchema = z.object({
+  service:     z.literal('caddy'),
+  host:        z.string().min(1),
+  behindProxy: z.boolean(),
+})
+
+const Schema = z.discriminatedUnion('service', [OllamaSchema, DbSchema, CaddySchema])
 
 export async function GET() {
   const session = await getAdminSession()
@@ -60,8 +67,7 @@ export async function PATCH(req: NextRequest) {
       rewriteModel:     data.rewriteModel,
       sameModelForAll:  data.sameModelForAll ?? false,
     }, session.user.id, session.user.email!)
-  } else {
-    // Pour DB : récupérer le passwordEnc existant si aucun nouveau mot de passe fourni
+  } else if (data.service === 'db') {
     const existing = await getSetting<Record<string, unknown>>('db_config')
     const passwordEnc = data.password
       ? encrypt(data.password)
@@ -71,6 +77,21 @@ export async function PATCH(req: NextRequest) {
       host: data.host, port: data.port, database: data.database,
       user: data.user, passwordEnc,
     }, session.user.id, session.user.email!)
+  } else {
+    await updateSetting('caddy_config', {
+      host: data.host,
+      behindProxy: data.behindProxy,
+    }, session.user.id, session.user.email!)
+
+    const content = generateCaddyfile({ host: data.host, behindProxy: data.behindProxy })
+    let reloadError: string | undefined
+    try {
+      await reloadCaddy(content)
+    } catch (err) {
+      reloadError = err instanceof Error ? err.message : 'unknown'
+    }
+
+    return NextResponse.json({ ok: true, reloaded: !reloadError, reloadError })
   }
 
   return NextResponse.json({ ok: true })

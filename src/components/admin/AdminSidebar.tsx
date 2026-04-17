@@ -13,8 +13,9 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
   ]
 
   const SERVICES_SUB = [
-    { href: '/admin/services/ai', icon: 'smart_toy', label: t.adminSidebar.navServicesAI },
-    { href: '/admin/services/db', icon: 'storage',   label: t.adminSidebar.navServicesDb },
+    { href: '/admin/services/ai',    icon: 'smart_toy', label: t.adminSidebar.navServicesAI    },
+    { href: '/admin/services/db',    icon: 'storage',   label: t.adminSidebar.navServicesDb    },
+    { href: '/admin/services/caddy', icon: 'router',    label: t.adminSidebar.navServicesCaddy },
   ]
 
   const BOTTOM_ITEMS = [

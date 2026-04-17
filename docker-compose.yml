@@ -94,6 +94,7 @@ services:
     image: caddy:2-alpine
     container_name: leksis-caddy
     restart: unless-stopped
+    command: caddy run --config /etc/caddy/Caddyfile --resume
     depends_on:
       app:
         condition: service_healthy
