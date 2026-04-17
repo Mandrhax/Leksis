@@ -165,14 +165,14 @@ src/
 │   │   ├── layout.tsx                   (requireAdmin + AdminClientLayout + AdminSidebar)
 │   │   ├── settings/page.tsx            (AdminPageHeader + SettingsTabs — max-w-[1400px])
 │   │   ├── services/page.tsx            (redirect → /admin/services/ai)
-│   │   ├── services/ai/page.tsx         (AdminPageHeader "servicesAi" + grille [2fr_3fr] : ServicesPanel | OllamaMetrics)
+│   │   ├── services/ai/page.tsx         (AdminPageHeader "servicesAi" + OllamaServicesLayout — grille [3fr_2fr])
 │   │   ├── services/db/page.tsx         (AdminPageHeader "servicesDb" + grille [2fr_3fr] : ServicesPanel | DbMetrics)
 │   │   ├── services/caddy/page.tsx      (AdminPageHeader "servicesCaddy" + grille [2fr_3fr] : ServicesPanel | CaddyMetrics)
-│   │   ├── glossary/page.tsx            (AdminPageHeader "glossary" + GlossaryAdmin)
-│   │   ├── users/page.tsx               (AdminPageHeader + UserList)
-│   │   ├── usage/page.tsx               (AdminPageHeader + UsagePanel)
-│   │   ├── audit/page.tsx               (AdminPageHeader + AuditTable)
-│   │   └── backup/page.tsx              (AdminPageHeader + ExportImportForm)
+│   │   ├── glossary/page.tsx            (AdminPageHeader "glossary" + GlossaryAdmin — max-w-[1400px])
+│   │   ├── users/page.tsx               (AdminPageHeader + UserList — max-w-[1400px])
+│   │   ├── usage/page.tsx               (AdminPageHeader + UsagePanel — max-w-[1400px])
+│   │   ├── audit/page.tsx               (AdminPageHeader + AuditTable — max-w-[1400px])
+│   │   └── backup/page.tsx              (AdminPageHeader + ExportImportForm — max-w-[1400px])
 │   ├── auth/
 │   │   └── signin/page.tsx              (Server component async — charge siteName depuis settings, passe en prop à SignInForm)
 │   ├── maintenance/
@@ -213,7 +213,8 @@ src/
 │       ├── OllamaServiceForm.tsx        (Config Ollama, test connexion, bouton "Load into VRAM" — POST /api/admin/services/ollama/warmup)
 │       ├── DbServiceForm.tsx            (Config PostgreSQL, test connexion)
 │       ├── CaddyServiceForm.tsx         (Config Caddy : host, behindProxy toggle, preview Caddyfile live — PATCH /api/admin/services)
-│       ├── OllamaMetrics.tsx            (Métriques Ollama live : statut, modèles installés, modèles en mémoire + Unload)
+│       ├── OllamaServicesLayout.tsx     (Layout page Ollama : grille [3fr_2fr] — gauche=formulaire+InstalledBlock, droite=StatusBlock+RunningBlock — wraps OllamaMetricsProvider)
+│       ├── OllamaMetrics.tsx            (Métriques Ollama : OllamaMetricsProvider (contexte fetch), OllamaStatusBlock, OllamaInstalledBlock, OllamaRunningBlock + OllamaMetrics wrapper legacy)
 │       ├── DbMetrics.tsx                (Métriques PostgreSQL live : statut serveur, connexions, tables application)
 │       ├── CaddyMetrics.tsx             (Métriques Caddy live : reachable, version, upstream app:3000 health)
 │       ├── GlossaryAdmin.tsx            (CRUD glossaires nommés + entrées avec paires de langues + import CSV + export CSV client-side)
@@ -309,7 +310,8 @@ Les composants appelant `useI18n()` doivent être enfants d'un `I18nProvider`.
 ### Pages admin — conventions de mise en page
 
 - Wrapper page : `p-8 max-w-[1400px]`
-- **Pages Services (Ollama, PostgreSQL, Caddy)** : grille `grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 items-start` — formulaire config à gauche, blocs métriques à droite
+- **Page Services Ollama** : `OllamaServicesLayout` — grille `[3fr_2fr]` — gauche = formulaire + Installed Models, droite = Status + Models in Memory. Les 3 blocs partagent un seul fetch via `OllamaMetricsProvider`
+- **Pages Services PostgreSQL / Caddy** : grille `grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 items-start` — formulaire config à gauche, blocs métriques à droite
 - **Page Réglages** : tabs de navigation (5 onglets), sous-blocs de chaque formulaire en `grid grid-cols-1 lg:grid-cols-2 gap-3 items-start` avec deux `<div className="flex flex-col gap-3">` explicites (colonne gauche + colonne droite) — ne jamais laisser CSS Grid auto-placer les cartes (crée des espaces vides égaux à la hauteur de la rangée la plus haute), bouton Save hors grille
 - **Style de carte admin** : `bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6` — utilisé uniformément pour formulaires et blocs métriques
 - **Blocs métriques** (OllamaMetrics, DbMetrics, CaddyMetrics) : bouton Refresh dans l'en-tête du bloc Statut, blocs supplémentaires côte à côte (`xl:grid-cols-2`)
