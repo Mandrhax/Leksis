@@ -80,14 +80,37 @@ services:
     volumes:
       # Persistent uploads (logo, background) — survives container restarts and updates
       - leksis_uploads:/data/uploads
-    ports:
-      - "${APP_PORT:-3000}:3000"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    networks:
+      - leksis-net
+
+  # ── Caddy Reverse Proxy ──────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: leksis-caddy
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    environment:
+      CADDY_HOST: ${CADDY_HOST}
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - leksis-net
 
@@ -101,3 +124,4 @@ volumes:
   postgres_data:
   ollama_data:
   leksis_uploads:
+  caddy_data:

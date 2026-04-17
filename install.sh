@@ -487,22 +487,18 @@ cmd_install() {
   # ── Step 2/5: Application URL ──────────────────────────────
   p_header "Configuration 2/5 - Application URL"
 
-  local APP_URL="" PROTO="http" APP_DOMAIN APP_PORT="3000"
-  APP_DOMAIN=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
+  local CADDY_HOST APP_URL
+  CADDY_HOST=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
+  CADDY_HOST=$(p_input "Domain name or IP address (no protocol, no port)" "$CADDY_HOST")
 
-  while true; do
-    PROTO=$(p_input "Protocol (http or https)" "$PROTO")
-    APP_DOMAIN=$(p_input "Domain or IP address" "$APP_DOMAIN")
-    APP_PORT=$(p_input "Exposed port" "$APP_PORT")
-    APP_URL="${PROTO}://${APP_DOMAIN}:${APP_PORT}"
-    if validate_url "$APP_URL"; then
-      p_ok "App URL: ${APP_URL}"
-      break
-    fi
-    p_warn "Invalid URL: ${APP_URL}"
-    p_warn "Must start with http:// or https://, no trailing slash."
-    p_warn "Example: http://192.168.1.10:3000"
-  done
+  # Bare IPv4 → HTTP only, anything else (domain) → HTTPS + Let's Encrypt
+  if [[ "$CADDY_HOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    APP_URL="http://${CADDY_HOST}"
+  else
+    APP_URL="https://${CADDY_HOST}"
+  fi
+  p_ok "Caddy host : ${CADDY_HOST}"
+  p_ok "App URL    : ${APP_URL}"
 
   # ── Step 3/5: Admin account ────────────────────────────────
   p_header "Configuration 3/5 - Admin Account"
@@ -582,8 +578,8 @@ POSTGRES_VERSION=18
 DATABASE_URL=postgresql://leksis_user:${POSTGRES_PASSWORD}@postgres:5432/leksis
 AUTH_SECRET=${AUTH_SECRET}
 NEXTAUTH_URL=${APP_URL}
+CADDY_HOST=${CADDY_HOST}
 ENCRYPTION_KEY=${ENCRYPTION_KEY}
-APP_PORT=${APP_PORT}
 COMPOSE_FILE=${COMPOSE_FILE_VALUE}
 OLLAMA_BASE_URL=http://ollama:11434
 OLLAMA_IMAGE=${OLLAMA_IMAGE}
@@ -616,7 +612,7 @@ EOF
   p_ok ".env written."
 
   # ── Port availability check ────────────────────────────────
-  for port in "$APP_PORT" "11434"; do
+  for port in "80" "443" "11434"; do
     if ss -tlnp 2>/dev/null | grep -q ":${port} " || \
        netstat -tlnp 2>/dev/null | grep -q ":${port} "; then
       p_warn "Port ${port} appears to be already in use."
@@ -642,6 +638,7 @@ EOF
   wait_healthy postgres 120
   wait_healthy ollama   120
   wait_healthy app      180
+  wait_healthy caddy     60
 
   # ── Pull Ollama models ─────────────────────────────────────
   p_header "Pulling Ollama Models"
@@ -815,7 +812,7 @@ cmd_uninstall() {
   # Final typed confirmation
   echo ""
   p_warn "This will remove:"
-  p_warn "  - Containers: leksis-app, leksis-postgres, leksis-ollama"
+  p_warn "  - Containers: leksis-app, leksis-postgres, leksis-ollama, leksis-caddy"
   p_warn "  - Image: leksis-app"
   p_warn "  - Directory: ${INSTALL_DIR}"
   echo ""
@@ -912,6 +909,7 @@ cmd_logs() {
     echo "  1) app      - Leksis application"
     echo "  2) postgres - PostgreSQL database"
     echo "  3) ollama   - Ollama AI server"
+    echo "  4) caddy    - Caddy reverse proxy"
     echo ""
     local choice
     choice=$(p_input "Service number" "1")
@@ -919,6 +917,7 @@ cmd_logs() {
       1|app)      service="app" ;;
       2|postgres) service="postgres" ;;
       3|ollama)   service="ollama" ;;
+      4|caddy)    service="caddy" ;;
       *) p_warn "Unknown choice. Defaulting to app."; service="app" ;;
     esac
   fi
@@ -949,48 +948,43 @@ cmd_config() {
   echo "  (press Enter to keep current value)"
   echo ""
 
-  local new_model new_ocr new_rewrite new_keep new_spread new_max new_url new_port new_pgver
+  local new_model new_ocr new_rewrite new_keep new_spread new_max new_caddy_host new_pgver
 
-  new_model=$(p_input   "Translation model"        "${OLLAMA_MODEL:-translategemma:27b}")
-  new_ocr=$(p_input     "OCR model"                "${OLLAMA_OCR_MODEL:-maternion/LightOnOCR-2}")
-  new_rewrite=$(p_input "Rewrite model"            "${OLLAMA_REWRITE_MODEL:-qwen2.5:14b}")
-  new_keep=$(p_input    "Keep alive"               "${OLLAMA_KEEP_ALIVE:--1}")
-  new_spread=$(p_input  "Sched spread"             "${OLLAMA_SCHED_SPREAD:-false}")
-  new_max=$(p_input     "Max loaded models"        "${OLLAMA_MAX_LOADED_MODELS:-3}")
-  new_url=$(p_input     "Public URL"               "${NEXTAUTH_URL:-}")
-  new_port=$(p_input    "App port"                 "${APP_PORT:-3000}")
-  new_pgver=$(p_input   "PostgreSQL version"       "${POSTGRES_VERSION:-18}")
-
-  # Validate URL if changed
-  if [[ -n "$new_url" ]] && ! validate_url "$new_url"; then
-    p_err "Invalid URL: ${new_url}"
-    p_err "Must start with http:// or https://, no trailing slash."
-    p_err "No changes were saved."
-    return 1
-  fi
+  new_model=$(p_input      "Translation model"              "${OLLAMA_MODEL:-translategemma:27b}")
+  new_ocr=$(p_input        "OCR model"                      "${OLLAMA_OCR_MODEL:-maternion/LightOnOCR-2}")
+  new_rewrite=$(p_input    "Rewrite model"                  "${OLLAMA_REWRITE_MODEL:-qwen2.5:14b}")
+  new_keep=$(p_input       "Keep alive"                     "${OLLAMA_KEEP_ALIVE:--1}")
+  new_spread=$(p_input     "Sched spread"                   "${OLLAMA_SCHED_SPREAD:-false}")
+  new_max=$(p_input        "Max loaded models"              "${OLLAMA_MAX_LOADED_MODELS:-3}")
+  new_caddy_host=$(p_input "Caddy host (domain or IP)"      "${CADDY_HOST:-}")
+  new_pgver=$(p_input      "PostgreSQL version"             "${POSTGRES_VERSION:-18}")
 
   # Determine what changed
   local _changed_ollama=false _changed_app=false _changed_postgres=false
-  [[ "$new_model"   != "${OLLAMA_MODEL:-}"             ]] && _changed_ollama=true
-  [[ "$new_ocr"     != "${OLLAMA_OCR_MODEL:-}"         ]] && _changed_ollama=true
-  [[ "$new_rewrite" != "${OLLAMA_REWRITE_MODEL:-}"     ]] && _changed_ollama=true
-  [[ "$new_keep"    != "${OLLAMA_KEEP_ALIVE:-}"        ]] && _changed_ollama=true
-  [[ "$new_spread"  != "${OLLAMA_SCHED_SPREAD:-}"      ]] && _changed_ollama=true
-  [[ "$new_max"     != "${OLLAMA_MAX_LOADED_MODELS:-}" ]] && _changed_ollama=true
-  [[ "$new_url"     != "${NEXTAUTH_URL:-}"             ]] && _changed_app=true
-  [[ "$new_port"    != "${APP_PORT:-}"                 ]] && _changed_app=true
-  [[ "$new_pgver"   != "${POSTGRES_VERSION:-}"         ]] && _changed_postgres=true
+  [[ "$new_model"      != "${OLLAMA_MODEL:-}"             ]] && _changed_ollama=true
+  [[ "$new_ocr"        != "${OLLAMA_OCR_MODEL:-}"         ]] && _changed_ollama=true
+  [[ "$new_rewrite"    != "${OLLAMA_REWRITE_MODEL:-}"     ]] && _changed_ollama=true
+  [[ "$new_keep"       != "${OLLAMA_KEEP_ALIVE:-}"        ]] && _changed_ollama=true
+  [[ "$new_spread"     != "${OLLAMA_SCHED_SPREAD:-}"      ]] && _changed_ollama=true
+  [[ "$new_max"        != "${OLLAMA_MAX_LOADED_MODELS:-}" ]] && _changed_ollama=true
+  [[ "$new_caddy_host" != "${CADDY_HOST:-}"               ]] && _changed_app=true
+  [[ "$new_pgver"      != "${POSTGRES_VERSION:-}"         ]] && _changed_postgres=true
 
   # Write values
-  _env_set "OLLAMA_MODEL"             "$new_model"    "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_OCR_MODEL"         "$new_ocr"      "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_REWRITE_MODEL"     "$new_rewrite"  "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_KEEP_ALIVE"        "$new_keep"     "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_SCHED_SPREAD"      "$new_spread"   "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_MAX_LOADED_MODELS" "$new_max"      "$INSTALL_DIR/.env"
-  _env_set "NEXTAUTH_URL"             "$new_url"      "$INSTALL_DIR/.env"
-  _env_set "APP_PORT"                 "$new_port"     "$INSTALL_DIR/.env"
-  _env_set "POSTGRES_VERSION"         "$new_pgver"    "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_MODEL"             "$new_model"       "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_OCR_MODEL"         "$new_ocr"         "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_REWRITE_MODEL"     "$new_rewrite"     "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_KEEP_ALIVE"        "$new_keep"        "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_SCHED_SPREAD"      "$new_spread"      "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_MAX_LOADED_MODELS" "$new_max"         "$INSTALL_DIR/.env"
+  _env_set "CADDY_HOST"               "$new_caddy_host"  "$INSTALL_DIR/.env"
+  # Recalcule NEXTAUTH_URL depuis CADDY_HOST
+  if [[ "$new_caddy_host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    _env_set "NEXTAUTH_URL" "http://${new_caddy_host}"  "$INSTALL_DIR/.env"
+  else
+    _env_set "NEXTAUTH_URL" "https://${new_caddy_host}" "$INSTALL_DIR/.env"
+  fi
+  _env_set "POSTGRES_VERSION"         "$new_pgver"       "$INSTALL_DIR/.env"
 
   p_ok "Settings written to: ${INSTALL_DIR}/.env"
 
@@ -1007,10 +1001,12 @@ cmd_config() {
   fi
 
   if [[ "$_changed_app" == true ]]; then
-    if p_yesno "App configuration changed. Restart app container now?" "y"; then
+    if p_yesno "App/Caddy configuration changed. Restart app and caddy now?" "y"; then
       p_info "Restarting app..."
       $COMPOSE_CMD up -d app
-      p_ok "App restarted."
+      p_info "Restarting caddy..."
+      $COMPOSE_CMD up -d caddy
+      p_ok "App and Caddy restarted."
     fi
   fi
 
