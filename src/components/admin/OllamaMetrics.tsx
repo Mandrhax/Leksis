@@ -22,13 +22,15 @@ function formatExpiry(isoDate: string): string {
 }
 
 interface OllamaMetricsCtx {
-  data:       OllamaMetricsResult | null
-  loading:    boolean
-  error:      boolean
-  updatedAt:  Date | null
-  unloading:  string | null
-  load:       () => void
+  data:         OllamaMetricsResult | null
+  loading:      boolean
+  error:        boolean
+  updatedAt:    Date | null
+  unloading:    string | null
+  deleting:     string | null
+  load:         () => void
   handleUnload: (model: string) => void
+  handleDelete: (model: string) => Promise<void>
 }
 
 const OllamaCtx = createContext<OllamaMetricsCtx | null>(null)
@@ -45,6 +47,7 @@ export function OllamaMetricsProvider({ children }: { children: React.ReactNode 
   const [error,     setError]     = useState(false)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [unloading, setUnloading] = useState<string | null>(null)
+  const [deleting,  setDeleting]  = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -79,8 +82,22 @@ export function OllamaMetricsProvider({ children }: { children: React.ReactNode 
     }
   }
 
+  async function handleDelete(model: string) {
+    setDeleting(model)
+    try {
+      await fetch('/api/admin/services/ollama/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model }),
+      })
+      await load()
+    } finally {
+      setDeleting(null)
+    }
+  }
+
   return (
-    <OllamaCtx.Provider value={{ data, loading, error, updatedAt, unloading, load, handleUnload }}>
+    <OllamaCtx.Provider value={{ data, loading, error, updatedAt, unloading, deleting, load, handleUnload, handleDelete }}>
       {children}
     </OllamaCtx.Provider>
   )
@@ -139,7 +156,7 @@ export function OllamaStatusBlock() {
 
 export function OllamaInstalledBlock() {
   const { t } = useI18n()
-  const { data } = useOllamaMetrics()
+  const { data, deleting, handleDelete } = useOllamaMetrics()
   const of = t.ollamaForm
 
   if (!data) return null
@@ -159,6 +176,7 @@ export function OllamaInstalledBlock() {
         <div className="flex flex-col gap-1.5">
           {data.models.map(m => {
             const isConfigured = data.configuredModels.includes(m.name)
+            const isDeleting = deleting === m.name
             return (
               <div
                 key={m.name}
@@ -172,13 +190,158 @@ export function OllamaInstalledBlock() {
                     </span>
                   )}
                 </div>
-                <span className="text-xs text-on-surface-variant shrink-0 ml-4">
-                  {formatBytes(m.size)}
-                </span>
+                <div className="flex items-center gap-3 shrink-0 ml-4">
+                  <span className="text-xs text-on-surface-variant">
+                    {formatBytes(m.size)}
+                  </span>
+                  <button
+                    onClick={() => !isConfigured && !isDeleting && handleDelete(m.name)}
+                    disabled={isConfigured || isDeleting}
+                    title={isConfigured ? of.deleteBlockedConfigured : of.actionDelete}
+                    className={`icon-btn text-[18px] transition-opacity ${
+                      isConfigured ? 'opacity-30 cursor-not-allowed' : 'text-on-surface-variant hover:text-error'
+                    }`}
+                  >
+                    <span className={`material-symbols-outlined text-[18px]${isDeleting ? ' animate-pulse' : ''}`}>
+                      delete
+                    </span>
+                  </button>
+                </div>
               </div>
             )
           })}
         </div>
+      )}
+    </div>
+  )
+}
+
+export function OllamaPullBlock() {
+  const { t } = useI18n()
+  const { load } = useOllamaMetrics()
+  const of = t.ollamaForm
+
+  const [modelName, setModelName] = useState('')
+  const [pulling,   setPulling]   = useState(false)
+  const [progress,  setProgress]  = useState<number | null>(null)
+  const [status,    setStatus]    = useState('')
+  const [error,     setError]     = useState<string | null>(null)
+  const [success,   setSuccess]   = useState(false)
+
+  async function handlePull(e: React.FormEvent) {
+    e.preventDefault()
+    const name = modelName.trim()
+    if (!name || pulling) return
+
+    setPulling(true)
+    setProgress(null)
+    setStatus('')
+    setError(null)
+    setSuccess(false)
+
+    try {
+      const res = await fetch('/api/admin/services/ollama/pull', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: name }),
+      })
+
+      if (!res.ok || !res.body) {
+        setError(of.pullError)
+        return
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const parsed = JSON.parse(line) as {
+              status?: string
+              total?: number
+              completed?: number
+            }
+            if (parsed.status) setStatus(parsed.status)
+            if (parsed.total && parsed.total > 0 && parsed.completed !== undefined) {
+              setProgress(Math.round((parsed.completed / parsed.total) * 100))
+            }
+            if (parsed.status === 'success') {
+              setSuccess(true)
+              setModelName('')
+              await load()
+            }
+          } catch { /* ignore malformed lines */ }
+        }
+      }
+    } catch {
+      setError(of.pullError)
+    } finally {
+      setPulling(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-4">
+      <h3 className="text-sm font-semibold text-on-surface">{of.pullTitle}</h3>
+
+      <form onSubmit={handlePull} className="flex gap-2">
+        <input
+          type="text"
+          value={modelName}
+          onChange={e => { setModelName(e.target.value); setError(null); setSuccess(false) }}
+          placeholder={of.pullPlaceholder}
+          disabled={pulling}
+          className="flex-1 text-sm bg-surface-container-low border border-outline-variant/30 rounded-lg px-3 py-2 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary disabled:opacity-50"
+        />
+        <button
+          type="submit"
+          disabled={pulling || !modelName.trim()}
+          className="action-btn shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {pulling ? of.pullPulling : of.pullButton}
+        </button>
+      </form>
+
+      {pulling && (
+        <div className="flex flex-col gap-2">
+          <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden">
+            {progress !== null ? (
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            ) : (
+              <div className="h-full bg-primary/40 rounded-full animate-pulse w-full" />
+            )}
+          </div>
+          {status && (
+            <p className="text-xs text-on-surface-variant truncate">{status}</p>
+          )}
+        </div>
+      )}
+
+      {success && !pulling && (
+        <p className="text-xs text-green-600 flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-[16px]">check_circle</span>
+          {of.pullSuccess}
+        </p>
+      )}
+
+      {error && !pulling && (
+        <p className="text-xs text-error flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-[16px]">error</span>
+          {error}
+        </p>
       )}
     </div>
   )
