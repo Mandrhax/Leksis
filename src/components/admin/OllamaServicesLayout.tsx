@@ -15,13 +15,13 @@ export function OllamaServicesLayout({ initial }: Props) {
         <div className="flex flex-col gap-4">
           <ServicesPanel mode="ai" initial={initial} />
           <OllamaInstalledBlock />
-          <OllamaPullBlock />
         </div>
 
-        {/* Right — status + models in memory */}
+        {/* Right — status + models in memory + pull */}
         <div className="flex flex-col gap-4">
           <OllamaStatusBlock />
           <OllamaRunningBlock />
+          <OllamaPullBlock />
         </div>
       </div>
     </OllamaMetricsProvider>
