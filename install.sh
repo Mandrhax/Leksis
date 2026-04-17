@@ -487,17 +487,18 @@ cmd_install() {
   # ── Step 2/5: Application URL ──────────────────────────────
   p_header "Configuration 2/5 - Application URL"
 
-  local CADDY_HOST APP_URL
-  CADDY_HOST=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
-  CADDY_HOST=$(p_input "Domain name or IP address (no protocol, no port)" "$CADDY_HOST")
+  local raw_host CADDY_HOST APP_URL
+  raw_host=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
+  raw_host=$(p_input "Domain name or IP address (no protocol, no port)" "$raw_host")
 
-  # Bare IPv4 → HTTP only (prefix http:// so Caddy doesn't default to HTTPS)
-  # Domain → HTTPS + Let's Encrypt
-  if [[ "$CADDY_HOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    CADDY_HOST="http://${CADDY_HOST}"
-    APP_URL="$CADDY_HOST"
+  # Bare IPv4 → Caddy listens on all interfaces (:80), NEXTAUTH_URL uses the IP
+  # Domain   → Caddy uses the domain for Let's Encrypt
+  if [[ "$raw_host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    CADDY_HOST=":80"
+    APP_URL="http://${raw_host}"
   else
-    APP_URL="https://${CADDY_HOST}"
+    CADDY_HOST="$raw_host"
+    APP_URL="https://${raw_host}"
   fi
   p_ok "Caddy host : ${CADDY_HOST}"
   p_ok "App URL    : ${APP_URL}"
@@ -951,7 +952,7 @@ cmd_config() {
   echo "  (press Enter to keep current value)"
   echo ""
 
-  local new_model new_ocr new_rewrite new_keep new_spread new_max new_caddy_host new_pgver
+  local new_model new_ocr new_rewrite new_keep new_spread new_max new_raw_host new_caddy_host new_nextauth_url new_pgver
 
   new_model=$(p_input      "Translation model"              "${OLLAMA_MODEL:-translategemma:27b}")
   new_ocr=$(p_input        "OCR model"                      "${OLLAMA_OCR_MODEL:-maternion/LightOnOCR-2}")
@@ -959,13 +960,18 @@ cmd_config() {
   new_keep=$(p_input       "Keep alive"                     "${OLLAMA_KEEP_ALIVE:--1}")
   new_spread=$(p_input     "Sched spread"                   "${OLLAMA_SCHED_SPREAD:-false}")
   new_max=$(p_input        "Max loaded models"              "${OLLAMA_MAX_LOADED_MODELS:-3}")
-  new_caddy_host=$(p_input "Caddy host (domain or IP, no protocol)" \
-    "$(echo "${CADDY_HOST:-}" | sed 's|^http://||')")
-  new_pgver=$(p_input      "PostgreSQL version"             "${POSTGRES_VERSION:-18}")
+  new_raw_host=$(p_input "Public URL host (domain or IP, no protocol)" \
+    "$(echo "${NEXTAUTH_URL:-}" | sed 's|^https\?://||')")
+  new_pgver=$(p_input    "PostgreSQL version"             "${POSTGRES_VERSION:-18}")
 
-  # Normalize: bare IPv4 gets http:// prefix so Caddy doesn't default to HTTPS
-  if [[ "$new_caddy_host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    new_caddy_host="http://${new_caddy_host}"
+  # Derive CADDY_HOST and NEXTAUTH_URL from the raw host input
+  local new_caddy_host new_nextauth_url
+  if [[ "$new_raw_host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    new_caddy_host=":80"
+    new_nextauth_url="http://${new_raw_host}"
+  else
+    new_caddy_host="$new_raw_host"
+    new_nextauth_url="https://${new_raw_host}"
   fi
 
   # Determine what changed
@@ -980,19 +986,14 @@ cmd_config() {
   [[ "$new_pgver"      != "${POSTGRES_VERSION:-}"         ]] && _changed_postgres=true
 
   # Write values
-  _env_set "OLLAMA_MODEL"             "$new_model"       "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_OCR_MODEL"         "$new_ocr"         "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_REWRITE_MODEL"     "$new_rewrite"     "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_KEEP_ALIVE"        "$new_keep"        "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_SCHED_SPREAD"      "$new_spread"      "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_MAX_LOADED_MODELS" "$new_max"         "$INSTALL_DIR/.env"
-  _env_set "CADDY_HOST"               "$new_caddy_host"  "$INSTALL_DIR/.env"
-  # Recalcule NEXTAUTH_URL depuis CADDY_HOST
-  if [[ "$new_caddy_host" =~ ^http:// ]]; then
-    _env_set "NEXTAUTH_URL" "$new_caddy_host"                    "$INSTALL_DIR/.env"
-  else
-    _env_set "NEXTAUTH_URL" "https://${new_caddy_host}"          "$INSTALL_DIR/.env"
-  fi
+  _env_set "OLLAMA_MODEL"             "$new_model"        "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_OCR_MODEL"         "$new_ocr"          "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_REWRITE_MODEL"     "$new_rewrite"      "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_KEEP_ALIVE"        "$new_keep"         "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_SCHED_SPREAD"      "$new_spread"       "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_MAX_LOADED_MODELS" "$new_max"          "$INSTALL_DIR/.env"
+  _env_set "CADDY_HOST"               "$new_caddy_host"   "$INSTALL_DIR/.env"
+  _env_set "NEXTAUTH_URL"             "$new_nextauth_url" "$INSTALL_DIR/.env"
   _env_set "POSTGRES_VERSION"         "$new_pgver"       "$INSTALL_DIR/.env"
 
   p_ok "Settings written to: ${INSTALL_DIR}/.env"
