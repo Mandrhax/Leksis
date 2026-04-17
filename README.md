@@ -127,7 +127,7 @@ Leksis runs as **4 containers** on an isolated Docker network (`leksis-net`):
 | `leksis-caddy` | `caddy:2-alpine` | Reverse proxy — only public entry point | 80, 443 |
 | `leksis-app` | `leksis-app` (built locally) | Next.js application | internal only |
 | `leksis-postgres` | `postgres:${POSTGRES_VERSION}-alpine` | Database | internal only |
-| `leksis-ollama` | `ollama/ollama:latest` | LLM inference | 11434 (host) |
+| `leksis-ollama` | `ollama/ollama:latest` | LLM inference | internal only |
 
 The app container is **never directly exposed** — all traffic flows through Caddy. Caddy's admin API (`port 2019`) is accessible only within the Docker network, allowing hot-reload of the proxy configuration from the admin panel without restarting any container.
 

@@ -616,7 +616,7 @@ EOF
   p_ok ".env written."
 
   # ── Port availability check ────────────────────────────────
-  for port in "80" "443" "11434"; do
+  for port in "80" "443"; do
     if ss -tlnp 2>/dev/null | grep -q ":${port} " || \
        netstat -tlnp 2>/dev/null | grep -q ":${port} "; then
       p_warn "Port ${port} appears to be already in use."
@@ -653,9 +653,10 @@ EOF
   # ── Pre-warm models into VRAM ──────────────────────────────
   p_info "Pre-warming models into VRAM (this may take a few minutes)..."
   for _m in "$OLLAMA_MODEL" "$OLLAMA_OCR_MODEL" "$OLLAMA_REWRITE_MODEL"; do
-    curl -s --max-time 120 -X POST "http://localhost:11434/api/generate" \
-      -d "{\"model\":\"${_m}\",\"prompt\":\"\",\"stream\":false,\"keep_alive\":-1}" \
-      > /dev/null 2>&1 || true
+    $COMPOSE_CMD exec -T ollama sh -c \
+      "curl -s --max-time 120 -X POST http://localhost:11434/api/generate \
+       -d '{\"model\":\"${_m}\",\"prompt\":\"\",\"stream\":false,\"keep_alive\":-1}' \
+       >/dev/null 2>&1" || true
   done
   p_ok "Models pre-warmed."
 
