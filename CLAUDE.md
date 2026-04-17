@@ -150,6 +150,8 @@ src/
 │   │       ├── services/ollama/metrics/route.ts (Métriques Ollama : version, latence, modèles, running)
 │   │       ├── services/ollama/unload/route.ts  (Décharge un modèle — keep_alive: 0)
 │   │       ├── services/ollama/warmup/route.ts  (Charge les modèles configurés en VRAM — keep_alive: -1, dédupliqués)
+│   │       ├── services/ollama/pull/route.ts    (Télécharge un modèle — stream ndjson de progression depuis /api/pull)
+│   │       ├── services/ollama/delete/route.ts  (Supprime un modèle installé — DELETE /api/delete)
 │   │       ├── services/db/test/route.ts        (Test connexion PostgreSQL)
 │   │       ├── services/db/metrics/route.ts     (Métriques PostgreSQL : version, taille, connexions, tables)
 │   │       ├── services/caddy/metrics/route.ts  (Métriques Caddy : reachable, version, upstreams — GET http://caddy:2019)
@@ -213,8 +215,8 @@ src/
 │       ├── OllamaServiceForm.tsx        (Config Ollama, test connexion, bouton "Load into VRAM" — POST /api/admin/services/ollama/warmup)
 │       ├── DbServiceForm.tsx            (Config PostgreSQL, test connexion)
 │       ├── CaddyServiceForm.tsx         (Config Caddy : host, behindProxy toggle, preview Caddyfile live — PATCH /api/admin/services)
-│       ├── OllamaServicesLayout.tsx     (Layout page Ollama : grille [3fr_2fr] — gauche=formulaire+InstalledBlock, droite=StatusBlock+RunningBlock — wraps OllamaMetricsProvider)
-│       ├── OllamaMetrics.tsx            (Métriques Ollama : OllamaMetricsProvider (contexte fetch), OllamaStatusBlock, OllamaInstalledBlock, OllamaRunningBlock + OllamaMetrics wrapper legacy)
+│       ├── OllamaServicesLayout.tsx     (Layout page Ollama : grille [3fr_2fr] — gauche=formulaire+InstalledBlock, droite=StatusBlock+RunningBlock+PullBlock — wraps OllamaMetricsProvider)
+│       ├── OllamaMetrics.tsx            (Métriques Ollama : OllamaMetricsProvider (contexte fetch+delete), OllamaStatusBlock, OllamaInstalledBlock (corbeille par modèle), OllamaRunningBlock, OllamaPullBlock (barre de progression streaming) + OllamaMetrics wrapper legacy)
 │       ├── DbMetrics.tsx                (Métriques PostgreSQL live : statut serveur, connexions, tables application)
 │       ├── CaddyMetrics.tsx             (Métriques Caddy live : reachable, version, upstream app:3000 health)
 │       ├── GlossaryAdmin.tsx            (CRUD glossaires nommés + entrées avec paires de langues + import CSV + export CSV client-side)
@@ -470,7 +472,7 @@ Flux local :
 - L'API usage (`/api/admin/usage`) accepte un paramètre `limit` (1–500, défaut 100) pour contrôler le nombre de lignes retournées. `UsagePanel` expose un sélecteur 25/50/100/200/500
 - Migration DB : `scripts/migrate-glossary.sql` pour les installations existantes, `docker/init-schema.sql` pour les nouveaux déploiements Docker
 - **Versions Docker** : `postgres` utilise `${POSTGRES_VERSION:-18}-alpine` (configurable via `.env`). `node:22-slim` est épinglé (LTS actuel, Debian requis pour `@napi-rs/canvas`). `caddy:2-alpine` pour le reverse proxy. `ollama/ollama:latest` sans port binding hôte (interne uniquement). Ne jamais hardcoder `postgres:NN-alpine` — toujours passer par la variable. Changer la version majeure PostgreSQL sur une installation existante nécessite une migration de données (`pg_upgrade` ou dump/restore)
-- **Ollama** : le port `11434` n'est **pas** exposé sur l'hôte — accessible uniquement via le réseau Docker interne (`http://ollama:11434`). Il n'y a plus de pré-chauffage automatique dans `install.sh` — le chargement en VRAM se fait depuis le panneau admin via le bouton "Load into VRAM" (`POST /api/admin/services/ollama/warmup`). La route déduplique les modèles (translationModel / rewriteModel / ocrModel) et appelle Ollama avec `keep_alive: -1` pour chacun
+- **Ollama** : le port `11434` n'est **pas** exposé sur l'hôte — accessible uniquement via le réseau Docker interne (`http://ollama:11434`). Il n'y a plus de pré-chauffage automatique dans `install.sh` — le chargement en VRAM se fait depuis le panneau admin via le bouton "Load into VRAM" (`POST /api/admin/services/ollama/warmup`). La route déduplique les modèles (translationModel / rewriteModel / ocrModel) et appelle Ollama avec `keep_alive: -1` pour chacun. Le téléchargement de nouveaux modèles se fait via `OllamaPullBlock` (`POST /api/admin/services/ollama/pull`) qui stream le JSON de progression d'Ollama ligne par ligne. La suppression se fait via `DELETE /api/admin/services/ollama/delete` — les modèles référencés dans la config ont leur corbeille désactivée
 - **Caddy** : le Caddyfile est généré depuis `site_settings` (clé `caddy_config` JSONB) via `src/lib/caddy.ts`. Le rechargement à chaud se fait via `POST http://caddy:2019/load` (Content-Type: text/caddyfile). Si le rechargement échoue, le PATCH renvoie `{ ok: true, reloadError }` sans faire échouer la requête. L'admin API Caddy écoute sur `0.0.0.0:2019` (interne Docker uniquement — pas de port binding hôte). Caddy démarre avec `--resume` : au redémarrage, il charge `/data/config/autosave.json` si présent. Pour forcer le chargement du Caddyfile : `docker exec leksis-caddy caddy reload --config /etc/caddy/Caddyfile`. L'endpoint `GET /` retourne 404 en Caddy v2 — utiliser `GET /config/` pour vérifier la joignabilité
 - **Aucun CDN tiers** : Material Symbols et Bootstrap Icons sont self-hébergés. Ne pas réintroduire de `<link>` vers `fonts.googleapis.com` ou `cdn.jsdelivr.net`. Pour mettre à jour Material Symbols, re-télécharger le woff2 depuis `fonts.gstatic.com` (URL versionnée `v{N}`)
 - Priorité : robustesse, lisibilité, maintenabilité
