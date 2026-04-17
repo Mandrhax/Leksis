@@ -88,6 +88,7 @@ Cette fonctionnalité **n'est pas une traduction**, mais une transformation du t
 - **zod** (validation des entrées dans les routes API admin)
 - **@napi-rs/canvas** (conversion PDF → PNG pour l'OCR vision)
 - **server-only** (protection des modules serveur)
+- **Caddy v2** (reverse proxy — container `caddy:2-alpine`, ports 80/443, admin API interne sur `0.0.0.0:2019`)
 - Docker / Docker Compose (appliance on-premise)
 
 ---
@@ -97,9 +98,10 @@ Cette fonctionnalité **n'est pas une traduction**, mais une transformation du t
 Flux de données :
 
 ```
-Client React
-→ API Next.js (Gateway IA)  /api/*
-→ Ollama  /api/generate
+Internet / NPM (SSL)
+→ Caddy :80  (reverse proxy, Docker)
+→ app:3000   (Next.js)
+→ Ollama /api/generate
 ```
 
 ### Règles non négociables
@@ -143,12 +145,13 @@ src/
 │   │       ├── glossary/[id]/entries/[eid]/route.ts  (Suppression entrée DELETE)
 │   │       ├── glossary/[id]/import/route.ts         (Import CSV POST)
 │   │       ├── logo/route.ts            (Upload/suppression du logo)
-│   │       ├── services/route.ts        (Config Ollama + PostgreSQL GET/PATCH)
+│   │       ├── services/route.ts        (Config Ollama + PostgreSQL + Caddy GET/PATCH — discriminatedUnion sur service=)
 │   │       ├── services/ollama/test/route.ts    (Test connexion Ollama)
 │   │       ├── services/ollama/metrics/route.ts (Métriques Ollama : version, latence, modèles, running)
 │   │       ├── services/ollama/unload/route.ts  (Décharge un modèle — keep_alive: 0)
 │   │       ├── services/db/test/route.ts        (Test connexion PostgreSQL)
 │   │       ├── services/db/metrics/route.ts     (Métriques PostgreSQL : version, taille, connexions, tables)
+│   │       ├── services/caddy/metrics/route.ts  (Métriques Caddy : reachable, version, upstreams — GET http://caddy:2019)
 │   │       ├── settings/route.ts        (Réglages site GET/PATCH)
 │   │       ├── settings/export/route.ts (Export config JSON)
 │   │       ├── settings/import/route.ts (Import config JSON)
@@ -163,6 +166,7 @@ src/
 │   │   ├── services/page.tsx            (redirect → /admin/services/ai)
 │   │   ├── services/ai/page.tsx         (AdminPageHeader "servicesAi" + grille [2fr_3fr] : ServicesPanel | OllamaMetrics)
 │   │   ├── services/db/page.tsx         (AdminPageHeader "servicesDb" + grille [2fr_3fr] : ServicesPanel | DbMetrics)
+│   │   ├── services/caddy/page.tsx      (AdminPageHeader "servicesCaddy" + grille [2fr_3fr] : ServicesPanel | CaddyMetrics)
 │   │   ├── glossary/page.tsx            (AdminPageHeader "glossary" + GlossaryAdmin)
 │   │   ├── users/page.tsx               (AdminPageHeader + UserList)
 │   │   ├── usage/page.tsx               (AdminPageHeader + UsagePanel)
@@ -193,9 +197,9 @@ src/
 │   │   └── LanguageDropdown.tsx         (Liste alphabétique unifiée, favoris, portal fixe)
 │   └── admin/
 │       ├── AdminClientLayout.tsx        (Fournit I18nProvider aux composants admin)
-│       ├── AdminPageHeader.tsx          (Titre + description traduits, section= : settings|servicesAi|servicesDb|glossary|users|usage|audit|backup)
-│       ├── AdminSidebar.tsx             (Navigation admin — Settings, Services [en-tête] > AI + Database, Glossary, Users, Usage, Audit, Backup)
-│       ├── AdminToast.tsx               (Composant toast + type ToastState)
+│       ├── AdminPageHeader.tsx          (Titre + description traduits, section= : settings|servicesAi|servicesDb|servicesCaddy|glossary|users|usage|audit|backup)
+│       ├── AdminSidebar.tsx             (Navigation admin — Settings, Services [en-tête] > Ollama + PostgreSQL + Caddy, Glossary, Users, Usage, Audit, Backup)
+│       ├── AdminToast.tsx               (Composant toast + type ToastState — types : 'success' | 'warning' | 'error')
 │       ├── AdminToastWrapper.tsx        (Wrapper de positionnement du toast)
 │       ├── SettingsTabs.tsx             (Onglets Identité/Interface/Fonctionnalités/Tonalités/Accès — sous-blocs en grille lg:grid-cols-2)
 │       ├── BrandingForm.tsx             (Logo, couleurs, fond, mode sombre — sous-blocs en grille)
@@ -204,11 +208,13 @@ src/
 │       ├── TonesForm.tsx                (CRUD tonalités : label EN/FR/DE/IT, instruction prompt, on/off, min 1 / max 6)
 │       ├── GeneralForm.tsx              (Email contact, bannière, mode maintenance — sous-blocs en grille)
 │       ├── ExportImportForm.tsx         (Export/Import configuration JSON)
-│       ├── ServicesPanel.tsx            (Client wrapper pour OllamaServiceForm ou DbServiceForm selon mode="ai"|"db")
+│       ├── ServicesPanel.tsx            (Client wrapper pour OllamaServiceForm | DbServiceForm | CaddyServiceForm selon mode="ai"|"db"|"caddy")
 │       ├── OllamaServiceForm.tsx        (Config Ollama, test connexion)
 │       ├── DbServiceForm.tsx            (Config PostgreSQL, test connexion)
+│       ├── CaddyServiceForm.tsx         (Config Caddy : host, behindProxy toggle, preview Caddyfile live — PATCH /api/admin/services)
 │       ├── OllamaMetrics.tsx            (Métriques Ollama live : statut, modèles installés, modèles en mémoire + Unload)
 │       ├── DbMetrics.tsx                (Métriques PostgreSQL live : statut serveur, connexions, tables application)
+│       ├── CaddyMetrics.tsx             (Métriques Caddy live : reachable, version, upstream app:3000 health)
 │       ├── GlossaryAdmin.tsx            (CRUD glossaires nommés + entrées avec paires de langues + import CSV + export CSV client-side)
 │       ├── UserList.tsx                 (Tableau utilisateurs, toggle rôle admin)
 │       ├── UsagePanel.tsx               (Stats IA filtrées par date, export CSV, sélecteur lignes/page 25–500)
@@ -226,6 +232,7 @@ src/
 │
 ├── lib/
 │   ├── i18n.tsx                         (I18nProvider, useI18n, UILocale — zero-dep)
+│   ├── caddy.ts                         (SERVER-ONLY: CaddyConfig, generateCaddyfile(), reloadCaddy() — POST http://caddy:2019/load)
 │   ├── ollama.ts                        (SERVER-ONLY: streamOllamaResponse, callOllama, getOllamaConfig)
 │   ├── prompts.ts                       (Factory prompts: translate, document, ocr, rewrite, correct)
 │   ├── tones.ts                         (SERVER-ONLY: DEFAULT_TONES, getConfiguredTones — fallback + migration DB)
@@ -286,7 +293,7 @@ Les composants appelant `useI18n()` doivent être enfants d'un `I18nProvider`.
 
 ### Espaces de noms définis
 
-`home`, `account`, `textTab`, `docTab`, `imgTab`, `rewriteTab`, `langDropdown`, `langSwitcher`, `settingsPage`, `adminSidebar`, `adminPages`, `settingsTabs`, `brandingForm`, `designForm`, `featuresForm`, `tonesForm`, `generalForm`, `ollamaForm`, `dbForm`, `glossaryAdmin`, `userList`, `usagePanel`, `auditTable`, `purgeButton`, `backupForm`, `signIn`
+`home`, `account`, `textTab`, `docTab`, `imgTab`, `rewriteTab`, `langDropdown`, `langSwitcher`, `settingsPage`, `adminSidebar`, `adminPages`, `settingsTabs`, `brandingForm`, `designForm`, `featuresForm`, `tonesForm`, `generalForm`, `ollamaForm`, `dbForm`, `caddyForm`, `glossaryAdmin`, `userList`, `usagePanel`, `auditTable`, `purgeButton`, `backupForm`, `signIn`
 
 ---
 
@@ -301,10 +308,10 @@ Les composants appelant `useI18n()` doivent être enfants d'un `I18nProvider`.
 ### Pages admin — conventions de mise en page
 
 - Wrapper page : `p-8 max-w-[1400px]`
-- **Pages Services AI & DB** : grille `grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 items-start` — formulaire config à gauche, blocs métriques à droite
+- **Pages Services (Ollama, PostgreSQL, Caddy)** : grille `grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 items-start` — formulaire config à gauche, blocs métriques à droite
 - **Page Réglages** : tabs de navigation (5 onglets), sous-blocs de chaque formulaire en `grid grid-cols-1 lg:grid-cols-2 gap-3 items-start` avec deux `<div className="flex flex-col gap-3">` explicites (colonne gauche + colonne droite) — ne jamais laisser CSS Grid auto-placer les cartes (crée des espaces vides égaux à la hauteur de la rangée la plus haute), bouton Save hors grille
 - **Style de carte admin** : `bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6` — utilisé uniformément pour formulaires et blocs métriques
-- **Blocs métriques** (OllamaMetrics, DbMetrics) : bouton Refresh dans l'en-tête du bloc Statut, blocs 2 et 3 côte à côte (`xl:grid-cols-2`)
+- **Blocs métriques** (OllamaMetrics, DbMetrics, CaddyMetrics) : bouton Refresh dans l'en-tête du bloc Statut, blocs supplémentaires côte à côte (`xl:grid-cols-2`)
 
 ### Panneaux de traduction (tous les tabs)
 
@@ -375,6 +382,7 @@ Tous les prompts sont dans `src/lib/prompts.ts` :
 - Validation des entrées dans `src/lib/validators.ts` (+ zod dans les routes admin)
 - Authentification OTP : code généré et retourné au client pour affichage immédiat (on-premise, pas d'envoi email)
 - Mots de passe DB chiffrés AES-256-GCM via `src/lib/crypto.ts` avant stockage en base
+- `AUTH_TRUST_HOST=1` requis dans `.env` lorsque l'app est derrière un reverse proxy (Caddy/NPM) — sans ça, NextAuth v5 rejette les requêtes
 - Admin protégé par `requireAdmin()` dans chaque page et route admin
 - Logs d'audit fire-and-forget via `src/lib/audit.ts`
 
@@ -418,6 +426,8 @@ Le script `install.sh` à la racine du projet gère le cycle de vie complet de l
 - Parser la sortie `--checklist` avec `tr -d '"'` puis `IFS=' ' read -ra arr`
 - Ne jamais supprimer `NCURSES_NO_UTF8_ACS=1` ni le fallback `--ascii-lines`
 - `cmd_update` contient un **guard de backfill** : si `.env` ne contient pas `POSTGRES_VERSION`, il écrit automatiquement `POSTGRES_VERSION=16` pour protéger les données existantes contre une migration accidentelle de version majeure PostgreSQL
+- `cmd_update` propose 5 composants sélectionnables : `app`, `caddy`, `postgres`, `ollama`, `ollama models`
+- `cmd_logs` propose 4 services : `app`, `caddy`, `postgres`, `ollama`
 
 ---
 
@@ -456,7 +466,8 @@ Flux local :
 - Export CSV glossaire : **100 % client-side** (`exportEntriesToCSV` dans `GlossaryAdmin.tsx`) — pas de route API. Bouton visible uniquement si des entrées existent. Nom de fichier : `{glossary_name}_glossary.csv`
 - L'API usage (`/api/admin/usage`) accepte un paramètre `limit` (1–500, défaut 100) pour contrôler le nombre de lignes retournées. `UsagePanel` expose un sélecteur 25/50/100/200/500
 - Migration DB : `scripts/migrate-glossary.sql` pour les installations existantes, `docker/init-schema.sql` pour les nouveaux déploiements Docker
-- **Versions Docker** : `postgres` utilise `${POSTGRES_VERSION:-18}-alpine` (configurable via `.env`). `node:22-slim` est épinglé (LTS actuel, Debian requis pour `@napi-rs/canvas`). Ne jamais hardcoder `postgres:NN-alpine` — toujours passer par la variable. Changer la version majeure PostgreSQL sur une installation existante nécessite une migration de données (`pg_upgrade` ou dump/restore)
+- **Versions Docker** : `postgres` utilise `${POSTGRES_VERSION:-18}-alpine` (configurable via `.env`). `node:22-slim` est épinglé (LTS actuel, Debian requis pour `@napi-rs/canvas`). `caddy:2-alpine` pour le reverse proxy. Ne jamais hardcoder `postgres:NN-alpine` — toujours passer par la variable. Changer la version majeure PostgreSQL sur une installation existante nécessite une migration de données (`pg_upgrade` ou dump/restore)
+- **Caddy** : le Caddyfile est généré depuis `site_settings` (clé `caddy_config` JSONB) via `src/lib/caddy.ts`. Le rechargement à chaud se fait via `POST http://caddy:2019/load` (Content-Type: text/caddyfile). Si le rechargement échoue, le PATCH renvoie `{ ok: true, reloadError }` sans faire échouer la requête. L'admin API Caddy écoute sur `0.0.0.0:2019` (interne Docker uniquement — pas de port binding hôte). Caddy démarre avec `--resume` : au redémarrage, il charge `/data/config/autosave.json` si présent. Pour forcer le chargement du Caddyfile : `docker exec leksis-caddy caddy reload --config /etc/caddy/Caddyfile`. L'endpoint `GET /` retourne 404 en Caddy v2 — utiliser `GET /config/` pour vérifier la joignabilité
 - **Aucun CDN tiers** : Material Symbols et Bootstrap Icons sont self-hébergés. Ne pas réintroduire de `<link>` vers `fonts.googleapis.com` ou `cdn.jsdelivr.net`. Pour mettre à jour Material Symbols, re-télécharger le woff2 depuis `fonts.gstatic.com` (URL versionnée `v{N}`)
 - Priorité : robustesse, lisibilité, maintenabilité
 - Les messages de commit git doivent toujours être **en anglais**
