@@ -361,11 +361,6 @@ resolve_compose_cmd() {
   esac
 }
 
-detect_branch() {
-  local dir="${1:-.}"
-  git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main"
-}
-
 pg_backup() {
   local install_dir="$1"
   local backup_dir="${install_dir}/backups"
@@ -552,22 +547,16 @@ cmd_install() {
   p_header "Repository"
 
   if [[ -d "$INSTALL_DIR/.git" ]]; then
-    local BRANCH; BRANCH=$(detect_branch "$INSTALL_DIR")
-    if [[ "$BRANCH" == "HEAD" ]]; then
-      p_info "Fetching latest release tags..."
-      git -C "$INSTALL_DIR" fetch --tags --force
-      local LATEST_TAG
-      LATEST_TAG=$(git -C "$INSTALL_DIR" describe --tags \
-        "$(git -C "$INSTALL_DIR" rev-list --tags --max-count=1)" 2>/dev/null || echo "")
-      if [[ -n "$LATEST_TAG" ]]; then
-        git -C "$INSTALL_DIR" checkout "$LATEST_TAG"
-        p_ok "Updated to ${LATEST_TAG}"
-      else
-        p_warn "No tags found. Re-run install.sh to update."
-      fi
+    p_info "Fetching release tags..."
+    git -C "$INSTALL_DIR" fetch --tags --force
+    local LATEST_TAG
+    LATEST_TAG=$(git -C "$INSTALL_DIR" describe --tags \
+      "$(git -C "$INSTALL_DIR" rev-list --tags --max-count=1)" 2>/dev/null || echo "")
+    if [[ -n "$LATEST_TAG" ]]; then
+      git -C "$INSTALL_DIR" checkout "$LATEST_TAG"
+      p_ok "Checked out ${LATEST_TAG}"
     else
-      p_info "Pulling latest changes (branch: ${BRANCH})..."
-      git -C "$INSTALL_DIR" pull origin "$BRANCH"
+      p_warn "No release tags found. Re-run install.sh after a release is published."
     fi
   elif [[ -d "$INSTALL_DIR" ]]; then
     p_warn "${INSTALL_DIR} exists but is not a git repository."
@@ -731,23 +720,36 @@ cmd_update() {
   # Backup before changes
   pg_backup "$INSTALL_DIR"
 
-  # Pull latest sources
-  local BRANCH; BRANCH=$(detect_branch "$INSTALL_DIR")
-  if [[ "$BRANCH" == "HEAD" ]]; then
-    p_info "Fetching latest release tags..."
-    git -C "$INSTALL_DIR" fetch --tags --force
-    local LATEST_TAG
-    LATEST_TAG=$(git -C "$INSTALL_DIR" describe --tags \
-      "$(git -C "$INSTALL_DIR" rev-list --tags --max-count=1)" 2>/dev/null || echo "")
-    if [[ -n "$LATEST_TAG" ]]; then
-      git -C "$INSTALL_DIR" checkout "$LATEST_TAG"
-      p_ok "Updated to ${LATEST_TAG}"
-    else
-      p_warn "No tags found. Re-run install.sh to update."
-    fi
+  # Pull latest sources — always tag-based, never branch-following
+  p_info "Fetching release tags..."
+  git -C "$INSTALL_DIR" fetch --tags --force
+
+  local CURRENT_TAG LATEST_TAG
+  CURRENT_TAG=$(git -C "$INSTALL_DIR" describe --tags --exact-match HEAD 2>/dev/null || echo "")
+  LATEST_TAG=$(git -C "$INSTALL_DIR" describe --tags \
+    "$(git -C "$INSTALL_DIR" rev-list --tags --max-count=1)" 2>/dev/null || echo "")
+
+  if [[ -z "$LATEST_TAG" ]]; then
+    p_warn "No release tags found in repository. Cannot update sources."
   else
-    p_info "Pulling latest sources (branch: ${BRANCH})..."
-    git -C "$INSTALL_DIR" pull origin "$BRANCH"
+    if [[ -z "$CURRENT_TAG" ]]; then
+      p_warn "Current installation is not pinned to a release tag (branch or unknown state)."
+      p_warn "Will switch to latest release: ${LATEST_TAG}"
+    elif [[ "$CURRENT_TAG" == "$LATEST_TAG" ]]; then
+      p_ok "Already on latest release: ${LATEST_TAG}"
+    else
+      p_info "Current release : ${CURRENT_TAG}"
+      p_info "Latest release  : ${LATEST_TAG}"
+    fi
+
+    if [[ "$CURRENT_TAG" != "$LATEST_TAG" ]]; then
+      if p_yesno "Switch to ${LATEST_TAG}?" "y"; then
+        git -C "$INSTALL_DIR" checkout "$LATEST_TAG"
+        p_ok "Switched to ${LATEST_TAG}"
+      else
+        p_info "Keeping current sources. Containers will be rebuilt from existing code."
+      fi
+    fi
   fi
 
   detect_gpu
