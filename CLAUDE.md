@@ -154,7 +154,7 @@ src/
 │   │       ├── services/ollama/delete/route.ts  (Supprime un modèle installé — DELETE /api/delete)
 │   │       ├── services/db/test/route.ts        (Test connexion PostgreSQL)
 │   │       ├── services/db/metrics/route.ts     (Métriques PostgreSQL : version, taille, connexions, tables)
-│   │       ├── services/caddy/metrics/route.ts  (Métriques Caddy : reachable, version, upstreams — GET http://caddy:2019)
+│   │       ├── services/caddy/metrics/route.ts  (Métriques Caddy : reachable via GET /config/, version via HEAD http://caddy:80/ header Server, upstreams via GET /reverse_proxy/upstreams)
 │   │       ├── settings/route.ts        (Réglages site GET/PATCH)
 │   │       ├── settings/export/route.ts (Export config JSON)
 │   │       ├── settings/import/route.ts (Import config JSON)
@@ -165,11 +165,13 @@ src/
 │   │       └── users/[id]/route.ts      (Mise à jour rôle utilisateur)
 │   ├── admin/
 │   │   ├── layout.tsx                   (requireAdmin + AdminClientLayout + AdminSidebar)
-│   │   ├── settings/page.tsx            (AdminPageHeader + SettingsTabs — max-w-[1400px])
+│   │   ├── page.tsx                     (redirect → /admin/dashboard)
+│   │   ├── dashboard/page.tsx           (Server component — fetches users/usage/glossary/audit from DB + AdminDashboard client)
+│   │   ├── settings/page.tsx            (AdminPageHeader + SettingsAccordion — max-w-[1400px])
 │   │   ├── services/page.tsx            (redirect → /admin/services/ai)
 │   │   ├── services/ai/page.tsx         (AdminPageHeader "servicesAi" + OllamaServicesLayout — grille [3fr_2fr])
-│   │   ├── services/db/page.tsx         (AdminPageHeader "servicesDb" + grille [2fr_3fr] : ServicesPanel | DbMetrics)
-│   │   ├── services/caddy/page.tsx      (AdminPageHeader "servicesCaddy" + grille [2fr_3fr] : ServicesPanel | CaddyMetrics)
+│   │   ├── services/db/page.tsx         (AdminPageHeader "servicesDb" + DbStatusStrip + grille [2fr_3fr] : ServicesPanel | DbMetrics)
+│   │   ├── services/caddy/page.tsx      (AdminPageHeader "servicesCaddy" + CaddyStatusStrip + grille [2fr_3fr] : ServicesPanel | CaddyMetrics)
 │   │   ├── glossary/page.tsx            (AdminPageHeader "glossary" + GlossaryAdmin — max-w-[1400px])
 │   │   ├── users/page.tsx               (AdminPageHeader + UserList — max-w-[1400px])
 │   │   ├── usage/page.tsx               (AdminPageHeader + UsagePanel — max-w-[1400px])
@@ -201,13 +203,14 @@ src/
 │   └── admin/
 │       ├── AdminClientLayout.tsx        (Fournit I18nProvider aux composants admin)
 │       ├── AdminPageHeader.tsx          (Titre + description traduits, section= : settings|servicesAi|servicesDb|servicesCaddy|glossary|users|usage|audit|backup)
-│       ├── AdminSidebar.tsx             (Navigation admin — Settings, Services [en-tête] > Ollama + PostgreSQL + Caddy, Glossary, Users, Usage, Audit, Backup)
+│       ├── AdminSidebar.tsx             (Navigation admin — flat nav, section labels SETTINGS/INFRASTRUCTURE/MANAGEMENT, status dots live par service, lien Dashboard)
 │       ├── AdminToast.tsx               (Composant toast + type ToastState — types : 'success' | 'warning' | 'error')
 │       ├── AdminToastWrapper.tsx        (Wrapper de positionnement du toast)
-│       ├── SettingsTabs.tsx             (Onglets Identité/Interface/Fonctionnalités/Tonalités/Accès — sous-blocs en grille lg:grid-cols-2)
+│       ├── SettingsAccordion.tsx        (Accordéon réglages — 5 sections collapsibles : Identity/Appearance/Features/Tones/Access, Identity ouverte par défaut, Reset to defaults en tête)
+│       ├── AdminDashboard.tsx           (Dashboard admin client — santé services (3 cartes cliquables), stats (users/calls/glossary/models), activité récente (5 entrées audit))
 │       ├── BrandingForm.tsx             (Logo, couleurs, fond, mode sombre — sous-blocs en grille)
 │       ├── DesignForm.tsx               (Radius boutons, taille logo, footer — sous-blocs en grille)
-│       ├── FeaturesForm.tsx             (Modules actifs, langues défaut, limites API — sous-blocs en grille)
+│       ├── FeaturesForm.tsx             (Modules actifs, langues défaut, limites API, showFooterQuotes toggle — sous-blocs en grille)
 │       ├── TonesForm.tsx                (CRUD tonalités : label EN/FR/DE/IT, instruction prompt, on/off, min 1 / max 6)
 │       ├── GeneralForm.tsx              (Email contact, bannière, mode maintenance — sous-blocs en grille)
 │       ├── ExportImportForm.tsx         (Export/Import configuration JSON)
@@ -216,9 +219,9 @@ src/
 │       ├── DbServiceForm.tsx            (Config PostgreSQL, test connexion)
 │       ├── CaddyServiceForm.tsx         (Config Caddy : host, behindProxy toggle, preview Caddyfile live — PATCH /api/admin/services)
 │       ├── OllamaServicesLayout.tsx     (Layout page Ollama : grille [3fr_2fr] — gauche=formulaire+InstalledBlock, droite=StatusBlock+RunningBlock+PullBlock — wraps OllamaMetricsProvider)
-│       ├── OllamaMetrics.tsx            (Métriques Ollama : OllamaMetricsProvider (contexte fetch+delete), OllamaStatusBlock, OllamaInstalledBlock (corbeille par modèle), OllamaRunningBlock, OllamaPullBlock (barre de progression streaming) + OllamaMetrics wrapper legacy)
-│       ├── DbMetrics.tsx                (Métriques PostgreSQL live : statut serveur, connexions, tables application)
-│       ├── CaddyMetrics.tsx             (Métriques Caddy live : reachable, version, upstream app:3000 health)
+│       ├── OllamaMetrics.tsx            (Métriques Ollama : OllamaMetricsProvider (contexte fetch+delete), OllamaStatusBlock, OllamaInstalledBlock (corbeille par modèle), OllamaRunningBlock, OllamaPullBlock (barre de progression streaming), OllamaStatusStrip (bande live version/latence/modèles))
+│       ├── DbMetrics.tsx                (Métriques PostgreSQL live : statut serveur, connexions, tables application + DbStatusStrip (bande live version/taille/uptime/connexions))
+│       ├── CaddyMetrics.tsx             (Métriques Caddy live : reachable, version, upstream app:3000 health + CaddyStatusStrip (bande live version/statut/upstreams))
 │       ├── GlossaryAdmin.tsx            (CRUD glossaires nommés + entrées avec paires de langues + import CSV + export CSV client-side)
 │       ├── UserList.tsx                 (Tableau utilisateurs, toggle rôle admin)
 │       ├── UsagePanel.tsx               (Stats IA filtrées par date, export CSV, sélecteur lignes/page 25–500)
@@ -314,7 +317,8 @@ Les composants appelant `useI18n()` doivent être enfants d'un `I18nProvider`.
 - Wrapper page : `p-8 max-w-[1400px]`
 - **Page Services Ollama** : `OllamaServicesLayout` — grille `[3fr_2fr]` — gauche = formulaire + Installed Models, droite = Status + Models in Memory. Les 3 blocs partagent un seul fetch via `OllamaMetricsProvider`
 - **Pages Services PostgreSQL / Caddy** : grille `grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 items-start` — formulaire config à gauche, blocs métriques à droite
-- **Page Réglages** : tabs de navigation (5 onglets), sous-blocs de chaque formulaire en `grid grid-cols-1 lg:grid-cols-2 gap-3 items-start` avec deux `<div className="flex flex-col gap-3">` explicites (colonne gauche + colonne droite) — ne jamais laisser CSS Grid auto-placer les cartes (crée des espaces vides égaux à la hauteur de la rangée la plus haute), bouton Save hors grille
+- **Page Réglages** : accordéon `SettingsAccordion` (5 sections : Identity/Appearance/Features & limits/AI tones/Access — `<details>`-free, React state), Identity ouverte par défaut. Chaque section header : icône Material + titre + badge gris (description courte) + chevron animé. Bouton "Reset to defaults" au-dessus du premier accordéon. Sous-blocs internes de chaque formulaire en `grid grid-cols-1 lg:grid-cols-2 gap-3 items-start` avec deux `<div className="flex flex-col gap-3">` explicites (colonne gauche + colonne droite) — ne jamais laisser CSS Grid auto-placer les cartes, bouton Save hors grille
+- **Status strips** : chaque page service affiche une bande horizontale (`flex gap-6 px-5 py-3 rounded-xl border mb-6`) sous le header avec métriques live. Ollama : `OllamaStatusStrip` via `useOllamaMetrics()` context. PostgreSQL : `DbStatusStrip` (fetch autonome). Caddy : `CaddyStatusStrip` (fetch autonome). Couleur de bordure : `border-[#27ae60]/30` si reachable, `border-error/30` sinon
 - **Style de carte admin** : `bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6` — utilisé uniformément pour formulaires et blocs métriques
 - **Blocs métriques** (OllamaMetrics, DbMetrics, CaddyMetrics) : bouton Refresh dans l'en-tête du bloc Statut, blocs supplémentaires côte à côte (`xl:grid-cols-2`)
 
@@ -473,7 +477,10 @@ Flux local :
 - Migration DB : `scripts/migrate-glossary.sql` pour les installations existantes, `docker/init-schema.sql` pour les nouveaux déploiements Docker
 - **Versions Docker** : `postgres` utilise `${POSTGRES_VERSION:-18}-alpine` (configurable via `.env`). `node:22-slim` est épinglé (LTS actuel, Debian requis pour `@napi-rs/canvas`). `caddy:2-alpine` pour le reverse proxy. `ollama/ollama:latest` sans port binding hôte (interne uniquement). Ne jamais hardcoder `postgres:NN-alpine` — toujours passer par la variable. Changer la version majeure PostgreSQL sur une installation existante nécessite une migration de données (`pg_upgrade` ou dump/restore)
 - **Ollama** : le port `11434` n'est **pas** exposé sur l'hôte — accessible uniquement via le réseau Docker interne (`http://ollama:11434`). Il n'y a plus de pré-chauffage automatique dans `install.sh` — le chargement en VRAM se fait depuis le panneau admin via le bouton "Load into VRAM" (`POST /api/admin/services/ollama/warmup`). La route déduplique les modèles (translationModel / rewriteModel / ocrModel) et appelle Ollama avec `keep_alive: -1` pour chacun. Le téléchargement de nouveaux modèles se fait via `OllamaPullBlock` (`POST /api/admin/services/ollama/pull`) qui stream le JSON de progression d'Ollama ligne par ligne. La suppression se fait via `DELETE /api/admin/services/ollama/delete` — les modèles référencés dans la config ont leur corbeille désactivée
-- **Caddy** : le Caddyfile est généré depuis `site_settings` (clé `caddy_config` JSONB) via `src/lib/caddy.ts`. Le rechargement à chaud se fait via `POST http://caddy:2019/load` (Content-Type: text/caddyfile). Si le rechargement échoue, le PATCH renvoie `{ ok: true, reloadError }` sans faire échouer la requête. L'admin API Caddy écoute sur `0.0.0.0:2019` (interne Docker uniquement — pas de port binding hôte). Caddy démarre avec `--resume` : au redémarrage, il charge `/data/config/autosave.json` si présent. Pour forcer le chargement du Caddyfile : `docker exec leksis-caddy caddy reload --config /etc/caddy/Caddyfile`. L'endpoint `GET /` retourne 404 en Caddy v2 — utiliser `GET /config/` pour vérifier la joignabilité
+- **Caddy** : le Caddyfile est généré depuis `site_settings` (clé `caddy_config` JSONB) via `src/lib/caddy.ts`. Le rechargement à chaud se fait via `POST http://caddy:2019/load` (Content-Type: text/caddyfile). Si le rechargement échoue, le PATCH renvoie `{ ok: true, reloadError }` sans faire échouer la requête. L'admin API Caddy écoute sur `0.0.0.0:2019` (interne Docker uniquement — pas de port binding hôte). Caddy démarre avec `--resume` : au redémarrage, il charge `/data/config/autosave.json` si présent. Pour forcer le chargement du Caddyfile : `docker exec leksis-caddy caddy reload --config /etc/caddy/Caddyfile`. L'endpoint `GET /` retourne 404 en Caddy v2 — utiliser `GET /config/` pour vérifier la joignabilité. **Version Caddy** : l'API admin (`/config/`) ne retourne pas la version — l'extraire du header HTTP `Server` sur le port proxy (`HEAD http://caddy:80/`) : pattern `Caddy/?([\d.]+)` → si présent afficher le numéro, sinon afficher `'Caddy'`
+- **`showFooterQuotes`** : booléen dans `site_settings.features.showFooterQuotes` (défaut `true` via `!== false`). Contrôle l'affichage des citations françaises en pied de page — affiché uniquement si `showFooterQuotes === true && locale === 'fr'`. Toggle dans `FeaturesForm` (section "Interface", icône `format_quote`). Passer `showFooterQuotes` de `page.tsx` → `HomeClient` → footer guard
+- **Dashboard admin** : `/admin/dashboard` — server component qui interroge directement la DB via `query()` (même pattern que les autres pages admin). Tables : `users` (count), `usage_log` (count WHERE created_at >= CURRENT_DATE), sous-requête `glossary_entries` GROUP BY glossary_id pour le total, `audit_log ORDER BY created_at DESC LIMIT 5`. Les données de santé service sont fetchées côté client dans `AdminDashboard.tsx` via les 3 routes `/api/admin/services/*/metrics`. `/admin/page.tsx` redirige vers `/admin/dashboard`
+- **`AdminSidebar.tsx`** : navigation plate avec `useServiceStatus()` hook — fetch parallèle des 3 endpoints metrics au mount, `reachable` ou `ok` selon le service. `StatusDot` : vert `bg-[#27ae60]` si `true`, rouge `bg-error` si `false`, gris si `null` (chargement). Section labels : `SETTINGS` / `INFRASTRUCTURE` / `MANAGEMENT`. `SettingsTabs.tsx` supprimé — remplacé par `SettingsAccordion.tsx`
 - **Aucun CDN tiers** : Material Symbols et Bootstrap Icons sont self-hébergés. Ne pas réintroduire de `<link>` vers `fonts.googleapis.com` ou `cdn.jsdelivr.net`. Pour mettre à jour Material Symbols, re-télécharger le woff2 depuis `fonts.gstatic.com` (URL versionnée `v{N}`)
 - Priorité : robustesse, lisibilité, maintenabilité
 - Les messages de commit git doivent toujours être **en anglais**
