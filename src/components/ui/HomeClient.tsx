@@ -32,6 +32,7 @@ interface Props {
   defaultSourceLang: string
   defaultTargetLang: string
   maxTextChars:      number
+  showFooterQuotes:  boolean
   configuredTones:   ToneConfig[]
 }
 
@@ -43,7 +44,7 @@ export function HomeClient(props: Props) {
   )
 }
 
-function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, maxTextChars, configuredTones }: Props) {
+function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, maxTextChars, showFooterQuotes, configuredTones }: Props) {
   const { t, locale } = useI18n()
 
   const ALL_TABS: { id: TabId; label: string; icon: string }[] = [
@@ -133,10 +134,10 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} activeTab={safeActiveTab} />
 
       {/* ── Footer ── */}
-      {(footerText || footerLinks.length > 0 || locale === 'fr') && (
+      {(footerText || footerLinks.length > 0 || (showFooterQuotes && locale === 'fr')) && (
         <footer className="border-t border-outline-variant/10 px-6 md:px-8 py-4">
           <div className="flex flex-wrap items-center gap-3">
-            {locale === 'fr' && (
+            {showFooterQuotes && locale === 'fr' && (
               <p className="w-full text-center text-xs italic text-on-surface-variant/60">
                 {randomQuote}
               </p>

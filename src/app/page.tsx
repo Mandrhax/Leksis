@@ -16,9 +16,10 @@ async function loadPageSettings() {
       footerLinks?:    { label: string; url: string }[]
     }
     const features  = (settings.features  ?? {}) as {
-      tabs?:     { text?: boolean; document?: boolean; image?: boolean; rewrite?: boolean }
-      defaults?: { sourceLang?: string; targetLang?: string }
-      limits?:   { maxTextChars?: number; maxDocChars?: number; maxImageMB?: number }
+      tabs?:             { text?: boolean; document?: boolean; image?: boolean; rewrite?: boolean }
+      defaults?:         { sourceLang?: string; targetLang?: string }
+      limits?:           { maxTextChars?: number; maxDocChars?: number; maxImageMB?: number }
+      showFooterQuotes?: boolean
     }
 
     const tabs = {
@@ -50,6 +51,7 @@ async function loadPageSettings() {
       defaultSourceLang: features.defaults?.sourceLang ?? 'auto',
       defaultTargetLang: features.defaults?.targetLang ?? 'en',
       maxTextChars:      features.limits?.maxTextChars  ?? 5000,
+      showFooterQuotes:  features.showFooterQuotes !== false,
       configuredTones,
     }
   } catch {
@@ -64,6 +66,7 @@ async function loadPageSettings() {
       defaultSourceLang: 'auto',
       defaultTargetLang: 'en',
       maxTextChars:      5000,
+      showFooterQuotes:  true,
       configuredTones:   DEFAULT_TONES,
     }
   }

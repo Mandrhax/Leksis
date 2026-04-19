@@ -24,15 +24,17 @@ interface FeaturesLimits {
 }
 
 interface FeaturesData {
-  tabs:     FeaturesTabs
-  defaults: FeaturesDefaults
-  limits:   FeaturesLimits
+  tabs:             FeaturesTabs
+  defaults:         FeaturesDefaults
+  limits:           FeaturesLimits
+  showFooterQuotes: boolean
 }
 
 const DEFAULT_FEATURES: FeaturesData = {
-  tabs:     { text: true, document: true, image: true, rewrite: true },
-  defaults: { sourceLang: 'auto', targetLang: 'en' },
-  limits:   { maxTextChars: 5000, maxDocChars: 12000, maxImageMB: 10 },
+  tabs:             { text: true, document: true, image: true, rewrite: true },
+  defaults:         { sourceLang: 'auto', targetLang: 'en' },
+  limits:           { maxTextChars: 5000, maxDocChars: 12000, maxImageMB: 10 },
+  showFooterQuotes: true,
 }
 
 interface Props {
@@ -43,9 +45,10 @@ interface Props {
 export function FeaturesForm({ initial, onToast }: Props) {
   const { t } = useI18n()
   const [data, setData] = useState<FeaturesData>({
-    tabs: { ...DEFAULT_FEATURES.tabs,     ...(initial.tabs     ?? {}) },
-    defaults: { ...DEFAULT_FEATURES.defaults, ...(initial.defaults ?? {}) },
-    limits:   { ...DEFAULT_FEATURES.limits,   ...(initial.limits   ?? {}) },
+    tabs:             { ...DEFAULT_FEATURES.tabs,     ...(initial.tabs     ?? {}) },
+    defaults:         { ...DEFAULT_FEATURES.defaults, ...(initial.defaults ?? {}) },
+    limits:           { ...DEFAULT_FEATURES.limits,   ...(initial.limits   ?? {}) },
+    showFooterQuotes: initial.showFooterQuotes !== false,
   })
   const [saving, setSaving] = useState(false)
 
@@ -216,6 +219,35 @@ export function FeaturesForm({ initial, onToast }: Props) {
       </div>
 
       </div>{/* end grid */}
+
+      {/* Section Interface */}
+      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6">
+        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">{t.featuresForm.sectionInterface}</h3>
+        <label className="flex items-center justify-between gap-4 bg-surface-container border border-outline-variant/20 rounded-lg px-4 py-3 cursor-pointer hover:bg-surface-container/60 transition-colors">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-on-surface-variant text-base leading-none" aria-hidden="true">format_quote</span>
+            <div>
+              <span className="text-sm font-medium text-on-surface">{t.featuresForm.showFooterQuotesLabel}</span>
+              <span className="text-xs text-on-surface-variant ml-2">{t.featuresForm.showFooterQuotesDesc}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={data.showFooterQuotes}
+            onClick={() => setData(prev => ({ ...prev, showFooterQuotes: !prev.showFooterQuotes }))}
+            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+              data.showFooterQuotes ? 'bg-primary' : 'bg-outline-variant/40'
+            }`}
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                data.showFooterQuotes ? 'translate-x-4' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </label>
+      </div>
 
       {/* Save */}
       <div className="flex justify-end pt-2">
