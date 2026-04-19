@@ -581,7 +581,7 @@ cmd_install() {
     fi
   else
     p_info "Cloning from GitHub..."
-    git clone "$REPO_URL" "$INSTALL_DIR"
+    git clone --branch "v${VERSION}" "$REPO_URL" "$INSTALL_DIR"
   fi
   p_ok "Repository ready at ${INSTALL_DIR}"
 
