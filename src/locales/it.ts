@@ -435,7 +435,7 @@ export const messages = {
     blockTablesSize:           'Dimensione',
   },
   caddyForm: {
-    hostLabel:              'Host Caddy',
+    hostLabel:              'Host Caddy (CADDY_HOST)',
     hostHint:               ':80 = tutte le interfacce (HTTP)  |  dominio = HTTPS + Let\'s Encrypt',
     behindProxyLabel:       'Dietro un reverse proxy (NPM, Traefik…)',
     behindProxyHint:        'Disabilita la compressione gzip — il proxy a monte la gestisce verso il browser.',
