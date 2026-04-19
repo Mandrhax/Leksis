@@ -11,7 +11,7 @@
 # logs       - Tail logs of a service
 #
 # Run from a server via curl (stdin-safe):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.2/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.3/install.sh)
 # ============================================================
 set -euo pipefail
 
@@ -23,23 +23,23 @@ if [[ ! -t 0 ]]; then
   echo "ERROR: stdin is not a terminal -- interactive prompts will not work."
   echo ""
   echo "Run this script with:"
-  echo "  bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.2/install.sh)"
+  echo "  bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.3/install.sh)"
   echo ""
   echo "Or download it first:"
-  echo "  curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.2/install.sh -o install.sh"
+  echo "  curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.3/install.sh -o install.sh"
   echo "  chmod +x install.sh && sudo ./install.sh"
   echo ""
   exit 1
 fi
 
 # ── VERSION from package.json ────────────────────────────────
-VERSION="1.0.2"
+VERSION="1.0.3"
 _pkg="$(dirname "$0")/package.json"
 if [[ -f "$_pkg" ]]; then
   _v=$(grep '"version"' "$_pkg" \
     | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' \
     | head -1)
-  VERSION="${_v:-1.0.2}"
+  VERSION="${_v:-1.0.3}"
   unset _v
 fi
 unset _pkg
