@@ -487,4 +487,40 @@ Flux local :
 
 ---
 
+## 🚀 Releases GitHub
+
+- Dépôt : `https://github.com/Mandrhax/Leksis`
+- Stratégie de tags : **semver préfixé** — `v1.0.0`, `v1.1.0`, `v2.0.0`
+- `install.sh` clone toujours sur le tag épinglé (`--branch "v${VERSION}"`) — les utilisateurs installés sur une version sont **isolés de `main`** jusqu'à la prochaine release
+- Le workflow de mise à jour (`cmd_update`) détecte le detached HEAD (tag) et checkout automatiquement le tag le plus récent disponible
+
+### Workflow release
+
+1. Bumper **deux fichiers** :
+   - `package.json` → `"version": "X.Y.Z"`
+   - `install.sh` → `VERSION="X.Y.Z"` (ligne ~36) **et** les 3 URLs `raw.githubusercontent.com` dans le même fichier
+2. Commit et push sur `main` :
+   ```bash
+   git add package.json install.sh
+   git commit -m "chore(release): prepare vX.Y.Z"
+   git push origin main
+   ```
+3. Créer et pusher le tag :
+   ```bash
+   git tag vX.Y.Z && git push origin vX.Y.Z
+   ```
+4. Publier la GitHub Release (`gh` CLI installé, token via git credential store) :
+   ```bash
+   export PATH="$PATH:/c/Program Files/GitHub CLI"
+   TOKEN=$(printf 'protocol=https\nhost=github.com\n' | git credential fill | grep password | cut -d= -f2)
+   GH_TOKEN="$TOKEN" gh release create vX.Y.Z --title "Leksis vX.Y.Z" --notes "..."
+   ```
+
+### Règles
+- Ne jamais bumper la version dans un seul fichier sans l'autre
+- Si un hotfix doit corriger le tag avant toute installation réelle : `git tag -f vX.Y.Z && git push origin vX.Y.Z --force`
+- Le développement courant se fait sur `main` sans impact sur les utilisateurs installés
+
+---
+
 Fin du document.
