@@ -11,7 +11,7 @@
 # logs       - Tail logs of a service
 #
 # Run from a server via curl (stdin-safe):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/main/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.0/install.sh)
 # ============================================================
 set -euo pipefail
 
@@ -23,10 +23,10 @@ if [[ ! -t 0 ]]; then
   echo "ERROR: stdin is not a terminal -- interactive prompts will not work."
   echo ""
   echo "Run this script with:"
-  echo "  bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/main/install.sh)"
+  echo "  bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.0/install.sh)"
   echo ""
   echo "Or download it first:"
-  echo "  curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/main/install.sh -o install.sh"
+  echo "  curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.0/install.sh -o install.sh"
   echo "  chmod +x install.sh && sudo ./install.sh"
   echo ""
   exit 1
@@ -553,15 +553,29 @@ cmd_install() {
 
   if [[ -d "$INSTALL_DIR/.git" ]]; then
     local BRANCH; BRANCH=$(detect_branch "$INSTALL_DIR")
-    p_info "Pulling latest changes (branch: ${BRANCH})..."
-    git -C "$INSTALL_DIR" pull origin "$BRANCH"
+    if [[ "$BRANCH" == "HEAD" ]]; then
+      p_info "Fetching latest release tags..."
+      git -C "$INSTALL_DIR" fetch --tags --force
+      local LATEST_TAG
+      LATEST_TAG=$(git -C "$INSTALL_DIR" describe --tags \
+        "$(git -C "$INSTALL_DIR" rev-list --tags --max-count=1)" 2>/dev/null || echo "")
+      if [[ -n "$LATEST_TAG" ]]; then
+        git -C "$INSTALL_DIR" checkout "$LATEST_TAG"
+        p_ok "Updated to ${LATEST_TAG}"
+      else
+        p_warn "No tags found. Re-run install.sh to update."
+      fi
+    else
+      p_info "Pulling latest changes (branch: ${BRANCH})..."
+      git -C "$INSTALL_DIR" pull origin "$BRANCH"
+    fi
   elif [[ -d "$INSTALL_DIR" ]]; then
     p_warn "${INSTALL_DIR} exists but is not a git repository."
     if p_yesno "Empty it and clone fresh?" "n"; then
       cd /tmp
       rm -rf "$INSTALL_DIR"
       p_info "Cloning from GitHub..."
-      git clone "$REPO_URL" "$INSTALL_DIR"
+      git clone --branch "v${VERSION}" "$REPO_URL" "$INSTALL_DIR"
     else
       p_info "Installation aborted."; return 0
     fi
@@ -719,8 +733,22 @@ cmd_update() {
 
   # Pull latest sources
   local BRANCH; BRANCH=$(detect_branch "$INSTALL_DIR")
-  p_info "Pulling latest sources (branch: ${BRANCH})..."
-  git -C "$INSTALL_DIR" pull origin "$BRANCH"
+  if [[ "$BRANCH" == "HEAD" ]]; then
+    p_info "Fetching latest release tags..."
+    git -C "$INSTALL_DIR" fetch --tags --force
+    local LATEST_TAG
+    LATEST_TAG=$(git -C "$INSTALL_DIR" describe --tags \
+      "$(git -C "$INSTALL_DIR" rev-list --tags --max-count=1)" 2>/dev/null || echo "")
+    if [[ -n "$LATEST_TAG" ]]; then
+      git -C "$INSTALL_DIR" checkout "$LATEST_TAG"
+      p_ok "Updated to ${LATEST_TAG}"
+    else
+      p_warn "No tags found. Re-run install.sh to update."
+    fi
+  else
+    p_info "Pulling latest sources (branch: ${BRANCH})..."
+    git -C "$INSTALL_DIR" pull origin "$BRANCH"
+  fi
 
   detect_gpu
   resolve_compose_cmd

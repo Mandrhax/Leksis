@@ -15,6 +15,19 @@ Leksis is a self-hosted, all-in-one platform for text translation, document proc
 
 ---
 
+## 🎉 What's new in v1.0.0
+
+First public release of Leksis.
+
+- **Text translation** — free text with language auto-detection, formality control, and source ↔ target swap
+- **Document Studio** — full document translation (PDF, DOCX, TXT, CSV) with structure preservation
+- **OCR & Image translation** — vision-based text extraction from scanned docs and photos
+- **AI Rewriting** — reformulation and grammar correction with configurable tones and glossary integration
+- **Admin panel** — full web UI for branding, models, users, glossary, audit log, and service health
+- **On-premise first** — no cloud dependency, no API keys, fully self-hosted via Docker
+
+---
+
 ## ✨ Features
 
 ### 📝 Text Translation
@@ -51,12 +64,23 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ## 🚀 Quick Start
 
 ### Prerequisites
-- A Linux server (bare-metal) Ubuntu/Debian
+
+| Requirement | Minimum |
+|---|---|
+| OS | Ubuntu 22.04 / Debian 12 (bare-metal or VM) |
+| CPU | 4 cores |
+| RAM | 8 GB (16 GB recommended for LLM inference) |
+| Disk | 40 GB free (model storage varies) |
+| Docker | ≥ 24.0 + Docker Compose plugin |
+| Ollama | ≥ 0.4 (local or remote) |
+| Network | Internet access during install (Docker pull, model download) |
+
+> GPU is optional — CPU inference works but is significantly slower. NVIDIA and AMD variants available.
 
 ### One-line install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.0/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
