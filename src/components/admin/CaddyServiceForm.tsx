@@ -7,6 +7,7 @@ import { useI18n } from '@/lib/i18n'
 interface CaddyData {
   host: string
   behindProxy: boolean
+  nextauthUrl: string
 }
 
 interface Props {
@@ -31,6 +32,7 @@ export function CaddyServiceForm({ initial, onToast }: Props) {
   const [data, setData] = useState<CaddyData>({
     host:        initial.host        ?? ':80',
     behindProxy: initial.behindProxy ?? true,
+    nextauthUrl: initial.nextauthUrl ?? '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -42,7 +44,12 @@ export function CaddyServiceForm({ initial, onToast }: Props) {
       const res = await fetch('/api/admin/services', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ service: 'caddy', host: data.host, behindProxy: data.behindProxy }),
+        body: JSON.stringify({
+          service: 'caddy',
+          host: data.host,
+          behindProxy: data.behindProxy,
+          nextauthUrl: data.nextauthUrl,
+        }),
       })
       if (!res.ok) throw new Error()
       const json = await res.json()
@@ -95,6 +102,20 @@ export function CaddyServiceForm({ initial, onToast }: Props) {
             <p className="text-xs text-on-surface-variant mt-0.5">{cf.behindProxyHint}</p>
           </div>
         </label>
+      </div>
+
+      {/* App public URL */}
+      <div>
+        <label className="block text-sm text-on-surface mb-1.5">{cf.nextauthUrlLabel}</label>
+        <input
+          type="url"
+          value={data.nextauthUrl}
+          onChange={e => setData(prev => ({ ...prev, nextauthUrl: e.target.value }))}
+          className={inputCls}
+          placeholder="https://leksis.example.com"
+          spellCheck={false}
+        />
+        <p className="text-xs text-on-surface-variant mt-1.5">{cf.nextauthUrlHint}</p>
       </div>
 
       {/* Caddyfile preview */}

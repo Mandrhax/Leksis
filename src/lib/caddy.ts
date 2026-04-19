@@ -3,6 +3,7 @@ import 'server-only'
 export interface CaddyConfig {
   host: string
   behindProxy: boolean
+  nextauthUrl?: string
 }
 
 export const DEFAULT_CADDY_CONFIG: CaddyConfig = {

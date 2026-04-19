@@ -11,7 +11,11 @@ import { CaddyMetrics, CaddyStatusStrip } from '@/components/admin/CaddyMetrics'
 export default async function AdminServicesCaddyPage() {
   await requireAdmin()
   const saved   = await getSetting<Partial<CaddyConfig>>('caddy_config')
-  const initial = { ...DEFAULT_CADDY_CONFIG, ...saved }
+  const initial = {
+    ...DEFAULT_CADDY_CONFIG,
+    ...saved,
+    nextauthUrl: saved.nextauthUrl ?? process.env.NEXTAUTH_URL ?? '',
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-[1400px]">

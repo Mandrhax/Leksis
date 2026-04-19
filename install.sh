@@ -976,7 +976,7 @@ cmd_config() {
   echo "  (press Enter to keep current value)"
   echo ""
 
-  local new_model new_ocr new_rewrite new_keep new_spread new_max new_nextauth_url new_caddy_host new_pgver
+  local new_model new_ocr new_rewrite new_keep new_spread new_max new_pgver
 
   new_model=$(p_input      "Translation model"              "${OLLAMA_MODEL:-translategemma:27b}")
   new_ocr=$(p_input        "OCR model"                      "${OLLAMA_OCR_MODEL:-maternion/LightOnOCR-2}")
@@ -984,40 +984,26 @@ cmd_config() {
   new_keep=$(p_input       "Keep alive"                     "${OLLAMA_KEEP_ALIVE:--1}")
   new_spread=$(p_input     "Sched spread"                   "${OLLAMA_SCHED_SPREAD:-false}")
   new_max=$(p_input        "Max loaded models"              "${OLLAMA_MAX_LOADED_MODELS:-3}")
-  new_nextauth_url=$(p_input "App URL (NEXTAUTH_URL)"       "${NEXTAUTH_URL:-}")
   new_pgver=$(p_input      "PostgreSQL version"             "${POSTGRES_VERSION:-18}")
 
-  # Derive CADDY_HOST from the entered URL
-  local _url_host
-  _url_host=$(echo "$new_nextauth_url" | sed 's|^https\?://||' | sed 's|[/:?].*||')
-  if [[ "$_url_host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    new_caddy_host=":80"
-  else
-    new_caddy_host="$_url_host"
-  fi
-
   # Determine what changed
-  local _changed_ollama=false _changed_app=false _changed_postgres=false
+  local _changed_ollama=false _changed_postgres=false
   [[ "$new_model"      != "${OLLAMA_MODEL:-}"             ]] && _changed_ollama=true
   [[ "$new_ocr"        != "${OLLAMA_OCR_MODEL:-}"         ]] && _changed_ollama=true
   [[ "$new_rewrite"    != "${OLLAMA_REWRITE_MODEL:-}"     ]] && _changed_ollama=true
   [[ "$new_keep"       != "${OLLAMA_KEEP_ALIVE:-}"        ]] && _changed_ollama=true
   [[ "$new_spread"     != "${OLLAMA_SCHED_SPREAD:-}"      ]] && _changed_ollama=true
   [[ "$new_max"        != "${OLLAMA_MAX_LOADED_MODELS:-}" ]] && _changed_ollama=true
-  [[ "$new_nextauth_url" != "${NEXTAUTH_URL:-}"             ]] && _changed_app=true
-  [[ "$new_caddy_host"  != "${CADDY_HOST:-}"              ]] && _changed_app=true
   [[ "$new_pgver"      != "${POSTGRES_VERSION:-}"         ]] && _changed_postgres=true
 
   # Write values
-  _env_set "OLLAMA_MODEL"             "$new_model"        "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_OCR_MODEL"         "$new_ocr"          "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_REWRITE_MODEL"     "$new_rewrite"      "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_KEEP_ALIVE"        "$new_keep"         "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_SCHED_SPREAD"      "$new_spread"       "$INSTALL_DIR/.env"
-  _env_set "OLLAMA_MAX_LOADED_MODELS" "$new_max"          "$INSTALL_DIR/.env"
-  _env_set "CADDY_HOST"               "$new_caddy_host"   "$INSTALL_DIR/.env"
-  _env_set "NEXTAUTH_URL"             "$new_nextauth_url" "$INSTALL_DIR/.env"
-  _env_set "POSTGRES_VERSION"         "$new_pgver"       "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_MODEL"             "$new_model"    "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_OCR_MODEL"         "$new_ocr"      "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_REWRITE_MODEL"     "$new_rewrite"  "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_KEEP_ALIVE"        "$new_keep"     "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_SCHED_SPREAD"      "$new_spread"   "$INSTALL_DIR/.env"
+  _env_set "OLLAMA_MAX_LOADED_MODELS" "$new_max"      "$INSTALL_DIR/.env"
+  _env_set "POSTGRES_VERSION"         "$new_pgver"    "$INSTALL_DIR/.env"
 
   p_ok "Settings written to: ${INSTALL_DIR}/.env"
 
@@ -1030,16 +1016,6 @@ cmd_config() {
       p_info "Restarting Ollama..."
       $COMPOSE_CMD up -d ollama
       p_ok "Ollama restarted."
-    fi
-  fi
-
-  if [[ "$_changed_app" == true ]]; then
-    if p_yesno "App/Caddy configuration changed. Restart app and caddy now?" "y"; then
-      p_info "Restarting app..."
-      $COMPOSE_CMD up -d app
-      p_info "Restarting caddy..."
-      $COMPOSE_CMD up -d caddy
-      p_ok "App and Caddy restarted."
     fi
   fi
 

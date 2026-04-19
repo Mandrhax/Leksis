@@ -29,6 +29,7 @@ const CaddySchema = z.object({
   service:     z.literal('caddy'),
   host:        z.string().min(1),
   behindProxy: z.boolean(),
+  nextauthUrl: z.union([z.string().url(), z.literal('')]).optional(),
 })
 
 const Schema = z.discriminatedUnion('service', [OllamaSchema, DbSchema, CaddySchema])
@@ -39,12 +40,13 @@ export async function GET() {
 
   const ollama = await getSetting<Record<string, unknown>>('ollama_config')
   const db     = await getSetting<Record<string, unknown>>('db_config')
+  const caddy  = await getSetting<Record<string, unknown>>('caddy_config')
 
   // Ne jamais renvoyer le passwordEnc
   const safeDb = { ...db }
   delete safeDb.passwordEnc
 
-  return NextResponse.json({ ollama, db: safeDb })
+  return NextResponse.json({ ollama, db: safeDb, caddy })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -81,6 +83,7 @@ export async function PATCH(req: NextRequest) {
     await updateSetting('caddy_config', {
       host: data.host,
       behindProxy: data.behindProxy,
+      ...(data.nextauthUrl !== undefined && { nextauthUrl: data.nextauthUrl || undefined }),
     }, session.user.id, session.user.email!)
 
     const content = generateCaddyfile({ host: data.host, behindProxy: data.behindProxy })

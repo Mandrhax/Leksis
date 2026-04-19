@@ -437,6 +437,8 @@ export const messages = {
     hostHint:               ':80 = all interfaces (HTTP)  |  domain = HTTPS + Let\'s Encrypt',
     behindProxyLabel:       'Behind a reverse proxy (NPM, Traefik…)',
     behindProxyHint:        'Disables gzip compression — the upstream proxy handles it towards the browser.',
+    nextauthUrlLabel:       'App public URL',
+    nextauthUrlHint:        'Used by NextAuth for redirects. Must match the URL the browser uses to reach the app.',
     caddyfilePreview:       'Generated Caddyfile',
     save:                   'Save',
     toastSaved:             'Caddy configuration saved',
