@@ -516,7 +516,7 @@ cmd_install() {
 
   local OLLAMA_MODEL OLLAMA_OCR_MODEL OLLAMA_REWRITE_MODEL
   OLLAMA_MODEL=$(p_input "Translation model" "translategemma:27b")
-  OLLAMA_OCR_MODEL=$(p_input "OCR model" "maternion/LightOnOCR-2")
+  OLLAMA_OCR_MODEL=$(p_input "OCR model" "maternion/LightOnOCR-2:latest")
   OLLAMA_REWRITE_MODEL=$(p_input "Rewrite model" "qwen2.5:14b")
 
   # ── Step 5/5: Ollama runtime ───────────────────────────────
@@ -785,7 +785,7 @@ cmd_update() {
 
   _update_models() {
     pull_model_if_needed "${OLLAMA_MODEL:-translategemma:27b}"
-    pull_model_if_needed "${OLLAMA_OCR_MODEL:-maternion/LightOnOCR-2}"
+    pull_model_if_needed "${OLLAMA_OCR_MODEL:-maternion/LightOnOCR-2:latest}"
     pull_model_if_needed "${OLLAMA_REWRITE_MODEL:-qwen2.5:14b}"
   }
 
@@ -979,7 +979,7 @@ cmd_config() {
   local new_model new_ocr new_rewrite new_keep new_spread new_max new_pgver
 
   new_model=$(p_input      "Translation model"              "${OLLAMA_MODEL:-translategemma:27b}")
-  new_ocr=$(p_input        "OCR model"                      "${OLLAMA_OCR_MODEL:-maternion/LightOnOCR-2}")
+  new_ocr=$(p_input        "OCR model"                      "${OLLAMA_OCR_MODEL:-maternion/LightOnOCR-2:latest}")
   new_rewrite=$(p_input    "Rewrite model"                  "${OLLAMA_REWRITE_MODEL:-qwen2.5:14b}")
   new_keep=$(p_input       "Keep alive"                     "${OLLAMA_KEEP_ALIVE:--1}")
   new_spread=$(p_input     "Sched spread"                   "${OLLAMA_SCHED_SPREAD:-false}")

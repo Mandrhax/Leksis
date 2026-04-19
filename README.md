@@ -119,7 +119,7 @@ CADDY_HOST=:80               # bare IP installs — listens on all interfaces
 # Ollama
 OLLAMA_BASE_URL=http://your-ollama-host:11434
 OLLAMA_MODEL=translategemma:27b
-OLLAMA_OCR_MODEL=maternion/LightOnOCR-2
+OLLAMA_OCR_MODEL=maternion/LightOnOCR-2:latest
 OLLAMA_REWRITE_MODEL=qwen2.5:14b
 
 # PostgreSQL
@@ -168,7 +168,7 @@ Leksis delegates all AI work to **Ollama**. Three models cover the four use case
 | Model | Role |
 |---|---|
 | `translategemma:27b` | Text & document translation |
-| `maternion/LightOnOCR-2` | OCR — vision-based text extraction |
+| `maternion/LightOnOCR-2:latest` | OCR — vision-based text extraction |
 | `qwen2.5:14b` | AI rewriting & correction |
 
 Models run **locally** on your infrastructure. No API keys, no usage quotas, no data leaving your network.
