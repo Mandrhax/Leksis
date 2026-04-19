@@ -20,6 +20,10 @@ function buildPreview(host: string, behindProxy: boolean): string {
   if (!behindProxy) lines.push('    encode gzip')
   lines.push('    reverse_proxy app:3000 {')
   lines.push('        header_up X-Real-IP {remote_host}')
+  if (behindProxy) {
+    lines.push('        header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}')
+    lines.push('        header_up X-Forwarded-Host {http.request.header.X-Forwarded-Host}')
+  }
   lines.push('    }')
   lines.push('}')
   return lines.join('\n')
