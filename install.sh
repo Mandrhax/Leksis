@@ -11,7 +11,7 @@
 # logs       - Tail logs of a service
 #
 # Run from a server via curl (stdin-safe):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.0/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.1/install.sh)
 # ============================================================
 set -euo pipefail
 
@@ -23,23 +23,23 @@ if [[ ! -t 0 ]]; then
   echo "ERROR: stdin is not a terminal -- interactive prompts will not work."
   echo ""
   echo "Run this script with:"
-  echo "  bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.0/install.sh)"
+  echo "  bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.1/install.sh)"
   echo ""
   echo "Or download it first:"
-  echo "  curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.0/install.sh -o install.sh"
+  echo "  curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.1/install.sh -o install.sh"
   echo "  chmod +x install.sh && sudo ./install.sh"
   echo ""
   exit 1
 fi
 
 # ── VERSION from package.json ────────────────────────────────
-VERSION="1.0.0"
+VERSION="1.0.1"
 _pkg="$(dirname "$0")/package.json"
 if [[ -f "$_pkg" ]]; then
   _v=$(grep '"version"' "$_pkg" \
     | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' \
     | head -1)
-  VERSION="${_v:-1.0.0}"
+  VERSION="${_v:-1.0.1}"
   unset _v
 fi
 unset _pkg
@@ -976,7 +976,7 @@ cmd_config() {
   echo "  (press Enter to keep current value)"
   echo ""
 
-  local new_model new_ocr new_rewrite new_keep new_spread new_max new_raw_host new_caddy_host new_nextauth_url new_pgver
+  local new_model new_ocr new_rewrite new_keep new_spread new_max new_nextauth_url new_caddy_host new_pgver
 
   new_model=$(p_input      "Translation model"              "${OLLAMA_MODEL:-translategemma:27b}")
   new_ocr=$(p_input        "OCR model"                      "${OLLAMA_OCR_MODEL:-maternion/LightOnOCR-2}")
@@ -984,18 +984,16 @@ cmd_config() {
   new_keep=$(p_input       "Keep alive"                     "${OLLAMA_KEEP_ALIVE:--1}")
   new_spread=$(p_input     "Sched spread"                   "${OLLAMA_SCHED_SPREAD:-false}")
   new_max=$(p_input        "Max loaded models"              "${OLLAMA_MAX_LOADED_MODELS:-3}")
-  new_raw_host=$(p_input "Public URL host (domain or IP, no protocol)" \
-    "$(echo "${NEXTAUTH_URL:-}" | sed 's|^https\?://||')")
-  new_pgver=$(p_input    "PostgreSQL version"             "${POSTGRES_VERSION:-18}")
+  new_nextauth_url=$(p_input "App URL (NEXTAUTH_URL)"       "${NEXTAUTH_URL:-}")
+  new_pgver=$(p_input      "PostgreSQL version"             "${POSTGRES_VERSION:-18}")
 
-  # Derive CADDY_HOST and NEXTAUTH_URL from the raw host input
-  local new_caddy_host new_nextauth_url
-  if [[ "$new_raw_host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  # Derive CADDY_HOST from the entered URL
+  local _url_host
+  _url_host=$(echo "$new_nextauth_url" | sed 's|^https\?://||' | sed 's|[/:?].*||')
+  if [[ "$_url_host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     new_caddy_host=":80"
-    new_nextauth_url="http://${new_raw_host}"
   else
-    new_caddy_host="$new_raw_host"
-    new_nextauth_url="https://${new_raw_host}"
+    new_caddy_host="$_url_host"
   fi
 
   # Determine what changed
@@ -1006,7 +1004,8 @@ cmd_config() {
   [[ "$new_keep"       != "${OLLAMA_KEEP_ALIVE:-}"        ]] && _changed_ollama=true
   [[ "$new_spread"     != "${OLLAMA_SCHED_SPREAD:-}"      ]] && _changed_ollama=true
   [[ "$new_max"        != "${OLLAMA_MAX_LOADED_MODELS:-}" ]] && _changed_ollama=true
-  [[ "$new_caddy_host" != "${CADDY_HOST:-}"               ]] && _changed_app=true
+  [[ "$new_nextauth_url" != "${NEXTAUTH_URL:-}"             ]] && _changed_app=true
+  [[ "$new_caddy_host"  != "${CADDY_HOST:-}"              ]] && _changed_app=true
   [[ "$new_pgver"      != "${POSTGRES_VERSION:-}"         ]] && _changed_postgres=true
 
   # Write values
