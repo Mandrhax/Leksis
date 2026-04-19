@@ -10,7 +10,7 @@ export default async function AdminDashboardPage() {
   const [usersRes, callsTodayRes, glossaryRes, auditRes] = await Promise.all([
     query<{ count: string }>('SELECT COUNT(*)::int AS count FROM users'),
     query<{ count: string }>(
-      `SELECT COUNT(*)::int AS count FROM usage_logs WHERE created_at >= CURRENT_DATE`
+      `SELECT COUNT(*)::int AS count FROM usage_log WHERE created_at >= CURRENT_DATE`
     ),
     query<{ total: string }>(
       `SELECT COALESCE(SUM(entry_count),0)::int AS total
