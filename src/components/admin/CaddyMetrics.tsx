@@ -6,6 +6,73 @@ import type { CaddyMetricsResult } from '@/app/api/admin/services/caddy/metrics/
 
 const CARD = 'bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6'
 
+export function CaddyStatusStrip() {
+  const [data,    setData]    = useState<CaddyMetricsResult | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(false)
+    try {
+      const res = await fetch('/api/admin/services/caddy/metrics')
+      if (!res.ok) throw new Error()
+      setData(await res.json())
+    } catch {
+      setError(true)
+      setData(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const ok = !error && data?.reachable === true
+
+  return (
+    <div className={`flex items-center gap-6 px-5 py-3 rounded-xl border mb-6 ${
+      ok
+        ? 'bg-[rgba(39,174,96,0.05)] border-[rgba(39,174,96,0.2)]'
+        : 'bg-error/5 border-error/20'
+    }`}>
+      {!ok && (
+        <span className="material-symbols-outlined text-error text-[1.1rem] leading-none" aria-hidden="true">warning</span>
+      )}
+      {ok && data ? (
+        <>
+          {data.version && (
+            <span className="text-sm text-on-surface-variant">
+              Version: <span className="font-semibold text-on-surface">{data.version}</span>
+            </span>
+          )}
+          <span className="text-sm text-on-surface-variant">
+            Status: <span className="font-semibold text-[#27ae60]">Reachable</span>
+          </span>
+          {(data.upstreams ?? []).length > 0 && (
+            <span className="text-sm text-on-surface-variant">
+              Upstreams: <span className="font-semibold text-on-surface">{data.upstreams!.filter(u => u.healthy).length} / {data.upstreams!.length} healthy</span>
+            </span>
+          )}
+        </>
+      ) : (
+        <span className="text-sm font-medium text-error">Caddy unreachable — check configuration</span>
+      )}
+      <button
+        type="button"
+        onClick={load}
+        disabled={loading}
+        className="ml-auto action-btn"
+      >
+        <span className={`material-symbols-outlined text-[0.9rem] leading-none${loading ? ' animate-spin' : ''}`} aria-hidden="true">
+          refresh
+        </span>
+        Refresh
+      </button>
+    </div>
+  )
+}
+
 export function CaddyMetrics() {
   const { t } = useI18n()
   const [data,      setData]      = useState<CaddyMetricsResult | null>(null)

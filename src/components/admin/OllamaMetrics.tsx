@@ -154,6 +154,53 @@ export function OllamaStatusBlock() {
   )
 }
 
+export function OllamaStatusStrip() {
+  const { data, loading, error, load } = useOllamaMetrics()
+
+  const ok = !error && data?.version != null
+
+  return (
+    <div className={`flex items-center gap-6 px-5 py-3 rounded-xl border mb-6 ${
+      ok
+        ? 'bg-[rgba(39,174,96,0.05)] border-[rgba(39,174,96,0.2)]'
+        : 'bg-error/5 border-error/20'
+    }`}>
+      {!ok && (
+        <span className="material-symbols-outlined text-error text-[1.1rem] leading-none" aria-hidden="true">warning</span>
+      )}
+      {ok && data ? (
+        <>
+          <span className="text-sm text-on-surface-variant">
+            Version: <span className="font-semibold text-on-surface">{data.version}</span>
+          </span>
+          <span className="text-sm text-on-surface-variant">
+            Latency: <span className="font-semibold text-on-surface">{data.latencyMs} ms</span>
+          </span>
+          <span className="text-sm text-on-surface-variant">
+            Models: <span className="font-semibold text-on-surface">{data.models.length}</span>
+          </span>
+          <span className="text-sm text-on-surface-variant">
+            In VRAM: <span className="font-semibold text-on-surface">{data.running.length}</span>
+          </span>
+        </>
+      ) : (
+        <span className="text-sm font-medium text-error">Ollama unreachable — check configuration</span>
+      )}
+      <button
+        type="button"
+        onClick={load}
+        disabled={loading}
+        className="ml-auto action-btn"
+      >
+        <span className={`material-symbols-outlined text-[0.9rem] leading-none${loading ? ' animate-spin' : ''}`} aria-hidden="true">
+          refresh
+        </span>
+        Refresh
+      </button>
+    </div>
+  )
+}
+
 export function OllamaInstalledBlock() {
   const { t } = useI18n()
   const { data, deleting, handleDelete } = useOllamaMetrics()

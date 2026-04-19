@@ -1,7 +1,7 @@
 'use client'
 
 import { ServicesPanel }         from './ServicesPanel'
-import { OllamaMetricsProvider, OllamaStatusBlock, OllamaInstalledBlock, OllamaRunningBlock, OllamaPullBlock } from './OllamaMetrics'
+import { OllamaMetricsProvider, OllamaStatusBlock, OllamaStatusStrip, OllamaInstalledBlock, OllamaRunningBlock, OllamaPullBlock } from './OllamaMetrics'
 
 interface Props {
   initial: { baseUrl: string; translationModel: string; ocrModel: string; rewriteModel: string; sameModelForAll: boolean }
@@ -10,6 +10,7 @@ interface Props {
 export function OllamaServicesLayout({ initial }: Props) {
   return (
     <OllamaMetricsProvider>
+      <OllamaStatusStrip />
       <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 items-start">
         {/* Left — form + installed models */}
         <div className="flex flex-col gap-4">

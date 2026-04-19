@@ -32,6 +32,72 @@ function formatUptime(startedAt: string): string {
 
 const CARD = 'bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6'
 
+export function DbStatusStrip() {
+  const [data,    setData]    = useState<DbMetricsResult | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(false)
+    try {
+      const res = await fetch('/api/admin/services/db/metrics')
+      if (!res.ok) throw new Error()
+      setData(await res.json())
+    } catch {
+      setError(true)
+      setData(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const ok = !error && data != null
+
+  return (
+    <div className={`flex items-center gap-6 px-5 py-3 rounded-xl border mb-6 ${
+      ok
+        ? 'bg-[rgba(39,174,96,0.05)] border-[rgba(39,174,96,0.2)]'
+        : 'bg-error/5 border-error/20'
+    }`}>
+      {!ok && (
+        <span className="material-symbols-outlined text-error text-[1.1rem] leading-none" aria-hidden="true">warning</span>
+      )}
+      {ok && data ? (
+        <>
+          <span className="text-sm text-on-surface-variant">
+            Version: <span className="font-semibold text-on-surface">{data.version?.replace('PostgreSQL ', '').split(' ')[0]}</span>
+          </span>
+          <span className="text-sm text-on-surface-variant">
+            Size: <span className="font-semibold text-on-surface">{data.dbSizePretty}</span>
+          </span>
+          <span className="text-sm text-on-surface-variant">
+            Uptime: <span className="font-semibold text-on-surface">{formatUptime(data.serverStartedAt)}</span>
+          </span>
+          <span className="text-sm text-on-surface-variant">
+            Connections: <span className="font-semibold text-on-surface">{data.activeConnections} / {data.maxConnections}</span>
+          </span>
+        </>
+      ) : (
+        <span className="text-sm font-medium text-error">PostgreSQL unreachable — check configuration</span>
+      )}
+      <button
+        type="button"
+        onClick={load}
+        disabled={loading}
+        className="ml-auto action-btn"
+      >
+        <span className={`material-symbols-outlined text-[0.9rem] leading-none${loading ? ' animate-spin' : ''}`} aria-hidden="true">
+          refresh
+        </span>
+        Refresh
+      </button>
+    </div>
+  )
+}
+
 export function DbMetrics() {
   const { t } = useI18n()
   const [data,      setData]      = useState<DbMetricsResult | null>(null)
