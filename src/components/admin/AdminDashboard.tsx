@@ -29,8 +29,9 @@ interface AuditEntry {
 }
 
 interface Props {
-  stats:         DashboardStats
+  stats:          DashboardStats
   recentActivity: AuditEntry[]
+  appVersion:     string
 }
 
 const ICON_MAP: Record<string, string> = {
@@ -86,7 +87,7 @@ function StatusBadge({ ok }: { ok: boolean | null }) {
   )
 }
 
-export function AdminDashboard({ stats, recentActivity }: Props) {
+export function AdminDashboard({ stats, recentActivity, appVersion }: Props) {
   const { t } = useI18n()
   const router = useRouter()
 
@@ -170,7 +171,7 @@ export function AdminDashboard({ stats, recentActivity }: Props) {
           <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50 mb-3">
             {t.adminPages.dashboardServiceHealth}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {services.map(svc => (
               <button
                 key={svc.key}
@@ -212,6 +213,21 @@ export function AdminDashboard({ stats, recentActivity }: Props) {
                 </div>
               </button>
             ))}
+            {/* App card — static, always running */}
+            <div className="bg-surface-container-lowest rounded-xl border border-[rgba(39,174,96,0.2)] p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="material-symbols-outlined text-[1.2rem] leading-none" style={{ color: '#27ae60' }} aria-hidden="true">
+                  deployed_code
+                </span>
+                <span className="font-headline font-bold text-sm text-on-surface flex-1">Leksis</span>
+                <StatusBadge ok={true} />
+              </div>
+              <div className="flex gap-4">
+                <span className="text-xs text-on-surface-variant">
+                  <span className="font-medium text-on-surface">v{appVersion}</span>
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 

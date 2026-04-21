@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { requireAdmin } from '@/lib/admin-guard'
 import { query }        from '@/lib/db'
 import { AdminDashboard } from '@/components/admin/AdminDashboard'
+import pkg from '../../../../package.json'
 
 export default async function AdminDashboardPage() {
   await requireAdmin()
@@ -39,6 +40,7 @@ export default async function AdminDashboardPage() {
     <AdminDashboard
       stats={stats}
       recentActivity={auditRes.rows}
+      appVersion={pkg.version}
     />
   )
 }
