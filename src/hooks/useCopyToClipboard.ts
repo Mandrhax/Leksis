@@ -1,17 +1,30 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 
-/**
- * Returns [copied, copy] where `copy(text)` writes to clipboard
- * and `copied` is true for 2 seconds after a successful copy.
- */
 export function useCopyToClipboard(): [boolean, (text: string) => void] {
   const [copied, setCopied] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const copy = useCallback((text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
+    const confirm = () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+      timerRef.current = setTimeout(() => setCopied(false), 2000)
+    }
+
+    const fallback = () => {
+      const el = document.createElement('textarea')
+      el.value = text
+      el.style.cssText = 'position:fixed;opacity:0'
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+    }
+
+    navigator.clipboard.writeText(text)
+      .catch(fallback)
+      .then(confirm)
+      .catch(() => {})
   }, [])
 
   return [copied, copy]
