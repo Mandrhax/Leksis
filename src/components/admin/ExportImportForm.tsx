@@ -5,7 +5,7 @@ import { AdminToast }       from './AdminToast'
 import type { ToastState }  from './AdminToast'
 import { useI18n }          from '@/lib/i18n'
 
-const KNOWN_KEYS = ['branding', 'design', 'features', 'rewrite_tones', 'general', 'seo', 'ollama_config', 'db_config']
+const KNOWN_KEYS = ['branding', 'design', 'features', 'rewrite_tones', 'general', 'ollama_config', 'db_config', 'glossaries']
 
 export function ExportImportForm() {
   const { t } = useI18n()
@@ -57,6 +57,7 @@ export function ExportImportForm() {
           return
         }
         const keys = Object.keys(json.settings).filter(k => KNOWN_KEYS.includes(k))
+        if (Array.isArray(json.glossaries) && json.glossaries.length > 0) keys.push('glossaries')
         setDetected(keys)
         setPending(json)
       } catch {
