@@ -618,6 +618,18 @@ EOF
   chmod 600 "$INSTALL_DIR/.env"
   p_ok ".env written."
 
+  # ── Stale volume guard ──────────────────────────────────────
+  if docker volume inspect leksis_postgres_data &>/dev/null; then
+    p_warn "A PostgreSQL data volume (leksis_postgres_data) already exists from a previous installation attempt."
+    show_volumes_info "$INSTALL_DIR"
+    p_warn "Reusing it with a freshly generated password/config can break authentication or trigger version-layout errors."
+    if ! p_yesno "Continue and reuse this existing volume as-is?" "n"; then
+      p_info "Installation aborted. Remove it manually first if you want a clean slate:"
+      p_info "  docker volume rm leksis_postgres_data"
+      return 0
+    fi
+  fi
+
   # ── Port availability check ────────────────────────────────
   for port in "80" "443"; do
     if ss -tlnp 2>/dev/null | grep -q ":${port} " || \

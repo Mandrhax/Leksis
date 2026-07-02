@@ -9,6 +9,7 @@ services:
       POSTGRES_DB: leksis
       POSTGRES_USER: leksis_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data
     volumes:
       # Persistent data — survives container restarts and updates
       - postgres_data:/var/lib/postgresql/data
