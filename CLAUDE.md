@@ -401,43 +401,50 @@ Tous les prompts sont dans `src/lib/prompts.ts` :
 
 Le script `install.sh` à la racine du projet gère le cycle de vie complet de l'appliance on-premise.
 
-### Interface TUI
+### Interface
 
-- Utilise **`dialog`** pour une interface plein-écran dans le terminal
-- `dialog` est **installé automatiquement** au démarrage si absent (`apt-get` / `dnf` / `yum`)
-- Rendu : `NCURSES_NO_UTF8_ACS=1` + `LANG=C.UTF-8` pour les caractères box-drawing Unicode (─ │ ┌ └…). Fallback `--ascii-lines` automatique si `TERM=linux` ou `TERM=dumb`
-- Tous les appels `dialog` utilisent `</dev/tty >/dev/tty` pour garantir le rendu même en sous-shell (`$(...)`)
+- **UI texte simple** — pas de `dialog`. Helpers d'affichage : `p_header`, `p_info`, `p_ok`, `p_warn`, `p_err` ; helpers de saisie : `p_input`, `p_yesno`, `p_password`
+- Tous les prompts lisent/écrivent `/dev/tty` (le script est souvent lancé via `bash <(curl -fsSL …/install.sh)`) — fonctionne donc même quand la sortie est capturée en sous-shell `$(...)`
+- `set -euo pipefail` actif. Garde stdin non-TTY : refuse `curl … | bash`, exige `bash <(curl …)` ou un téléchargement préalable
+- Doit tourner en **root** (`check_root`)
+- `VERSION` est lue depuis `package.json` (fallback sur la constante `VERSION="X.Y.Z"` ligne ~36)
 
 ### Commandes disponibles
 
 | Commande | Description |
 |----------|-------------|
-| `install` | Installation guidée (5 formulaires `--form` + build Docker) |
-| `update` | Mise à jour sélective via `--checklist` |
-| `uninstall` | Suppression complète avec confirmation `DELETE` |
-| `status` | État des services, GPU, modèles, volumes dans un `--textbox` |
-| `config` | Édition des variables `.env` : modèles Ollama (translation/OCR/rewrite), keep_alive, sched_spread, max_loaded_models, PostgreSQL version — **ne modifie pas NEXTAUTH_URL ni CADDY_HOST** (gérés depuis l'admin web) |
-| `logs` | Streaming des logs via `--programbox` |
+| `install` | Installation guidée : 5 étapes `Configuration N/5` (chemins · URL app · compte admin · modèles Ollama · runtime Ollama) + mot de passe PostgreSQL. Génère `AUTH_SECRET` + `ENCRYPTION_KEY`, clone puis `git checkout` du tag, aperçu `.env` (secrets masqués) + `chmod 600`, `docker compose up -d --build`, `wait_healthy`, pull des modèles, seed admin idempotent (`INSERT … ON CONFLICT (email) DO UPDATE`) |
+| `update` | Lit `.env`, garde `POSTGRES_VERSION`, `pg_backup`, `git fetch --tags --force`, compare tag courant / dernier tag et propose le switch, puis **5 questions y/n** : `app`, `caddy`, `postgres`, `ollama`, `ollama models` — rebuild sélectif via `docker compose up -d --build <svc>` |
+| `uninstall` | Usage disque des volumes, backup optionnel, choix conserver ou non les volumes, confirmation typée `DELETE`, `docker compose down [-v]`, suppression de l'image `leksis-app` et du dossier d'installation |
+| `status` | `docker compose ps`, GPU détecté, `ollama list`, usage disque des volumes, 20 dernières lignes de logs `app` (affichage `echo` simple) |
+| `config` | Édite 7 clés du `.env` : `OLLAMA_MODEL`, `OLLAMA_OCR_MODEL`, `OLLAMA_REWRITE_MODEL`, `OLLAMA_KEEP_ALIVE`, `OLLAMA_SCHED_SPREAD`, `OLLAMA_MAX_LOADED_MODELS`, `POSTGRES_VERSION` — **ne modifie pas NEXTAUTH_URL ni CADDY_HOST** (gérés depuis l'admin web). Propose de redémarrer Ollama si sa config a changé ; avertit **sans** redémarrer si `POSTGRES_VERSION` a changé |
+| `logs [service]` | `docker compose logs -f <service>` ; menu 1-4 (app/postgres/ollama/caddy) si l'argument est absent |
+
+Sans argument : menu interactif (`show_menu`).
 
 ### Architecture interne
 
-- **Wrappers dialog** : `d_input`, `d_yesno`, `d_password`, `d_msg`, `d_info` — ne jamais appeler `dialog` directement depuis les commandes
-- **`DIALOG_TMP`** : fichier temp global (mktemp) pour capturer les sorties dialog — ne pas utiliser `$()` pour capturer `dialog`, toujours lire `$DIALOG_TMP` après l'appel
-- **`BACKTITLE`** : titre global affiché dans toutes les fenêtres dialog
-- Opérations longues (build Docker, pull modèles, git clone) → `--programbox` avec pipe
-- Aperçu `.env` avant écriture → `--textbox` sur fichier tmp avec secrets masqués
+- **Helpers `p_*`** — ne jamais faire `read` / `printf` vers le terminal directement, toujours passer par eux. `p_input` renvoie la valeur sur **stdout** → s'utilise en capture : `x=$(p_input "Question" "défaut")`. `p_yesno` renvoie 0 (yes) / 1 (no). `p_password` renvoie le mot de passe sur stdout (vide ⇒ auto-généré via `openssl rand -hex 16` par l'appelant)
+- **`_env_set key value file`** — patch une clé via `sed -i "s|^${key}=.*|${key}=${value}|"`. ⚠️ **no-op silencieux si la clé est absente** du `.env` (n'ajoute pas la ligne)
+- **`detect_pkg_manager`** → `PKG_INSTALL` (`apt-get` / `dnf` / `yum`)
+- **`detect_gpu`** → `GPU_VENDOR` / `GPU_NAME` via 5 sondes en cascade (lspci, `nvidia-smi`, `/dev/nvidia0`, `lsmod`, `rocm-smi`) + fallback manuel si lspci voit un GPU non identifié. **`resolve_compose_cmd`** → `COMPOSE_CMD` + overlay compose (`docker-compose.nvidia.yml` / `docker-compose.amd.yml` / aucun)
+- **`wait_healthy service [timeout]`** — poll `docker inspect --format '{{.State.Health.Status}}' leksis-<service>` toutes les 5 s
+- **`pg_backup <dir>`** — `pg_dump -U leksis_user leksis` → `<dir>/backups/leksis-pg-<timestamp>.sql`
+- **`pull_model_if_needed <model>`** — pull uniquement si absent de `ollama list`
+- **Install drivers GPU** — NVIDIA : driver `.run` + DKMS (version épinglée `NVIDIA_DRIVER_VERSION`, blacklist `nouveau` ⇒ reboot requis puis relancer) + `nvidia-container-toolkit`. AMD : ROCm via `.deb` `amdgpu-install` (codename Ubuntu). **Chemins apt / Ubuntu uniquement**
+- Aperçu `.env` avant écriture : boucle `while read` qui masque `POSTGRES_PASSWORD` / `AUTH_SECRET` / `ENCRYPTION_KEY` / `DATABASE_URL`
 
 ### Règles pour modifier install.sh
 
-- Toujours passer par les wrappers `d_*` — ne jamais appeler `dialog` directement dans les fonctions `cmd_*`
-- Ajouter `</dev/tty >/dev/tty` sur tout nouveau appel `dialog` dans les wrappers
-- Parser la sortie `--form` avec `mapfile -t _f < "$DIALOG_TMP"` (ordre des champs = ordre de déclaration)
-- Parser la sortie `--checklist` avec `tr -d '"'` puis `IFS=' ' read -ra arr`
-- Ne jamais supprimer `NCURSES_NO_UTF8_ACS=1` ni le fallback `--ascii-lines`
-- `cmd_update` contient un **guard de backfill** : si `.env` ne contient pas `POSTGRES_VERSION`, il écrit automatiquement `POSTGRES_VERSION=16` pour protéger les données existantes contre une migration accidentelle de version majeure PostgreSQL
-- `cmd_update` est **tag-only** : il fait toujours `git fetch --tags --force` puis `git checkout <latest_tag>` — ne suit jamais une branche. Affiche le tag courant vs le tag le plus récent avant de proposer le switch. Si le repo n'est pas sur un tag (legacy), avertit et propose de basculer sur le dernier tag
+- Toujours passer par les helpers `p_*` — le script **n'utilise pas `dialog`**
+- Tout nouveau prompt doit cibler `/dev/tty` (lancement fréquent via `bash <(curl …)`)
+- `set -euo pipefail` est actif — garder `|| true` sur les commandes best-effort
+- `cmd_update` contient un **guard de backfill** : si `.env` ne contient pas `POSTGRES_VERSION`, il ajoute `POSTGRES_VERSION=16` pour protéger des données v16 contre une migration majeure accidentelle. ⚠️ `cmd_install` **n'a pas** cette garde (il écrit `POSTGRES_VERSION=18` en dur dans le `.env` généré)
+- `cmd_update` est **tag-only** : `git fetch --tags --force` puis `git checkout <latest_tag>` — ne suit jamais une branche. Affiche le tag courant vs le tag le plus récent avant de proposer le switch ; si le repo n'est pas sur un tag (legacy), avertit et propose de basculer
+- `cmd_install` : clone frais via `git clone --branch "v${VERSION}"` ; repo existant → `git checkout` du dernier tag
 - `cmd_update` propose 5 composants sélectionnables : `app`, `caddy`, `postgres`, `ollama`, `ollama models`
-- `cmd_logs` propose 4 services : `app`, `caddy`, `postgres`, `ollama`
+- `cmd_logs` propose 4 services : `app`, `postgres`, `ollama`, `caddy`
+- Overlays compose : base + `docker-compose.nvidia.yml` (NVIDIA) ou `docker-compose.amd.yml` (AMD) ou base seule (CPU). `docker-compose.gpu.yml` est un doublon de `docker-compose.nvidia.yml`
 
 ---
 
