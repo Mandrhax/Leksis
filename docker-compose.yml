@@ -74,7 +74,12 @@ services:
 
       # NextAuth
       AUTH_SECRET: ${AUTH_SECRET}
-      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      # Leave NEXTAUTH_URL empty (default): the public address is detected from the
+      # X-Forwarded-* / Host headers, so HTTP, HTTPS and reverse proxies all just work.
+      # Set it only to pin one fixed address (it then overrides the detected one).
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-}
+      # Read by the admin panel to show the current access mode (Services → Caddy)
+      CADDY_HOST: ${CADDY_HOST:-:80}
 
       # Encryption key (AES-256-GCM, 64 hex chars)
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}

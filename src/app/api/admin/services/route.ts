@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { getAdminSession } from '@/lib/admin-guard'
 import { updateSetting, getSetting } from '@/lib/settings'
 import { encrypt } from '@/lib/crypto'
-import { generateCaddyfile, reloadCaddy } from '@/lib/caddy'
+import { generateCaddyfile, normalizeCaddyConfig, reloadCaddy } from '@/lib/caddy'
 import { getAiConfig, getAiPublicConfig, isExternalUrl } from '@/lib/llm'
 
 const AiSchema = z.object({
@@ -29,10 +29,11 @@ const DbSchema = z.object({
 })
 
 const CaddySchema = z.object({
-  service:     z.literal('caddy'),
-  host:        z.string().min(1),
-  behindProxy: z.boolean(),
-  nextauthUrl: z.union([z.string().url(), z.literal('')]).optional(),
+  service:          z.literal('caddy'),
+  mode:             z.enum(['http', 'https', 'proxy']),
+  host:             z.string().optional(),       // nom de domaine (mode https)
+  keepHttpFallback: z.boolean().optional(),
+  trustedProxies:   z.string().optional(),       // mode proxy : adresses hors réseau privé
 })
 
 const Schema = z.discriminatedUnion('service', [AiSchema, DbSchema, CaddySchema])
@@ -114,13 +115,19 @@ export async function PATCH(req: NextRequest) {
       user: data.user, passwordEnc,
     }, session.user.id, session.user.email!)
   } else {
+    const normalized = normalizeCaddyConfig(data)
+    if ('error' in normalized) {
+      return NextResponse.json({ error: normalized.error }, { status: 400 })
+    }
+    const config = normalized.config
+
+    // behindProxy : conservé pour la compatibilité avec l'ancien format
     await updateSetting('caddy_config', {
-      host: data.host,
-      behindProxy: data.behindProxy,
-      ...(data.nextauthUrl !== undefined && { nextauthUrl: data.nextauthUrl || undefined }),
+      ...config,
+      behindProxy: config.mode === 'proxy',
     }, session.user.id, session.user.email!)
 
-    const content = generateCaddyfile({ host: data.host, behindProxy: data.behindProxy })
+    const content = generateCaddyfile(config)
     let reloadError: string | undefined
     try {
       await reloadCaddy(content)

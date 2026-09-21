@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/admin-guard'
+import { getSetting } from '@/lib/settings'
+import { resolveCaddyConfig } from '@/lib/caddy-config'
+import type { AccessMode } from '@/lib/caddy-config'
+import { checkCertificate } from '@/lib/caddy-tls'
+import type { TlsInfo } from '@/lib/caddy-tls'
 
 export interface CaddyUpstream {
   address: string
@@ -11,6 +16,11 @@ export interface CaddyMetricsResult {
   reachable: boolean
   version?: string
   upstreams?: CaddyUpstream[]
+  /** Mode d'accès configuré (http / https / proxy) */
+  mode?: AccessMode
+  /** Mode https : domaine et certificat présenté par Caddy */
+  domain?: string
+  tls?: TlsInfo
   error?: string
 }
 
@@ -56,6 +66,18 @@ export async function GET() {
     }
   } catch (err) {
     result.error = err instanceof Error ? err.message : 'unreachable'
+  }
+
+  // Mode d'accès et, en https, état du certificat
+  try {
+    const cfg = resolveCaddyConfig(await getSetting<Record<string, unknown>>('caddy_config'), process.env.CADDY_HOST ?? '')
+    result.mode = cfg.mode
+    if (cfg.mode === 'https') {
+      result.domain = cfg.host
+      result.tls = await checkCertificate(cfg.host)
+    }
+  } catch {
+    // état d'accès non critique
   }
 
   return NextResponse.json(result)

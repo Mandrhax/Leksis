@@ -72,6 +72,10 @@ OLLAMA_MODE="local"          # AI engine: local (Ollama container) | remote (Oll
 AI_API_KEY=""                # API key of the OpenAI-compatible server (optional)
 OLLAMA_URL=""                # remote server / API base URL as seen from the containers
 OLLAMA_URL_HOSTSIDE=""       # same server as seen from this host (differs for host.docker.internal)
+ACCESS_MODE="http"           # how users reach Leksis: http | https (domain + Let's Encrypt) | proxy (behind NPM, Traefik…)
+ACCESS_HOST=""               # domain name (https mode)
+ACCESS_FALLBACK="true"       # https mode: keep plain-HTTP access by IP while the certificate is set up
+ACCESS_TRUSTED=""            # proxy mode: proxy IP / CIDR when it is not on a private network
 OLLAMA_MODEL="$DEFAULT_MODEL"
 OLLAMA_OCR_MODEL="$DEFAULT_OCR_MODEL"
 OLLAMA_REWRITE_MODEL="$DEFAULT_REWRITE_MODEL"
@@ -1486,6 +1490,9 @@ save_answers() {
       printf 'LEKSIS_INSTALL_DIR=%s\n'              "$INSTALL_DIR"
       printf 'LEKSIS_REPO_URL=%s\n'                 "$REPO_URL"
       printf 'LEKSIS_APP_HOST=%s\n'                 "$APP_HOST"
+      printf 'LEKSIS_ACCESS_MODE=%s\n'              "$ACCESS_MODE"
+      printf 'LEKSIS_ACCESS_FALLBACK=%s\n'          "$ACCESS_FALLBACK"
+      printf 'LEKSIS_ACCESS_TRUSTED=%s\n'           "$ACCESS_TRUSTED"
       printf 'LEKSIS_ADMIN_EMAIL=%s\n'              "$ADMIN_EMAIL"
       printf 'LEKSIS_ADMIN_NAME=%s\n'               "$ADMIN_NAME"
       printf 'LEKSIS_AI_MODE=%s\n'                  "$OLLAMA_MODE"
@@ -1617,6 +1624,144 @@ ask_model() {
   done
 }
 
+# ── Access: HTTP / HTTPS (domain) / behind a reverse proxy ────
+# The public address is detected by the app from the request headers — nothing to configure but
+# how Caddy is reached. The admin panel (Services → Caddy) manages the same settings.
+
+is_domain_name() {
+  [[ "$1" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z][a-zA-Z0-9-]{1,62}$ ]]
+}
+
+# caddyfile_content MODE DOMAIN FALLBACK TRUSTED → the Caddyfile
+# ⚠️ Same output as generateCaddyfile() in src/lib/caddy-config.ts — keep both in sync.
+caddyfile_content() {
+  local mode="$1" host="$2" fallback="$3" trusted="${4:-}" tp="private_ranges"
+  [[ -n "$trusted" ]] && tp="private_ranges ${trusted}"
+  printf '{\n  admin 0.0.0.0:2019\n  servers {\n    trusted_proxies static %s\n  }\n}\n\n' "$tp"
+  case "$mode" in
+    https)
+      printf '%s {\n    encode gzip\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' "$host"
+      if [[ "$fallback" == "true" ]]; then
+        printf '\n:80 {\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n'
+      fi ;;
+    proxy)
+      printf ':80 {\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' ;;
+    *)
+      printf ':80 {\n    encode gzip\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' ;;
+  esac
+}
+
+# ask_access DEFAULT_MODE DEFAULT_DOMAIN — sets ACCESS_MODE / ACCESS_HOST / ACCESS_FALLBACK /
+# ACCESS_TRUSTED and the derived CADDY_HOST, APP_HOST and APP_URL (caller-declared variables)
+ask_access() {
+  local dmode="$1" ddomain="${2:-}" server_ip t tok ok
+  server_ip=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
+  server_ip="${server_ip:-127.0.0.1}"
+
+  ACCESS_MODE=$(p_choose ACCESS_MODE "How will users reach Leksis?" "$dmode" \
+    "http|HTTP on this server's address (simplest — HTTPS can be added later)" \
+    "https|HTTPS with a domain name (automatic Let's Encrypt certificate)" \
+    "proxy|Behind a reverse proxy that handles HTTPS (Nginx Proxy Manager, Traefik…)")
+  ACCESS_HOST=""; ACCESS_FALLBACK="true"; ACCESS_TRUSTED=""
+
+  case "$ACCESS_MODE" in
+    https)
+      while true; do
+        ACCESS_HOST=$(p_input APP_HOST "Domain name (e.g. leksis.example.com)" "$ddomain")
+        ACCESS_HOST="${ACCESS_HOST,,}"
+        is_domain_name "$ACCESS_HOST" && break
+        $NONINTERACTIVE && die "Invalid domain name: ${ACCESS_HOST} (an IP address cannot get a certificate)"
+        p_warn "Enter a domain name — an IP address cannot get a certificate: ${ACCESS_HOST}"
+        p_unset_preset APP_HOST
+      done
+      if p_yesno ACCESS_FALLBACK "Keep HTTP access by IP address while HTTPS is being set up?" "y"; then
+        ACCESS_FALLBACK="true"
+      else
+        ACCESS_FALLBACK="false"
+      fi
+      CADDY_HOST="$ACCESS_HOST"; APP_HOST="$ACCESS_HOST"; APP_URL="https://${ACCESS_HOST}"
+      p_info "Point a DNS record (A / AAAA) for ${ACCESS_HOST} to this server and open ports 80 and 443."
+      ;;
+    proxy)
+      p_info "In your proxy: forward to this server on port 80, keep the original Host header and"
+      p_info "send X-Forwarded-Proto. The public address is detected automatically."
+      while true; do
+        t=$(p_input ACCESS_TRUSTED "Proxy IP / range if it is NOT on a private network (optional)" "")
+        t=$(tr ',' ' ' <<<"$t" | xargs 2>/dev/null || true)
+        ok=true
+        for tok in $t; do [[ "$tok" =~ ^[0-9a-fA-F:.]+(/[0-9]{1,3})?$ ]] || ok=false; done
+        $ok && break
+        $NONINTERACTIVE && die "Invalid proxy address list: ${t}"
+        p_warn "Use IP addresses or CIDR ranges separated by spaces (e.g. 203.0.113.10)."
+        p_unset_preset ACCESS_TRUSTED
+      done
+      ACCESS_TRUSTED="$t"
+      CADDY_HOST=":80"; APP_HOST="$server_ip"; APP_URL="the address configured in your proxy"
+      ;;
+    *)
+      ACCESS_MODE="http"
+      CADDY_HOST=":80"; APP_HOST=$(p_preset APP_HOST || printf '%s' "$server_ip"); APP_URL="http://${APP_HOST}"
+      ;;
+  esac
+  p_ok "Access : $(access_label)"
+}
+
+access_label() {
+  case "$ACCESS_MODE" in
+    https) echo "HTTPS — https://${ACCESS_HOST}" ;;
+    proxy) echo "behind a reverse proxy (HTTP on port 80)" ;;
+    *)     echo "HTTP on this server (no encryption)" ;;
+  esac
+}
+
+# current_access — reads the access settings (admin panel value, else inferred from CADDY_HOST)
+current_access() {
+  local row m="" h="" f="" t="" b="" envhost
+  row=$(docker compose exec -T postgres psql -U leksis_user -d leksis -tA -F '|' -c \
+    "SELECT COALESCE(value->>'mode',''), COALESCE(value->>'host',''), COALESCE(value->>'keepHttpFallback','true'), COALESCE(value->>'trustedProxies',''), COALESCE(value->>'behindProxy','false') FROM site_settings WHERE key = 'caddy_config'" \
+    2>/dev/null | tr -d '\r' || true)
+  IFS='|' read -r m h f t b <<<"$row" || true
+  envhost=$(env_get "${INSTALL_DIR}/.env" CADDY_HOST)
+  if [[ "$m" == "http" || "$m" == "https" || "$m" == "proxy" ]]; then
+    ACCESS_MODE="$m"; ACCESS_HOST="$h"; ACCESS_FALLBACK="${f:-true}"; ACCESS_TRUSTED="$t"
+  else
+    ACCESS_HOST="${h:-$envhost}"; ACCESS_FALLBACK="true"; ACCESS_TRUSTED=""
+    if is_domain_name "$ACCESS_HOST"; then ACCESS_MODE="https"
+    elif [[ "$b" == "true" ]]; then ACCESS_MODE="proxy"; ACCESS_HOST=""
+    else ACCESS_MODE="http"; ACCESS_HOST=""; fi
+  fi
+}
+
+# apply_access_config — stores the access settings for the admin panel and reloads Caddy live
+# (Caddy keeps the loaded config across restarts). Uses ACCESS_MODE / ACCESS_HOST / ACCESS_FALLBACK / ACCESS_TRUSTED.
+apply_access_config() {
+  local content host="" behind="false"
+  [[ "$ACCESS_MODE" == "https" ]] && host="$ACCESS_HOST"
+  [[ "$ACCESS_MODE" == "proxy" ]] && behind="true"
+  content=$(caddyfile_content "$ACCESS_MODE" "$host" "$ACCESS_FALLBACK" "$ACCESS_TRUSTED")
+
+  docker compose exec -T postgres psql -U leksis_user -d leksis -q -v ON_ERROR_STOP=1 \
+      -v mode="$ACCESS_MODE" -v host="$host" -v fb="$ACCESS_FALLBACK" -v tp="$ACCESS_TRUSTED" -v behind="$behind" \
+      >/dev/null 2>&1 <<'SQL' || p_warn "Could not store the access settings for the admin panel."
+INSERT INTO site_settings (key, value, updated_at)
+VALUES ('caddy_config',
+        jsonb_build_object('mode', :'mode', 'host', :'host', 'keepHttpFallback', (:'fb')::boolean,
+                           'trustedProxies', :'tp', 'behindProxy', (:'behind')::boolean),
+        NOW())
+ON CONFLICT (key) DO UPDATE
+   SET value = (site_settings.value - 'nextauthUrl') || EXCLUDED.value, updated_at = NOW();
+SQL
+
+  if printf '%s\n' "$content" | docker compose exec -T caddy sh -c \
+      'cat >/tmp/Caddyfile && caddy reload --config /tmp/Caddyfile --adapter caddyfile --address localhost:2019 --force' \
+      >/dev/null 2>&1; then
+    p_ok "Caddy configured: $(access_label)"
+  else
+    p_warn "Caddy could not be reloaded live — check:  leksis logs caddy"
+  fi
+  return 0
+}
+
 # ai_engine_label → one-line description of the configured AI engine
 ai_engine_label() {
   case "$OLLAMA_MODE" in
@@ -1680,8 +1825,6 @@ POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 POSTGRES_VERSION=18
 DATABASE_URL=postgresql://leksis_user:${POSTGRES_PASSWORD}@postgres:5432/leksis
 AUTH_SECRET=${AUTH_SECRET}
-NEXTAUTH_URL=${APP_URL}
-AUTH_TRUST_HOST=1
 CADDY_HOST=${CADDY_HOST}
 ENCRYPTION_KEY=${ENCRYPTION_KEY}
 
@@ -1724,24 +1867,12 @@ cmd_install() {
   INSTALL_DIR=$(p_input INSTALL_DIR "Install directory" "$DEFAULT_INSTALL_DIR")
   REPO_URL=$(p_input REPO_URL "Repository URL" "$DEFAULT_REPO_URL")
 
-  # ── Step 2/5: Application URL ──────────────────────────────
-  p_header "Configuration 2/5 - Application URL"
-  local default_host
-  default_host=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
-  while true; do
-    APP_HOST=$(p_input APP_HOST "Domain name or IP address (no protocol, no port)" "${default_host:-127.0.0.1}")
-    validate_host "$APP_HOST" && break
-    $NONINTERACTIVE && die "Invalid host: ${APP_HOST}"
-    p_warn "Invalid host: ${APP_HOST}"; p_unset_preset APP_HOST
-  done
-  # Bare IPv4 → Caddy listens on all interfaces (:80); domain → Let's Encrypt
-  if is_ipv4 "$APP_HOST"; then
-    CADDY_HOST=":80"; APP_URL="http://${APP_HOST}"
-  else
-    CADDY_HOST="$APP_HOST"; APP_URL="https://${APP_HOST}"
-  fi
-  p_ok "Caddy host : ${CADDY_HOST}"
-  p_ok "App URL    : ${APP_URL}"
+  # ── Step 2/5: Access (HTTP / HTTPS / reverse proxy) ────────
+  p_header "Configuration 2/5 - Access"
+  local default_mode="http" preset_host
+  # Answer files from older versions only gave APP_HOST: a domain name meant HTTPS
+  if preset_host=$(p_preset APP_HOST) && is_domain_name "$preset_host"; then default_mode="https"; fi
+  ask_access "$default_mode" "${preset_host:-}"
 
   # ── Step 3/5: Admin account ────────────────────────────────
   p_header "Configuration 3/5 - Admin Account"
@@ -1785,8 +1916,8 @@ cmd_install() {
   # ── Summary ────────────────────────────────────────────────
   p_header "Summary"
   p_kv "Install dir"   "$INSTALL_DIR"
+  p_kv "Access"        "$(access_label)"
   p_kv "App URL"       "$APP_URL"
-  p_kv "Caddy host"    "$CADDY_HOST"
   p_kv "Admin"         "${ADMIN_EMAIL:-not set}"
   p_kv "AI engine"     "$(ai_engine_label)"
   p_kv "Models"       "${OLLAMA_MODEL}, ${OLLAMA_OCR_MODEL}, ${OLLAMA_REWRITE_MODEL}"
@@ -1894,6 +2025,9 @@ cmd_install() {
     esac
   done
 
+  # Store the access mode for the admin panel and load the matching Caddyfile
+  apply_access_config
+
   # ── Models ─────────────────────────────────────────────────
   p_header "AI Models"
   ensure_models
@@ -1918,6 +2052,15 @@ cmd_install() {
     say ""
     p_warn "These models could not be pulled: ${FAILED_MODELS[*]}"
     p_warn "Pull them later from Admin → Services → AI, or re-run:  leksis config"
+  fi
+  if [[ "$ACCESS_MODE" == "https" ]]; then
+    say ""
+    p_info "HTTPS: the certificate is requested from Let's Encrypt in the background."
+    p_info "Follow it in Admin → Services → Caddy. It needs ${ACCESS_HOST} to point to this server"
+    p_info "and ports 80 and 443 to be open; until then use http://$(hostname -I 2>/dev/null | awk '{print $1}')."
+  elif [[ "$ACCESS_MODE" == "http" ]]; then
+    say ""
+    p_info "To switch to HTTPS later: Admin → Services → Caddy → HTTPS (or:  leksis config)."
   fi
   say ""
   say "  Useful commands (run as root):"
@@ -2151,8 +2294,8 @@ cmd_status() {
   channel=$(detect_channel "$(git describe --tags --exact-match HEAD 2>/dev/null || echo '')")
   p_kv "Installed"   "${ref} (${channel} channel)"
   p_kv "Install dir" "$INSTALL_DIR"
-  p_kv "App URL"     "$(env_get .env NEXTAUTH_URL)"
-  p_kv "Caddy host"  "$(env_get .env CADDY_HOST)"
+  current_access
+  p_kv "Access"      "$(access_label)"
   code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 6 http://127.0.0.1/ 2>/dev/null || true)
   p_kv "HTTP check"  "${code:-no answer}"
 
@@ -2216,6 +2359,7 @@ cmd_config() {
   local old_mode="$OLLAMA_MODE" old_url="$OLLAMA_URL" old_key="$AI_API_KEY" old_m="$OLLAMA_MODEL" old_o="$OLLAMA_OCR_MODEL"
   local old_r="$OLLAMA_REWRITE_MODEL" old_k="$OLLAMA_KEEP_ALIVE" old_s="$OLLAMA_SCHED_SPREAD" old_x="$OLLAMA_MAX_LOADED_MODELS"
   local old_pg new_pg key_changed="no" provider="ollama" OLLAMA_URL_RAW="$OLLAMA_URL_HOSTSIDE"
+  local APP_HOST APP_URL CADDY_HOST access_changed=false old_access
   old_pg=$(env_get .env POSTGRES_VERSION)
 
   OLLAMA_MODE=$(p_choose AI_MODE "Which AI engine should Leksis use?" "$old_mode" \
@@ -2259,6 +2403,17 @@ cmd_config() {
     fi
   fi
   new_pg=$(p_input POSTGRES_VERSION "PostgreSQL version" "${old_pg:-18}")
+
+  # How users reach Leksis (HTTP / HTTPS with a domain / behind a reverse proxy)
+  current_access
+  old_access="${ACCESS_MODE}|${ACCESS_HOST}|${ACCESS_FALLBACK}|${ACCESS_TRUSTED}"
+  say ""
+  p_kv "Access" "$(access_label)"
+  if [[ -n "${LEKSIS_ACCESS_MODE+x}" ]] \
+     || p_yesno CONFIG_ACCESS "Change how users reach Leksis (HTTP / HTTPS domain / reverse proxy)?" "n"; then
+    ask_access "$ACCESS_MODE" "$ACCESS_HOST"
+    [[ "${ACCESS_MODE}|${ACCESS_HOST}|${ACCESS_FALLBACK}|${ACCESS_TRUSTED}" != "$old_access" ]] && access_changed=true
+  fi
 
   # ── Apply ──────────────────────────────────────────────────
   if [[ "$old_mode" == "local" && "$OLLAMA_MODE" != "local" ]]; then
@@ -2313,6 +2468,22 @@ cmd_config() {
     p_spin "Applying the new configuration to the app" docker compose up -d app || true
     wait_healthy app 180 || true
     if p_yesno CHECK_MODELS "Check the models on the AI server now?" "y"; then ensure_models; fi
+  fi
+
+  if $access_changed; then
+    _env_set CADDY_HOST "$CADDY_HOST" .env
+    apply_access_config
+    # A pinned NEXTAUTH_URL (older installs) would override the detected address
+    if [[ -n "$(env_get .env NEXTAUTH_URL)" ]]; then
+      _env_set NEXTAUTH_URL "" .env
+      p_info "The pinned NEXTAUTH_URL was removed: the public address is now detected automatically."
+      p_spin "Restarting the app" docker compose up -d app || true
+      wait_healthy app 180 || true
+    fi
+    if [[ "$ACCESS_MODE" == "https" ]]; then
+      p_info "The certificate is requested in the background — follow it in Admin → Services → Caddy."
+      p_info "${ACCESS_HOST} must point to this server and ports 80 and 443 must be open."
+    fi
   fi
 
   if [[ "$new_pg" != "$old_pg" ]]; then
@@ -2382,7 +2553,8 @@ Run without a command to open the interactive menu.
 
 Unattended install example:
   cat > answers.env <<'ANS'
-  LEKSIS_APP_HOST=leksis.example.com
+  LEKSIS_ACCESS_MODE=https          # http | https | proxy
+  LEKSIS_APP_HOST=leksis.example.com   # the domain (https mode)
   LEKSIS_ADMIN_EMAIL=admin@example.com
   LEKSIS_AI_MODE=openai
   LEKSIS_AI_URL=http://192.168.1.50:8000/v1
@@ -2390,7 +2562,8 @@ Unattended install example:
   ANS
   sudo ./install.sh --yes --answers answers.env install
 
-Answer keys: INSTALL_DIR REPO_URL APP_HOST ADMIN_EMAIL ADMIN_NAME AI_MODE
+Answer keys: INSTALL_DIR REPO_URL ACCESS_MODE (http|https|proxy) APP_HOST (domain, https) ACCESS_FALLBACK ACCESS_TRUSTED
+ADMIN_EMAIL ADMIN_NAME AI_MODE
 (local|remote|openai) AI_URL AI_API_KEY GPU_VENDOR (nvidia|amd|none) OLLAMA_MODEL OLLAMA_OCR_MODEL
 OLLAMA_REWRITE_MODEL (the model ids, for any engine) POSTGRES_PASSWORD PULL_REMOTE_MODELS UPDATE_COMPONENTS (e.g. "app caddy")
 CONFIRM_DELETE CONFIRM_RESTORE. Prefix each with LEKSIS_.

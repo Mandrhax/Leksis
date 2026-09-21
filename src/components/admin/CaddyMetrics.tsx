@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useI18n } from '@/lib/i18n'
 import type { CaddyMetricsResult } from '@/app/api/admin/services/caddy/metrics/route'
+import { CADDY_SAVED_EVENT } from './CaddyServiceForm'
 
 const CARD = 'bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6'
 
@@ -99,6 +100,20 @@ export function CaddyMetrics() {
 
   useEffect(() => { load() }, [load])
 
+  // Après une sauvegarde : relire l'état, puis surveiller l'émission du certificat (3 min max)
+  const polls = useRef(0)
+  useEffect(() => {
+    const onSaved = () => { polls.current = 0; setTimeout(load, 1500) }
+    window.addEventListener(CADDY_SAVED_EVENT, onSaved)
+    return () => window.removeEventListener(CADDY_SAVED_EVENT, onSaved)
+  }, [load])
+  useEffect(() => {
+    if (data?.mode !== 'https' || !data.tls || data.tls.ok || polls.current >= 36) return
+    polls.current += 1
+    const id = setTimeout(load, 5000)
+    return () => clearTimeout(id)
+  }, [data, load])
+
   const cf = t.caddyForm
 
   return (
@@ -152,6 +167,34 @@ export function CaddyMetrics() {
               <p className="text-xs text-on-surface-variant">{cf.metricsOffline}</p>
             )}
           </div>
+
+          {/* Bloc access — mode d'accès et certificat HTTPS */}
+          {data.mode && (
+            <div className={`${CARD} flex flex-col gap-3`}>
+              <h3 className="text-sm font-semibold text-on-surface">{cf.blockAccess}</h3>
+              <p className="text-sm text-on-surface">
+                {data.mode === 'https' ? cf.modeHttps : data.mode === 'proxy' ? cf.modeProxy : cf.modeHttp}
+                {data.domain && <span className="font-mono text-xs text-on-surface-variant"> — {data.domain}</span>}
+              </p>
+              {data.mode === 'https' && data.tls && (
+                data.tls.ok ? (
+                  <p className="text-xs flex items-start gap-1.5 text-green-600">
+                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">verified_user</span>
+                    <span>
+                      {cf.certOk
+                        .replace('{0}', data.tls.issuer ?? '—')
+                        .replace('{1}', data.tls.validTo ? new Date(data.tls.validTo).toLocaleDateString() : '—')}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-xs flex items-start gap-1.5 text-on-surface-variant">
+                    <span className="material-symbols-outlined text-[16px] animate-pulse" aria-hidden="true">hourglass_top</span>
+                    <span>{cf.certPending.replace('{0}', data.domain ?? '')}</span>
+                  </p>
+                )
+              )}
+            </div>
+          )}
 
           {/* Bloc 2 — Upstream */}
           {data.upstreams && data.upstreams.length > 0 && (

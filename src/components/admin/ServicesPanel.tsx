@@ -7,6 +7,7 @@ import { CaddyServiceForm }  from './CaddyServiceForm'
 import { AdminToast }        from './AdminToast'
 import type { ToastState }   from './AdminToast'
 import type { AiPublicConfig } from '@/lib/llm/types'
+import type { CaddyConfig }     from '@/lib/caddy-config'
 
 interface AiProps {
   mode: 'ai'
@@ -20,7 +21,7 @@ interface DbProps {
 
 interface CaddyProps {
   mode: 'caddy'
-  initial: { host: string; behindProxy: boolean }
+  initial: CaddyConfig
 }
 
 type Props = AiProps | DbProps | CaddyProps

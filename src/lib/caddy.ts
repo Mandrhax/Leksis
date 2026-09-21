@@ -1,36 +1,16 @@
 import 'server-only'
 
-export interface CaddyConfig {
-  host: string
-  behindProxy: boolean
-  nextauthUrl?: string
-}
+// Configuration d'accès partagée avec le client : voir caddy-config.ts
+export {
+  DEFAULT_CADDY_CONFIG,
+  generateCaddyfile,
+  resolveCaddyConfig,
+  normalizeCaddyConfig,
+  isDomainName,
+} from './caddy-config'
+export type { CaddyConfig, AccessMode, CaddyConfigError } from './caddy-config'
 
-export const DEFAULT_CADDY_CONFIG: CaddyConfig = {
-  host: ':80',
-  behindProxy: true,
-}
-
-export function generateCaddyfile(config: CaddyConfig): string {
-  const lines = [
-    '{',
-    '  admin 0.0.0.0:2019',
-    '}',
-    '',
-    `${config.host} {`,
-  ]
-  if (!config.behindProxy) lines.push('    encode gzip')
-  lines.push('    reverse_proxy app:3000 {')
-  lines.push('        header_up X-Real-IP {remote_host}')
-  if (config.behindProxy) {
-    lines.push('        header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}')
-    lines.push('        header_up X-Forwarded-Host {http.request.header.X-Forwarded-Host}')
-  }
-  lines.push('    }')
-  lines.push('}')
-  return lines.join('\n')
-}
-
+/** Recharge Caddy à chaud via son API d'administration (réseau Docker interne uniquement). */
 export async function reloadCaddy(content: string): Promise<void> {
   const res = await fetch('http://caddy:2019/load', {
     method: 'POST',

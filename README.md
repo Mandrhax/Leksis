@@ -49,7 +49,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 | **Dashboard** | Live health of the AI engine, PostgreSQL and Caddy, usage and activity at a glance |
 | **Settings** | Identity, appearance (logo, colors, background, dark mode), features & limits, AI tones, access, maintenance mode, global banner |
 | **Services → AI** | Choose the AI engine, server URL, API key and models; test the connection; download / delete / preload models (Ollama) |
-| **Services → PostgreSQL / Caddy** | Connection settings and live metrics; Caddy host, reverse-proxy mode and `NEXTAUTH_URL` with hot reload |
+| **Services → PostgreSQL / Caddy** | PostgreSQL connection settings and metrics; Caddy **access mode** (HTTP / HTTPS with a domain / behind a reverse proxy), certificate status and live reload |
 | **Glossary** | Named glossaries with language pairs, CSV import / export, per-user toggles |
 | **Users** | User list and admin roles |
 | **Usage** | AI usage statistics, filterable, CSV export, purge |
@@ -84,7 +84,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.2.0/insta
 
 The installer:
 
-1. checks the system (OS, CPU, RAM, disk, ports, DNS) and asks its questions **before changing anything** — paths, application URL, admin account, AI engine, models, database password;
+1. checks the system (OS, CPU, RAM, disk, ports, DNS) and asks its questions **before changing anything** — paths, how users reach Leksis (HTTP / HTTPS domain / behind a reverse proxy), admin account, AI engine, models, database password;
 2. shows a summary, then installs Docker and GPU drivers if needed, clones the release, generates the secrets and the `.env`, builds and starts the containers (with progress bars);
 3. pulls the AI models when they are missing, creates the admin user and tests the application.
 
@@ -193,8 +193,8 @@ docker compose -f docker-compose.yml -f docker-compose.amd.yml up -d      # AMD 
 |---|---|
 | `COMPOSE_PROJECT_NAME` / `COMPOSE_FILE` / `COMPOSE_PROFILES` | Compose project, GPU overlay, and `ollama` to run the local Ollama container (empty = no container) |
 | `POSTGRES_PASSWORD` / `POSTGRES_VERSION` / `DATABASE_URL` | PostgreSQL account and version (changing the major version needs a data migration) |
-| `AUTH_SECRET` / `AUTH_TRUST_HOST` / `NEXTAUTH_URL` | Session signing (`openssl rand -base64 32`), reverse-proxy trust, public URL |
-| `CADDY_HOST` | Bare IP or `:80` = HTTP only; a domain = HTTPS via Let's Encrypt |
+| `AUTH_SECRET` / `NEXTAUTH_URL` | Session signing (`openssl rand -base64 32`); `NEXTAUTH_URL` should stay **empty** (the public address is detected) — set it only to pin one fixed address |
+| `CADDY_HOST` | `:80` = HTTP or behind a reverse proxy; a domain name = HTTPS via Let's Encrypt (managed from the admin / `leksis config`) |
 | `ENCRYPTION_KEY` | AES-256-GCM key, 64 hex characters (`openssl rand -hex 32`) — needed to read encrypted settings, **keep it in your backups** |
 | `AI_PROVIDER` / `AI_BASE_URL` / `AI_API_KEY` | AI engine: `ollama` or `openai`, server URL, optional API key |
 | `OLLAMA_MODEL` / `OLLAMA_OCR_MODEL` / `OLLAMA_REWRITE_MODEL` | The three model ids (whatever the engine) |
@@ -232,9 +232,19 @@ The app container is **never directly exposed** — all traffic flows through Ca
 
 The browser **never talks to the AI engine**: every request goes through the Next.js API layer, which isolates all AI calls behind one provider abstraction (`src/lib/llm/`).
 
-### Behind an existing proxy (NPM, Traefik…)
+### Access: HTTP, HTTPS or behind a reverse proxy
 
-If an external proxy already handles SSL termination, enable **Behind a reverse proxy** in the admin Caddy panel (or set `CADDY_HOST=:80`) so Caddy listens on all interfaces and preserves the `X-Forwarded-Proto` / `X-Forwarded-Host` headers. Make sure your upstream proxy sends them and set `AUTH_TRUST_HOST=1` in `.env`.
+Leksis detects its own public address from the request headers, so **there is no URL to configure** — you only choose how Caddy is reached. Pick it during installation, in **Admin → Services → Caddy** or with `leksis config` (they all change the same settings, applied live):
+
+| Mode | When to use it | Requirements |
+|---|---|---|
+| **HTTP** | Intranet, quick start, testing | none — `http://<server address>` |
+| **HTTPS with a domain name** | Leksis is reachable from the internet, or by name on your network | a DNS record (A / AAAA) pointing the domain to this server, ports 80 **and** 443 reachable; the certificate is issued automatically by Let's Encrypt |
+| **Behind a reverse proxy** | Nginx Proxy Manager, Traefik, another Caddy… already handles your HTTPS | the proxy forwards to `http://<server>:80`, keeps the original `Host` header and sends `X-Forwarded-Proto` |
+
+**Going from HTTP to HTTPS** takes two steps: create the DNS record for your domain, then in *Admin → Services → Caddy* choose *HTTPS with a domain name*, type the domain and save (or `leksis config` → *Change how users reach Leksis*). The same page shows the certificate status until it is issued. While you set it up, *Keep HTTP access by IP address* (on by default) keeps this page reachable even if the certificate cannot be issued yet — turn it off once HTTPS works.
+
+**Behind a reverse proxy** — no extra option to set in the proxy beyond the three points above (Nginx Proxy Manager: point the host to the server's IP and port 80, enable *SSL*, and leave *Websockets* off — it is not needed). A proxy on a private network is trusted automatically; if yours has a public address, add it in the *Proxy address* field so its forwarded headers are honoured. Nothing needs to be entered as `NEXTAUTH_URL`: leave it empty unless you want to pin one fixed address.
 
 ---
 
@@ -258,8 +268,8 @@ If an external proxy already handles SSL termination, enable **Behind a reverse 
 |---|---|
 | Something failed during install | `/var/log/leksis-install.log`; re-run the installer — it resumes with saved answers |
 | The site does not answer | `leksis status`, then `leksis logs app` / `leksis logs caddy` |
-| HTTPS certificate not issued | The domain must resolve to the server and ports 80/443 must be reachable from the internet |
-| Sign-in loop behind a proxy | `AUTH_TRUST_HOST=1` and a correct `NEXTAUTH_URL`; keep the `X-Forwarded-*` headers |
+| HTTPS certificate not issued | The domain must resolve to the server and ports 80 and 443 must be reachable from the internet; Admin → Services → Caddy shows the certificate status, and `leksis logs caddy` the details |
+| Sign-in loop or wrong redirects behind a proxy | Keep `NEXTAUTH_URL` empty, make the proxy forward the original `Host` and `X-Forwarded-Proto`, and choose *Behind a reverse proxy* in Admin → Services → Caddy (add the proxy address if it is not on a private network) |
 | "AI server unreachable" | Admin → Services → AI → *Test connection*. A remote Ollama must listen on the network (`OLLAMA_HOST=0.0.0.0`) |
 | Saving the AI server is refused | The address is outside your private network — tick *Allow servers outside the private network* if that is intended |
 | A model is "not listed by the server" | With an OpenAI-compatible API, use the exact id returned by `/v1/models` |
@@ -309,6 +319,11 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### Unreleased
+- **Simpler access setup** — one setting decides how users reach Leksis: **HTTP**, **HTTPS with a domain name** (automatic Let's Encrypt certificate, with a live certificate status) or **behind a reverse proxy** (NPM, Traefik…). Choose it at install time, in *Admin → Services → Caddy* or with `leksis config`
+- The public address is now **detected automatically** from the request headers: `NEXTAUTH_URL` and `AUTH_TRUST_HOST` are no longer needed (existing installs keep working; changing the access mode with `leksis config` clears a pinned `NEXTAUTH_URL`)
+- Reverse proxies on a private network are trusted automatically; a proxy with a public address can be declared in the admin
 
 ### v1.2.0
 A major update of the AI engine and of the installer.

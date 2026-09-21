@@ -1,5 +1,10 @@
 {
-  admin 0.0.0.0:2019
+    admin 0.0.0.0:2019
+    servers {
+        # Reverse proxies on a private network (NPM, Traefik…) are trusted: Caddy passes their
+        # X-Forwarded-* headers to the app, which detects its public address from them.
+        trusted_proxies static private_ranges
+    }
 }
 
 {$CADDY_HOST} {
