@@ -431,7 +431,9 @@ Sans argument : menu interactif (`show_menu`).
 - **`wait_healthy service [timeout]`** — poll `docker inspect --format '{{.State.Health.Status}}' leksis-<service>` toutes les 5 s
 - **`pg_backup <dir>`** — `pg_dump -U leksis_user leksis` → `<dir>/backups/leksis-pg-<timestamp>.sql`
 - **`pull_model_if_needed <model>`** — pull uniquement si absent de `ollama list`
-- **Install drivers GPU** — NVIDIA : driver `.run` + DKMS (version épinglée `NVIDIA_DRIVER_VERSION`, blacklist `nouveau` ⇒ reboot requis puis relancer) + `nvidia-container-toolkit`. AMD : ROCm via `.deb` `amdgpu-install` (codename Ubuntu). **Chemins apt / Ubuntu uniquement**
+- **Install drivers GPU** — NVIDIA : driver `.run` + DKMS (version épinglée `NVIDIA_DRIVER_VERSION`, blacklist `nouveau` ⇒ reboot requis puis relancer) + `nvidia-container-toolkit`. AMD : ROCm via `.deb` `amdgpu-install` (codename Ubuntu via `UBUNTU_CODENAME`, fallback `jammy` — donc paquet Ubuntu utilisé tel quel sur Debian, non validé). **Chemins apt uniquement**
+- **OS supportés** (README) : Ubuntu 22.04, Debian 12, Debian 13. Le script ne vérifie pas la distribution (seul `apt-get` / `dnf` / `yum` est détecté) et Docker est installé via `get.docker.com`. Debian 13 n'a pas été testée sur machine réelle, en particulier pour le chemin AMD ROCm
+- **Overlays compose GPU** : `docker-compose.nvidia.yml` et `docker-compose.amd.yml` sont sélectionnés par `install.sh` ; `docker-compose.gpu.yml` est un overlay NVIDIA générique utilisable à la main uniquement. Ce sont des **overlays** — toujours les lancer avec `-f docker-compose.yml -f docker-compose.<x>.yml`
 - Aperçu `.env` avant écriture : boucle `while read` qui masque `POSTGRES_PASSWORD` / `AUTH_SECRET` / `ENCRYPTION_KEY` / `DATABASE_URL`
 
 ### Règles pour modifier install.sh
@@ -504,12 +506,13 @@ Flux local :
 
 ### Workflow release
 
-1. Bumper **deux fichiers** :
+1. Bumper **trois fichiers** :
    - `package.json` → `"version": "X.Y.Z"`
-   - `install.sh` → `VERSION="X.Y.Z"` (ligne ~36) **et** les 3 URLs `raw.githubusercontent.com` dans le même fichier
+   - `install.sh` → `VERSION="X.Y.Z"` (ligne ~36), le fallback `${_v:-X.Y.Z}` (ligne ~42) **et** les 3 URLs `raw.githubusercontent.com` dans le même fichier
+   - `README.md` → l'URL du one-liner (`…/Leksis/vX.Y.Z/install.sh`) et une entrée « What's new » pour la version
 2. Commit et push sur `main` :
    ```bash
-   git add package.json install.sh
+   git add package.json install.sh README.md
    git commit -m "chore(release): prepare vX.Y.Z"
    git push origin main
    ```
@@ -525,7 +528,8 @@ Flux local :
    ```
 
 ### Règles
-- Ne jamais bumper la version dans un seul fichier sans l'autre
+- Ne jamais bumper la version dans un seul fichier sans les autres (`package.json`, `install.sh`, `README.md`)
+- Le README étant lu depuis `main`, un README commité après le tag n'est pas dans le tag : il sera embarqué à la release suivante
 - Si un hotfix doit corriger le tag avant toute installation réelle : `git tag -f vX.Y.Z && git push origin vX.Y.Z --force`
 - Le développement courant se fait sur `main` sans impact sur les utilisateurs installés
 
