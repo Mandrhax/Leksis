@@ -339,6 +339,168 @@ run_logged() {
   if [[ -n "$LOG_FILE" ]]; then "$@" 2>&1 | tee -a "$LOG_FILE"; else "$@"; fi
 }
 
+# ── Progress bars ─────────────────────────────────────────────
+BAR_MILESTONE=-1
+
+# human_bytes N → "512 MB" / "7.4 GB"
+human_bytes() {
+  local n="$1"
+  if (( n >= 1073741824 )); then
+    printf '%d.%d GB' "$((n / 1073741824))" "$(( (n * 10 / 1073741824) % 10 ))"
+  else
+    printf '%d MB' "$((n / 1048576))"
+  fi
+}
+
+# draw_bar "Title" PERCENT "detail" — one redrawn line on a tty, 10% milestones otherwise
+draw_bar() {
+  local title="$1" pct="$2" detail="${3:-}" width=20 filled i bar="" full="█" empty="░" cols avail
+  (( pct > 100 )) && pct=100
+  (( pct < 0 )) && pct=0
+  if ! $TTY_OK; then
+    if (( pct / 10 > BAR_MILESTONE )); then
+      BAR_MILESTONE=$((pct / 10))
+      p_info "${title}: ${pct}%"
+    fi
+    return 0
+  fi
+  [[ "${LC_ALL:-${LANG:-}}" == *[Uu][Tt][Ff]* ]] || { full="#"; empty="-"; }
+  filled=$(( pct * width / 100 ))
+  for (( i = 0; i < width; i++ )); do
+    if (( i < filled )); then bar+="$full"; else bar+="$empty"; fi
+  done
+  cols=$(tput cols 2>/dev/null || echo 80)
+  avail=$(( cols - 34 ))
+  (( avail < 10 )) && avail=10
+  if (( ${#title} + ${#detail} + 2 > avail )); then
+    # keep the detail (speed / size) and shorten the title, unless there is no room
+    if (( avail - ${#detail} - 2 >= 12 )); then title="${title:0:$((avail - ${#detail} - 2))}"; else detail=""; fi
+  fi
+  title="${title:0:avail}"
+  printf '\r\033[K  %s [%s] %3d%%%s' "$title" "$bar" "$pct" "${detail:+  $detail}" >&3
+  return 0
+}
+
+end_bar() { $TTY_OK && printf '\r\033[K' >&3; BAR_MILESTONE=-1; return 0; }
+
+# fmt_elapsed SECONDS → m:ss
+fmt_elapsed() { printf '%d:%02d' "$(( $1 / 60 ))" "$(( $1 % 60 ))"; }
+
+# run_with_bar "Title" layers|steps cmd args...
+# Runs a docker command and turns its output into a progress bar:
+#   layers — `docker compose pull`: layers finished / layers seen
+#   steps  — `docker compose build` (BuildKit plain): build steps done / steps seen
+# The full output goes to the log; the last lines are shown only on failure.
+run_with_bar() {
+  local title="$1" mode="$2"; shift 2
+  local tmp rcfile rc=0 line id st pct=0 shown=-1 start=$SECONDS now last_draw=-1
+  local done_n=0 total_n=0 current="" stage n
+  local -A layer=() vertex=() counted=() stage_total=()
+  tmp=$(mktemp); rcfile=$(mktemp)
+  log_line "RUN ${title}: $*"
+  draw_bar "$title" 0 "0:00"
+  while IFS= read -r line; do
+    printf '%s\n' "$line" >>"$tmp"
+    if [[ "$mode" == "layers" ]]; then
+      if [[ "$line" =~ ([0-9a-f]{12})[[:space:]]+(Pulling\ fs\ layer|Already\ exists|Pull\ complete) ]]; then
+        id="${BASH_REMATCH[1]}"; st="${BASH_REMATCH[2]}"
+        if [[ -z "${layer[$id]:-}" ]]; then layer[$id]=1; total_n=$((total_n + 1)); fi
+        if [[ "$st" != "Pulling fs layer" && "${layer[$id]}" != 2 ]]; then
+          layer[$id]=2; done_n=$((done_n + 1))
+        fi
+      fi
+    else
+      if [[ "$line" =~ ^#([0-9]+)\ \[([^]]+)\ ([0-9]+)/([0-9]+)\]\ (.*)$ ]]; then
+        id="${BASH_REMATCH[1]}"; stage="${BASH_REMATCH[2]}"; n="${BASH_REMATCH[4]}"
+        vertex[$id]=1; stage_total[$stage]="$n"; current="${BASH_REMATCH[5]}"
+        total_n=0
+        for st in "${stage_total[@]}"; do total_n=$((total_n + st)); done
+      elif [[ "$line" =~ ^#([0-9]+)\ (DONE|CACHED) ]]; then
+        id="${BASH_REMATCH[1]}"
+        if [[ -n "${vertex[$id]:-}" && -z "${counted[$id]:-}" ]]; then
+          counted[$id]=1; done_n=$((done_n + 1))
+        fi
+      fi
+    fi
+    if (( total_n > 0 )); then
+      pct=$(( done_n * 100 / total_n ))
+      (( pct > 99 )) && pct=99
+      (( pct < shown )) && pct=$shown        # never go backwards
+    fi
+    now=$SECONDS
+    if (( pct != shown || now != last_draw )); then
+      shown=$pct; last_draw=$now
+      draw_bar "$title" "$pct" "$(fmt_elapsed $((now - start)))${current:+  ${current:0:24}}"
+    fi
+  done < <( { if [[ "$mode" == "steps" ]]; then export BUILDKIT_PROGRESS=plain; fi
+              "$@" 2>&1 && echo 0 >"$rcfile" || echo $? >"$rcfile"; } )
+  rc=$(cat "$rcfile" 2>/dev/null || echo 1)
+  [[ -n "$LOG_FILE" ]] && cat "$tmp" >>"$LOG_FILE" 2>/dev/null || true
+  end_bar
+  if [[ "$rc" -eq 0 ]]; then
+    p_ok "${title} ($(fmt_elapsed $((SECONDS - start))))"
+  else
+    p_err "${title} failed (exit ${rc}). Last output:"
+    tail -n 15 "$tmp" | sed 's/^/      /' >&3 || true
+  fi
+  rm -f "$tmp" "$rcfile"
+  return "$rc"
+}
+
+# ollama_api_url → URL of the Ollama API reachable from this host ("" if unknown)
+ollama_api_url() {
+  local ip
+  if [[ "$OLLAMA_MODE" == "remote" ]]; then printf '%s' "${OLLAMA_URL_HOSTSIDE:-$OLLAMA_URL}"; return 0; fi
+  ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' leksis-ollama 2>/dev/null || true)
+  [[ -n "$ip" ]] && printf 'http://%s:11434' "$ip"
+  return 0
+}
+
+# api_pull_with_bar MODEL URL — streams POST /api/pull into a byte-accurate progress bar
+api_pull_with_bar() {
+  local m="$1" url="$2" title line status="" err="" ok=false rc=0
+  local d tc tt pct=0 shown=-1 start=$SECONDS now last_draw=-1 prev_c=0 prev_t=$SECONDS speed="" detail
+  local -A tot=() cmp=()
+  local rcfile
+  rcfile=$(mktemp)
+  title="Pulling ${m}"
+  log_line "RUN api pull ${m} via ${url}"
+  draw_bar "$title" 0 "starting"
+  while IFS= read -r line; do
+    [[ "$line" =~ \"error\":\"([^\"]*)\" ]] && err="${BASH_REMATCH[1]}"
+    [[ "$line" =~ \"status\":\"([^\"]*)\" ]] && status="${BASH_REMATCH[1]}"
+    [[ "$status" == "success" ]] && ok=true
+    if [[ "$line" =~ \"digest\":\"([^\"]+)\" ]]; then
+      d="${BASH_REMATCH[1]}"
+      if [[ "$line" =~ \"total\":([0-9]+) ]]; then tot[$d]="${BASH_REMATCH[1]}"; fi
+      if [[ "$line" =~ \"completed\":([0-9]+) ]]; then cmp[$d]="${BASH_REMATCH[1]}"; fi
+    fi
+    tt=0; tc=0
+    for d in "${!tot[@]}"; do tt=$((tt + ${tot[$d]})); tc=$((tc + ${cmp[$d]:-0})); done
+    if (( tt > 0 )); then pct=$(( tc * 100 / tt )); (( pct < shown )) && pct=$shown; fi
+    now=$SECONDS
+    if (( pct != shown || now != last_draw )); then
+      if (( now > prev_t && tc > prev_c )); then
+        speed="$(( (tc - prev_c) / (now - prev_t) / 1048576 )) MB/s"; prev_c=$tc; prev_t=$now
+      fi
+      shown=$pct; last_draw=$now
+      if (( tt > 0 )); then detail="$(human_bytes "$tc")/$(human_bytes "$tt")${speed:+  $speed}"; else detail="$status"; fi
+      draw_bar "$title" "$pct" "$detail"
+    fi
+  done < <( { curl -sN --connect-timeout 10 -X POST "${url}/api/pull" \
+                -d "{\"model\":\"${m}\",\"name\":\"${m}\",\"stream\":true}" 2>&1 \
+              && echo 0 >"$rcfile" || echo $? >"$rcfile"; } )
+  rc=$(cat "$rcfile" 2>/dev/null || echo 1)
+  rm -f "$rcfile"
+  end_bar
+  if $ok && [[ -z "$err" && "$rc" -eq 0 ]]; then
+    p_ok "${title} ($(fmt_elapsed $((SECONDS - start))))"
+    return 0
+  fi
+  p_err "Pull of ${m} failed${err:+: ${err}}"
+  return 1
+}
+
 # ── Validation helpers ────────────────────────────────────────
 validate_url()   { [[ "$1" =~ ^https?://[^[:space:]]+[^/]$ ]]; }
 validate_email() { [[ "$1" =~ ^[^@]+@[^@]+\.[^@]+$ ]]; }
@@ -663,7 +825,7 @@ EOF
   fi
   if [[ ! -f "$NVIDIA_DRIVER_RUN" ]]; then
     p_info "Downloading NVIDIA driver ${NVIDIA_DRIVER_VERSION} (~400 MB)..."
-    curl -fL "$NVIDIA_DRIVER_URL" -o "$NVIDIA_DRIVER_RUN" || die "NVIDIA driver download failed."
+    curl -fL --progress-bar "$NVIDIA_DRIVER_URL" -o "$NVIDIA_DRIVER_RUN" || die "NVIDIA driver download failed."
   fi
   if ! echo "${NVIDIA_DRIVER_SHA256}  ${NVIDIA_DRIVER_RUN}" | sha256sum -c --status -; then
     rm -f "$NVIDIA_DRIVER_RUN"
@@ -991,16 +1153,21 @@ model_present() {
 }
 
 pull_model() {
-  local m="$1"
+  local m="$1" url
+  # Both modes go through the Ollama API so the download shows a real progress bar
+  # (the local container's IP is routable from the Docker host).
+  url=$(ollama_api_url)
+  if [[ -n "$url" ]] && ollama_version "$url" >/dev/null 2>&1; then
+    api_pull_with_bar "$m" "$url"
+    return
+  fi
   if [[ "$OLLAMA_MODE" == "local" ]]; then
     p_info "Pulling model: ${m} (this may take a while)..."
     log_line "RUN ollama pull ${m}"
     docker compose exec -T ollama ollama pull "$m"
   else
-    p_info "Pulling ${m} on the remote server (this may take a while)"
-    p_spin "Pulling ${m} on ${OLLAMA_URL_HOSTSIDE:-$OLLAMA_URL}" \
-      curl -fsS -X POST "${OLLAMA_URL_HOSTSIDE:-$OLLAMA_URL}/api/pull" \
-      -d "{\"model\":\"${m}\",\"name\":\"${m}\",\"stream\":false}"
+    p_err "Ollama server not reachable at ${url:-?} — cannot pull ${m}."
+    return 1
   fi
 }
 
@@ -1278,6 +1445,22 @@ ask_model() {
   done
 }
 
+# ask_translation_model DEFAULT — pick a TranslateGemma size from a list
+# (a current custom model stays selectable; LEKSIS_OLLAMA_MODEL may set any name)
+ask_translation_model() {
+  local default="$1" m
+  local -a opts=("translategemma:27b|translategemma:27b   best quality  (~17 GB)"
+                 "translategemma:12b|translategemma:12b   balanced      (~8 GB)"
+                 "translategemma:4b|translategemma:4b    lightest      (~3 GB)")
+  case "$default" in
+    translategemma:27b|translategemma:12b|translategemma:4b) ;;
+    *) opts+=("${default}|${default}   (current)") ;;
+  esac
+  m=$(p_choose OLLAMA_MODEL "Translation model" "$default" "${opts[@]}")
+  validate_model "$m" || die "Invalid model name: ${m}"
+  printf '%s' "$m"
+}
+
 # build_env_content — generated .env (globals must be set)
 build_env_content() {
   local profiles="" base_url="http://ollama:11434"
@@ -1379,7 +1562,7 @@ cmd_install() {
 
   # ── Step 5/5: Models + database password ───────────────────
   p_header "Configuration 5/5 - AI Models & Database"
-  OLLAMA_MODEL=$(ask_model OLLAMA_MODEL "Translation model" "$OLLAMA_MODEL")
+  OLLAMA_MODEL=$(ask_translation_model "$OLLAMA_MODEL")
   OLLAMA_OCR_MODEL=$(ask_model OLLAMA_OCR_MODEL "OCR model" "$OLLAMA_OCR_MODEL")
   OLLAMA_REWRITE_MODEL=$(ask_model OLLAMA_REWRITE_MODEL "Rewrite model" "$OLLAMA_REWRITE_MODEL")
   POSTGRES_PASSWORD=$(p_password POSTGRES_PASSWORD "Database password")
@@ -1481,8 +1664,12 @@ cmd_install() {
 
   # ── Start containers ───────────────────────────────────────
   p_header "Building and Starting Containers"
-  p_info "Building the application image (this may take several minutes)..."
-  BUILDKIT_PROGRESS=plain run_logged docker compose up -d --build \
+  run_with_bar "Downloading images" layers docker compose pull --ignore-buildable \
+    || die "Image download failed — see ${LOG_FILE:-the output above}."
+  p_info "Building the application (several minutes on a first install)..."
+  run_with_bar "Building the application" steps docker compose build app \
+    || die "Application build failed — see ${LOG_FILE:-the output above}."
+  p_spin "Starting the containers" docker compose up -d \
     || die "docker compose up failed — see ${LOG_FILE:-the output above}."
 
   local svc
@@ -1538,7 +1725,7 @@ rollback_app() {
   p_warn "Rolling back the application to ${sha:0:12}..."
   git -c advice.detachedHead=false checkout "$sha" >/dev/null 2>&1 \
     || { p_err "Could not restore the previous sources — restore manually: git checkout ${sha}"; return 1; }
-  BUILDKIT_PROGRESS=plain run_logged docker compose build app || return 1
+  run_with_bar "Rebuilding the application" steps docker compose build app || return 1
   p_spin "Restarting app" docker compose up -d app || return 1
   wait_healthy app 180
 }
@@ -1616,14 +1803,13 @@ cmd_update() {
     [[ " $components " == *" $c "* ]] || continue
     case "$c" in
       app)
-        p_info "Rebuilding the application image..."
-        BUILDKIT_PROGRESS=plain run_logged docker compose build --pull app || failed=true
+        run_with_bar "Rebuilding the application" steps docker compose build --pull app || failed=true
         if ! $failed; then
           p_spin "Restarting app" docker compose up -d app || failed=true
           $failed || wait_healthy app 180 || failed=true
         fi ;;
       postgres|ollama|caddy)
-        p_spin "Pulling ${c} image" docker compose pull "$c" || true
+        run_with_bar "Downloading ${c} image" layers docker compose pull "$c" || true
         p_spin "Restarting ${c}" docker compose up -d "$c" || true
         wait_healthy "$c" 180 || true ;;
       models) ensure_models ;;
@@ -1788,7 +1974,7 @@ cmd_config() {
 
   OLLAMA_MODE=$(p_choose OLLAMA_MODE "Where does Ollama run?" "$old_mode" \
     "local|Container on this server" "remote|Server running elsewhere")
-  OLLAMA_MODEL=$(ask_model OLLAMA_MODEL "Translation model" "$old_m")
+  OLLAMA_MODEL=$(ask_translation_model "$old_m")
   OLLAMA_OCR_MODEL=$(ask_model OLLAMA_OCR_MODEL "OCR model" "$old_o")
   OLLAMA_REWRITE_MODEL=$(ask_model OLLAMA_REWRITE_MODEL "Rewrite model" "$old_r")
 
