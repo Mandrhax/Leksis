@@ -163,7 +163,7 @@ p_input() {
   if p_preset "$key"; then return 0; fi
   if $NONINTERACTIVE; then printf '%s' "$default"; return 0; fi
   if $USE_GUM; then
-    value=$(gum input --header "$prompt" --prompt "> " --value "$default" \
+    value=$(gum input --header="$prompt" --prompt="> " --value="$default" \
       </dev/tty 2>&3) || _abort
     printf '  %s: %s\n' "$prompt" "${value:-$default}" >&3
   else
@@ -211,7 +211,7 @@ p_password() {
   if $NONINTERACTIVE; then printf '%s' ""; return 0; fi
   while true; do
     if $USE_GUM; then
-      p1=$(gum input --password --header "${prompt} (empty = auto-generate)" --prompt "> " \
+      p1=$(gum input --password --header="${prompt} (empty = auto-generate)" --prompt="> " \
         </dev/tty 2>&3) || _abort
     else
       printf '  %s (empty = auto-generate): ' "$prompt" >&3
@@ -219,7 +219,7 @@ p_password() {
     fi
     if [[ -z "$p1" ]]; then printf '%s' ""; return 0; fi
     if $USE_GUM; then
-      p2=$(gum input --password --header "Confirm password" --prompt "> " </dev/tty 2>&3) || _abort
+      p2=$(gum input --password --header="Confirm password" --prompt="> " </dev/tty 2>&3) || _abort
     else
       printf '  Confirm password: ' >&3
       read -rs p2 </dev/tty || _abort; echo >&3
@@ -241,8 +241,8 @@ p_choose() {
     [[ "${values[$i]}" == "$default" ]] && default_label="${labels[$i]}"
   done
   if $USE_GUM; then
-    [[ -n "$default_label" ]] && extra=(--selected "$default_label")
-    sel=$(gum choose --header "$header" --height 12 "${extra[@]+"${extra[@]}"}" \
+    [[ -n "$default_label" ]] && extra=(--selected="$default_label")
+    sel=$(gum choose --header="$header" --height=12 "${extra[@]+"${extra[@]}"}" \
       "${labels[@]}" </dev/tty 2>&3) || _abort
     printf '  %s: %s\n' "$header" "$sel" >&3
     for i in "${!labels[@]}"; do
@@ -280,8 +280,8 @@ p_multi() {
       done
     done
     local -a extra=()
-    [[ -n "$dl" ]] && extra=(--selected "$dl")
-    sel=$(gum choose --no-limit --header "$header (space = toggle, enter = confirm)" \
+    [[ -n "$dl" ]] && extra=(--selected="$dl")
+    sel=$(gum choose --no-limit --header="$header (space = toggle, enter = confirm)" \
       --height 12 "${extra[@]+"${extra[@]}"}" "${labels[@]}" </dev/tty 2>&3) || _abort
     while IFS= read -r line; do
       [[ -z "$line" ]] && continue
