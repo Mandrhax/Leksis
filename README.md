@@ -15,7 +15,14 @@ Leksis is a self-hosted, all-in-one platform for text translation, document proc
 
 ---
 
-## 🎉 What's new in v1.0.0
+## 🎉 What's new
+
+### v1.0.5
+- Fix: PostgreSQL `PGDATA` pinned so the container no longer crashes on existing data volumes
+- Backup export/import now includes glossaries and strips non-portable branding fields
+- Admin dashboard shows the running app version
+
+### v1.0.0
 
 First public release of Leksis.
 
@@ -67,7 +74,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 
 | Requirement | Minimum |
 |---|---|
-| OS | Ubuntu 22.04 / Debian 12 (bare-metal or VM) |
+| OS | Ubuntu 22.04 / Debian 12 / Debian 13 (bare-metal or VM) |
 | CPU | 4 cores |
 | RAM | 8 GB (16 GB recommended for LLM inference) |
 | Disk | 40 GB free (model storage varies) |
@@ -80,7 +87,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### One-line install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.4/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.5/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -89,56 +96,57 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.4/insta
 
 ```bash
 ./install.sh install    # Full guided installation on a fresh server
-./install.sh update     # Update one or more containers selectively
+./install.sh update     # Update to the latest release tag (selective components)
 ./install.sh status     # Live status of all services
-./install.sh logs       # Tail logs (default: app container)
+./install.sh config     # Edit .env values (models, keep-alive, PostgreSQL version…)
+./install.sh logs       # Tail logs of a service (app, caddy, postgres, ollama)
 ./install.sh uninstall  # Clean removal of all Leksis components
 ```
 
 ### GPU support
 
-Docker Compose variants are available for GPU-accelerated Ollama inference:
+`install.sh` detects NVIDIA and AMD GPUs and selects the right overlay automatically. To use one manually, layer it on top of the base file:
 
 ```bash
-docker compose -f docker-compose.nvidia.yml up -d   # NVIDIA
-docker compose -f docker-compose.gpu.yml up -d      # Generic GPU
-docker compose -f docker-compose.amd.yml up -d      # AMD
+docker compose -f docker-compose.yml -f docker-compose.nvidia.yml up -d   # NVIDIA
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d      # Generic NVIDIA GPU
+docker compose -f docker-compose.yml -f docker-compose.amd.yml up -d      # AMD (ROCm)
 ```
 
 ---
 
 ## ⚙️ Configuration
 
-Copy `.env.production.example` to `.env.production` and fill in the values:
+`install.sh` generates the `.env` for you. To configure manually, copy `.env.production.example` to `.env` and fill in the values:
 
 ```env
-# Caddy reverse proxy
-CADDY_HOST=:80               # bare IP installs — listens on all interfaces
-# CADDY_HOST=yourdomain.com  # domain installs — Caddy handles HTTPS + Let's Encrypt
+# PostgreSQL
+POSTGRES_PASSWORD=changeme
+POSTGRES_VERSION=18          # changing it on an existing install requires a data migration
+DATABASE_URL=postgresql://leksis_user:changeme@postgres:5432/leksis
 
-# Ollama
-OLLAMA_BASE_URL=http://your-ollama-host:11434
+# NextAuth
+AUTH_SECRET=your-secret-here # openssl rand -base64 32
+AUTH_TRUST_HOST=1            # required when running behind a reverse proxy
+NEXTAUTH_URL=https://your-domain.com
+
+# Caddy reverse proxy
+CADDY_HOST=your-domain.com   # bare IP = HTTP only; domain = HTTPS via Let's Encrypt
+
+# Encryption key for DB credentials (AES-256-GCM)
+ENCRYPTION_KEY=your-64-hex-char-key   # openssl rand -hex 32
+
+# Ollama (resolved through the internal Docker network)
+OLLAMA_BASE_URL=http://ollama:11434
 OLLAMA_MODEL=translategemma:27b
 OLLAMA_OCR_MODEL=maternion/LightOnOCR-2:latest
 OLLAMA_REWRITE_MODEL=qwen2.5:14b
-
-# PostgreSQL
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
-POSTGRES_DB=leksis
-POSTGRES_USER=leksis
-POSTGRES_PASSWORD=changeme
-
-# NextAuth
-NEXTAUTH_URL=https://your-domain.com
-NEXTAUTH_SECRET=your-secret-here
-AUTH_TRUST_HOST=1            # required when running behind a reverse proxy
-
-# Encryption key for DB credentials (AES-256-GCM)
-ENCRYPTION_KEY=your-32-byte-hex-key
+OLLAMA_KEEP_ALIVE=-1
+OLLAMA_SCHED_SPREAD=4
+OLLAMA_MAX_LOADED_MODELS=3
 ```
 
-All settings (branding, features, tones, limits, Caddy host) are managed from the **Admin panel** at `/admin` — no config file edits required after initial setup.
+All settings (branding, features, tones, limits, Caddy host, `NEXTAUTH_URL`) are managed from the **Admin panel** at `/admin` — no config file edits required after initial setup.
 
 ---
 
@@ -157,7 +165,7 @@ The app container is **never directly exposed** — all traffic flows through Ca
 
 ### Behind an existing proxy (NPM, Traefik…)
 
-If you already have an external proxy handling SSL termination, set `CADDY_HOST=:80` so Caddy listens on all interfaces without trying to bind to a specific IP. Make sure your upstream proxy forwards `X-Forwarded-Proto: https` and set `AUTH_TRUST_HOST=1` in `.env`.
+If you already have an external proxy handling SSL termination, enable **Behind a reverse proxy** in the admin Caddy panel (or set `CADDY_HOST=:80`) so Caddy listens on all interfaces and preserves the `X-Forwarded-Proto` / `X-Forwarded-Host` headers. Make sure your upstream proxy sends them and set `AUTH_TRUST_HOST=1` in `.env`.
 
 ---
 
