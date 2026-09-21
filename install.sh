@@ -287,7 +287,7 @@ p_multi() {
     done
     local -a extra=()
     [[ -n "$dl" ]] && extra=(--selected="$dl")
-    sel=$(gum choose --no-limit --header="$header (space = toggle, enter = confirm)" \
+    sel=$(gum choose --no-limit --header="$header" \
       --height 12 "${extra[@]+"${extra[@]}"}" "${labels[@]}" </dev/tty 2>&3) || _abort
     while IFS= read -r line; do
       [[ -z "$line" ]] && continue
