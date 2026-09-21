@@ -6,105 +6,75 @@ Leksis is a self-hosted, all-in-one platform for text translation, document proc
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-336791?logo=postgresql&logoColor=white)
 ![Caddy](https://img.shields.io/badge/Caddy-v2-00ADD8?logo=caddy&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![Ollama](https://img.shields.io/badge/Ollama-local_LLM-black)
+![OpenAI API](https://img.shields.io/badge/OpenAI--compatible-vLLM_%C2%B7_LM_Studio_%C2%B7_llama.cpp-412991)
+
+**Contents** — [Highlights](#-highlights) · [Features](#-features) · [Quick start](#-quick-start) · [AI engines](#-ai-engines) · [Managing your installation](#-managing-your-installation) · [Configuration](#-configuration) · [Architecture](#-architecture) · [Security](#-security--privacy) · [Troubleshooting](#-troubleshooting) · [Development](#-development) · [What's new](#-whats-new)
 
 ---
 
-## 🎉 What's new
+## ✨ Highlights
 
-### v1.2.0
-
-A major update of the AI engine and of the installer (first stable release since v1.0.6).
-
-**AI engine**
-- **Choose your AI engine** — Ollama (local container or another server) **or any OpenAI-compatible API**: vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI… Pick it at install time (`leksis install` / `leksis config`) or in **Admin → Services → AI**
-- **Private by default** — an AI server outside your private network is blocked until an admin explicitly ticks *Allow servers outside the private network*; API keys are stored encrypted and never exported
-- **Admin → Services → AI**: engine-aware page. Model fields are dropdowns (installed models, suggested ones such as `translategemma:27b` / `12b` / `4b`, or a custom name); picking a model that is not installed offers **Download and use** (Ollama). Model download, VRAM loading and deletion are only shown for Ollama
-
-**Installer (`install.sh`)**
-- New terminal UI powered by [gum](https://github.com/charmbracelet/gum) (checksum-verified, automatic plain-text fallback), progress bars for image / model downloads and the app build, system pre-checks, an install summary before anything is changed, resumable after a reboot
-- Ollama is optional: a container on the Leksis server, another Ollama server, or an OpenAI-compatible API
-- New commands: `backup` / `restore` (database + uploads + `.env`, rotation), the `leksis` shortcut, unattended mode (`--yes`, `--answers`)
-- `update` takes a backup first, really pulls new `caddy` / `postgres` / `ollama` images, and rolls back automatically if the app does not come back healthy
-- `config` switches between the three AI engines and keeps the admin panel settings in sync; keep alive, GPU spread and max loaded models default to `-1` / `true` / `3` and are editable there
-- Existing installs are migrated automatically on the next `update` / `config`
-
-### v1.0.6
-- Update: `install.sh` now selects the latest **stable** release tag and ignores pre-release tags (`-beta.N`); installs already on a pre-release follow the beta channel
-
-### v1.0.5
-- Fix: PostgreSQL `PGDATA` pinned so the container no longer crashes on existing data volumes
-- Backup export/import now includes glossaries and strips non-portable branding fields
-- Admin dashboard shows the running app version
-
-### v1.0.0
-
-First public release of Leksis.
-
-- **Text translation** — free text with language auto-detection, formality control, and source ↔ target swap
-- **Document Studio** — full document translation (PDF, DOCX, TXT, CSV) with structure preservation
-- **OCR & Image translation** — vision-based text extraction from scanned docs and photos
-- **AI Rewriting** — reformulation and grammar correction with configurable tones and glossary integration
-- **Admin panel** — full web UI for branding, models, users, glossary, audit log, and service health
-- **On-premise first** — no cloud dependency, no API keys, fully self-hosted via Docker
+- **Four tools, one appliance** — text translation, document translation, OCR, and AI rewriting
+- **Your choice of AI engine** — Ollama (container on the server, or another server) **or any OpenAI-compatible API** such as vLLM, LM Studio or llama.cpp
+- **Private by default** — an AI server outside your private network is blocked until an administrator explicitly allows it
+- **Guided installer** — a single command sets up Docker, GPU drivers, the database, HTTPS and the AI models, with a terminal UI, backups and one-command updates with automatic rollback
+- **Full admin web UI** — branding, models, users, glossaries, tones, limits, audit log and live service health
+- **Multilingual UI** — English, German, French and Italian
 
 ---
 
-## ✨ Features
+## 📚 Features
 
 ### 📝 Text Translation
-Translate free text between dozens of languages with automatic source detection. Supports formality control (formal / informal) when translating from English, and instant **source ↔ target swap** with re-translation.
+Translate free text between dozens of languages with automatic source detection. Supports formality control (formal / informal) when translating from English, and instant **source ↔ target swap** with re-translation. The result stays editable and reusable.
 
 ### 📄 Document Studio
-Upload a full document and get a translated version — structure preserved. Supports **PDF, DOCX, TXT, and CSV**. Text extraction and translation happen entirely server-side, with segment-level fidelity via structured `|||` separators.
+Upload a full document and get a translated version — structure preserved. Supports **PDF, DOCX, TXT, and CSV**. Text extraction and translation happen entirely server-side, with segment-level fidelity via structured `|||` separators. Scanned PDFs are read page by page with a vision model.
 
 ### 🖼️ OCR & Image Translation
-Extract text from scanned documents, screenshots, or photos using **Ollama vision models**. Tables are rendered in Markdown. The extracted text can immediately be routed to the translation engine in a single workflow.
+Extract text from scanned documents, screenshots, or photos using a **vision model**. Tables are rendered in Markdown, and stats (detected language, word count) are shown. The extracted text can immediately be routed to the translation engine in a single workflow.
 
 ### ✍️ AI Rewriting
-Rewrite or proofread any text in its original language. Choose between **Rewrite** (full reformulation) and **Correct only** (grammar & spelling). Pick a tone — up to 6 fully configurable styles — and control output length (Shorter / Keep / Longer). Glossary integration ensures consistent terminology.
+Rewrite or proofread any text in its original language. Choose between **Rewrite** (full reformulation) and **Correct only** (grammar & spelling). Pick a tone — up to 6 fully configurable styles with multilingual labels — and control output length (Shorter / Keep / Longer). Glossary integration ensures consistent terminology.
 
----
-
-## 🧱 Tech Stack
-
-| Layer | Technology |
+### 🛠️ Admin panel
+| Section | What you can do |
 |---|---|
-| Framework | Next.js 16 (App Router) + React 19 |
-| Language | TypeScript 5 |
-| Styling | Tailwind CSS v4 (CSS-first `@theme`) |
-| AI Backend | Ollama (`/api/generate`) or any OpenAI-compatible API (`/v1/chat/completions`) — local or remote |
-| Database | PostgreSQL 18 via `pg` |
-| Reverse proxy | Caddy v2 — HTTP/HTTPS, hot-reload via admin API |
-| Auth | next-auth v5 — OTP email-free login |
-| Encryption | AES-256-GCM (DB credentials at rest) |
-| Document parsing | `pdf-parse`, `mammoth`, `@napi-rs/canvas` |
-| Containerization | Docker + Docker Compose |
+| **Dashboard** | Live health of the AI engine, PostgreSQL and Caddy, usage and activity at a glance |
+| **Settings** | Identity, appearance (logo, colors, background, dark mode), features & limits, AI tones, access, maintenance mode, global banner |
+| **Services → AI** | Choose the AI engine, server URL, API key and models; test the connection; download / delete / preload models (Ollama) |
+| **Services → PostgreSQL / Caddy** | Connection settings and live metrics; Caddy host, reverse-proxy mode and `NEXTAUTH_URL` with hot reload |
+| **Glossary** | Named glossaries with language pairs, CSV import / export, per-user toggles |
+| **Users** | User list and admin roles |
+| **Usage** | AI usage statistics, filterable, CSV export, purge |
+| **Audit** | Paginated journal of every significant admin action |
+| **Backup** | Export / import of the whole configuration (JSON) |
 
 ---
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Requirements
 
 | Requirement | Minimum |
 |---|---|
-| OS | Ubuntu 22.04 / Debian 12 / Debian 13 (bare-metal or VM) |
+| OS | Ubuntu 22.04 / Debian 12 / Debian 13 (bare-metal or VM), run as **root** |
 | CPU | 4 cores |
-| RAM | 8 GB (16 GB recommended for LLM inference) |
-| Disk | 40 GB free (model storage varies) |
-| Docker | ≥ 24.0 + Compose plugin ≥ 2.20 (installed by the script if missing) |
+| RAM | 8 GB (16 GB recommended for local LLM inference) |
+| Disk | 40 GB free with a local Ollama (model storage varies) — 15 GB with a remote AI engine |
+| Docker | ≥ 24.0 with Compose plugin ≥ 2.20 (installed by the script if missing) |
 | AI engine | Ollama ≥ 0.4 (container or existing server) **or** any OpenAI-compatible API |
-| Network | Internet access during install (Docker pull, model download) |
+| Network | Internet access during install (Docker images, model download) |
 
-> GPU is optional — CPU inference works but is significantly slower. NVIDIA and AMD variants available. With a remote Ollama server, no GPU is needed on the Leksis machine (and 15 GB of disk is enough).
+> A GPU is optional — CPU inference works but is much slower. NVIDIA and AMD are detected automatically (local Ollama only). With a remote AI engine, the Leksis machine needs no GPU at all.
 
-### One-line install
+### Install
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.2.0/install.sh)
@@ -112,32 +82,81 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.2.0/insta
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
 
-The installer downloads a small terminal-UI helper ([gum](https://github.com/charmbracelet/gum), pinned and checksum-verified). If it cannot (no internet, unsupported CPU) or you pass `--no-tui`, it falls back to plain-text prompts.
+The installer:
 
-### Script commands
+1. checks the system (OS, CPU, RAM, disk, ports, DNS) and asks its questions **before changing anything** — paths, application URL, admin account, AI engine, models, database password;
+2. shows a summary, then installs Docker and GPU drivers if needed, clones the release, generates the secrets and the `.env`, builds and starts the containers (with progress bars);
+3. pulls the AI models when they are missing, creates the admin user and tests the application.
 
-After the first install, the script is available everywhere as `leksis` (run as root).
+A small terminal-UI helper ([gum](https://github.com/charmbracelet/gum), pinned and checksum-verified) is downloaded for the menus. If it cannot be (no internet, unsupported CPU) or you pass `--no-tui`, the installer falls back to plain-text prompts. If a NVIDIA driver installation requires a reboot, re-run the installer afterwards: it offers to **resume** with your saved answers.
 
-```bash
-leksis install          # Full guided installation on a fresh server
-leksis update           # Backup, update to the latest release tag, rollback if unhealthy
-leksis status           # Live status of all services and models
-leksis config           # Models, Ollama local ↔ remote, PostgreSQL version…
-leksis logs [service]   # Follow logs (app, caddy, postgres, ollama)
-leksis backup           # Database + uploads + .env  →  <install dir>/backups/
-leksis restore [file]   # Restore a backup
-leksis uninstall        # Clean removal of all Leksis components
-```
+### First sign-in
 
-### AI engine: Ollama or an OpenAI-compatible API
+Open the URL shown at the end of the installation and enter the admin e-mail you gave. Leksis uses **OTP authentication without an e-mail relay**: the code is displayed inline on the sign-in page (on-premise design). Then head to **Admin** (`/admin`) to set branding, glossaries and limits.
 
-The installer asks which AI engine Leksis should use:
+---
 
-- **Local Ollama** — an `ollama` container on the Leksis server (GPU auto-detected).
-- **Remote Ollama** — an Ollama server you already run. Enter its URL; the installer tests it, lists the missing models and can pull them for you. On that machine Ollama must listen on the network (`OLLAMA_HOST=0.0.0.0`) — its API has no authentication, keep it on a trusted network. For an Ollama on the *same* host as Leksis, `http://localhost:11434` is rewritten to `host.docker.internal`.
-- **OpenAI-compatible API** — vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI… Enter the API base URL (e.g. `http://192.168.1.50:8000/v1`) and, if needed, an API key. The installer lists the models the API serves so you can pick them; nothing is downloaded.
+## 🤖 AI engines
 
-Switch later with `leksis config` or in **Admin → Services → AI** (where the API key can also be changed). An engine **outside your private network** is blocked until an admin ticks *Allow servers outside the private network* in that page — your users' texts would then leave your network. Under the hood the local Ollama container is the Docker Compose profile `ollama` (`COMPOSE_PROFILES=ollama` in `.env`); `AI_PROVIDER`, `AI_BASE_URL` and `AI_API_KEY` select the engine.
+Leksis uses **one AI engine for all three AI features** (translation, rewriting, OCR). Choose it during installation, with `leksis config`, or in **Admin → Services → AI**.
+
+| Engine | Where it runs | What the admin can do |
+|---|---|---|
+| **Ollama — local** | container on the Leksis server (GPU auto-detected) | download / delete models, preload into VRAM, unload |
+| **Ollama — remote** | an Ollama server you already run | same as above, on that server |
+| **OpenAI-compatible API** | vLLM, LM Studio, llama.cpp, LocalAI, OpenRouter, OpenAI… | pick among the models the API serves; optional API key |
+
+### Ollama
+
+- The installer proposes `translategemma:27b` / `12b` / `4b` for translation (the OCR and rewrite models default to the same model — change them freely). With a small GPU, choose a smaller size.
+- **Remote Ollama** must listen on the network (`OLLAMA_HOST=0.0.0.0`). Its API has **no authentication** — keep it on a trusted network. An Ollama on the *same* host as Leksis (`http://localhost:11434`) is reached through `host.docker.internal`.
+- Missing models can be downloaded by the installer (progress bar) or from the admin (**Download and use** on a model that is not installed yet).
+
+### OpenAI-compatible API
+
+- Enter the API **base URL** (e.g. `http://192.168.1.50:8000/v1` — a bare `http://host:8000` is completed with `/v1`) and, if the server needs one, an **API key**.
+- Models are the ids returned by `GET /v1/models`; nothing is downloaded by Leksis. For the OCR, serve a **vision-capable** model.
+- The API key is stored **encrypted (AES-256-GCM)**, is never sent back to the browser, never written to the audit log and never exported. Changing the server address drops the saved key so it cannot be sent to another host by mistake.
+- Prompts are sent as chat messages. Some models depend on a specific chat template (TranslateGemma on vLLM, for instance) — compare the output quality with Ollama before relying on it.
+
+### Private by default
+
+An AI server **outside your private network** (public IP or domain) is **blocked**: saving such a URL is refused and requests are rejected until an administrator ticks **Allow servers outside the private network** in *Admin → Services → AI*. Doing so means your users' texts leave your network. Private addresses (`10.x`, `172.16–31.x`, `192.168.x`, loopback, `100.64/10`, `.local` / `.lan` / `.internal` names and single-label Docker names) are always allowed.
+
+### Default models
+
+| Model | Role |
+|---|---|
+| `translategemma:27b` | Text & document translation |
+| `maternion/LightOnOCR-2:latest` | OCR — vision-based text extraction |
+| `qwen2.5:14b` | AI rewriting & correction |
+
+---
+
+## 🧰 Managing your installation
+
+After the first install, the script is available everywhere as **`leksis`** (run as root). Without argument it opens an interactive menu.
+
+| Command | What it does |
+|---|---|
+| `leksis install` | Full guided installation on a fresh server |
+| `leksis update` | Backs up, switches to the latest release, rebuilds the selected components and **rolls back automatically** if the app does not come back healthy |
+| `leksis status` | Version, URL, containers, AI engine and models, disk usage, recent logs |
+| `leksis config` | Change the AI engine (local Ollama ↔ remote Ollama ↔ OpenAI-compatible API), models, Ollama runtime settings, PostgreSQL version |
+| `leksis logs [service]` | Follow the logs of `app`, `caddy`, `postgres` or `ollama` |
+| `leksis backup` | Database + uploaded logo/background + `.env` → `<install dir>/backups/` (the 7 most recent are kept) |
+| `leksis restore [file]` | Restore a backup (typed confirmation; a safety backup of the current state is taken first) |
+| `leksis uninstall` | Clean removal; asks whether to keep the data volumes and keeps a copy of your backups in `/var/backups/leksis` |
+
+Options for every command: `-y/--yes` (never ask), `--answers FILE`, `--dir DIR`, `--no-tui`, `-h/--help`, `-V/--version`.
+
+### Updates
+
+`leksis update` fetches the release tags, shows the current and latest versions, lets you pick the components to update (`app`, `caddy`, `postgres`, `ollama`, models), takes a backup, then applies them. New images are really pulled, and if the application is unhealthy afterwards, the previous version is restored (the pre-update backup is kept). Existing installations are migrated automatically (`.env` keys, AI engine settings).
+
+### Release channels
+
+Installations follow the **stable** channel (tags `vX.Y.Z`). To test pre-releases (`vX.Y.Z-beta.N`), install from a beta tag, or set `LEKSIS_CHANNEL=beta` — a beta installation follows the betas, then the next stable release. Try betas on a separate machine, never on production.
 
 ### Unattended install
 
@@ -145,18 +164,18 @@ Switch later with `leksis config` or in **Admin → Services → AI** (where the
 cat > answers.env <<'EOF'
 LEKSIS_APP_HOST=leksis.example.com
 LEKSIS_ADMIN_EMAIL=admin@example.com
-LEKSIS_AI_MODE=openai
+LEKSIS_AI_MODE=openai                    # local | remote | openai
 LEKSIS_AI_URL=http://192.168.1.50:8000/v1
-LEKSIS_AI_API_KEY=sk-...   # optional
+LEKSIS_AI_API_KEY=sk-...                 # optional
 EOF
 sudo ./install.sh --yes --answers answers.env install
 ```
 
-See `./install.sh --help` for every answer key. The install log is written to `/var/log/leksis-install.log`.
+Every question has an answer key (`LEKSIS_<KEY>`): `INSTALL_DIR`, `REPO_URL`, `APP_HOST`, `ADMIN_EMAIL`, `ADMIN_NAME`, `AI_MODE`, `AI_URL`, `AI_API_KEY`, `GPU_VENDOR`, `OLLAMA_MODEL`, `OLLAMA_OCR_MODEL`, `OLLAMA_REWRITE_MODEL`, `POSTGRES_PASSWORD`, … — see `./install.sh --help`. Destructive commands still require their typed confirmation (`LEKSIS_CONFIRM_DELETE=DELETE`, `LEKSIS_CONFIRM_RESTORE=RESTORE`). The install log is written to `/var/log/leksis-install.log`.
 
 ### GPU support
 
-`install.sh` detects NVIDIA and AMD GPUs (local Ollama only) and selects the right overlay automatically. To use one manually, layer it on top of the base file:
+`install.sh` detects NVIDIA and AMD GPUs (local Ollama only), installs the drivers / container toolkit when needed and selects the right compose overlay. To use one manually, layer it on top of the base file:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.nvidia.yml up -d   # NVIDIA
@@ -166,43 +185,39 @@ docker compose -f docker-compose.yml -f docker-compose.amd.yml up -d      # AMD 
 
 ---
 
-## ⚙️ Configuration
+## 🔧 Configuration
 
-`install.sh` generates the `.env` for you. To configure manually, copy `.env.production.example` to `.env` and fill in the values:
+`install.sh` generates the `.env` for you (`chmod 600`). To configure manually, copy `.env.production.example` to `.env` and fill in the values.
 
-```env
-# PostgreSQL
-POSTGRES_PASSWORD=changeme
-POSTGRES_VERSION=18          # changing it on an existing install requires a data migration
-DATABASE_URL=postgresql://leksis_user:changeme@postgres:5432/leksis
+| Variable | Purpose |
+|---|---|
+| `COMPOSE_PROJECT_NAME` / `COMPOSE_FILE` / `COMPOSE_PROFILES` | Compose project, GPU overlay, and `ollama` to run the local Ollama container (empty = no container) |
+| `POSTGRES_PASSWORD` / `POSTGRES_VERSION` / `DATABASE_URL` | PostgreSQL account and version (changing the major version needs a data migration) |
+| `AUTH_SECRET` / `AUTH_TRUST_HOST` / `NEXTAUTH_URL` | Session signing (`openssl rand -base64 32`), reverse-proxy trust, public URL |
+| `CADDY_HOST` | Bare IP or `:80` = HTTP only; a domain = HTTPS via Let's Encrypt |
+| `ENCRYPTION_KEY` | AES-256-GCM key, 64 hex characters (`openssl rand -hex 32`) — needed to read encrypted settings, **keep it in your backups** |
+| `AI_PROVIDER` / `AI_BASE_URL` / `AI_API_KEY` | AI engine: `ollama` or `openai`, server URL, optional API key |
+| `OLLAMA_MODEL` / `OLLAMA_OCR_MODEL` / `OLLAMA_REWRITE_MODEL` | The three model ids (whatever the engine) |
+| `OLLAMA_IMAGE` / `OLLAMA_KEEP_ALIVE` / `OLLAMA_SCHED_SPREAD` / `OLLAMA_MAX_LOADED_MODELS` | Local Ollama container only (`-1` / `true` / `3` by default) |
 
-# NextAuth
-AUTH_SECRET=your-secret-here # openssl rand -base64 32
-AUTH_TRUST_HOST=1            # required when running behind a reverse proxy
-NEXTAUTH_URL=https://your-domain.com
-
-# Caddy reverse proxy
-CADDY_HOST=your-domain.com   # bare IP = HTTP only; domain = HTTPS via Let's Encrypt
-
-# Encryption key for DB credentials (AES-256-GCM)
-ENCRYPTION_KEY=your-64-hex-char-key   # openssl rand -hex 32
-
-# Ollama — local container (default) …
-COMPOSE_PROFILES=ollama      # empty = no Ollama container (remote server)
-OLLAMA_BASE_URL=http://ollama:11434   # … or e.g. http://192.168.1.50:11434 for a remote server
-OLLAMA_MODEL=translategemma:27b
-OLLAMA_OCR_MODEL=maternion/LightOnOCR-2:latest
-OLLAMA_REWRITE_MODEL=qwen2.5:14b
-OLLAMA_KEEP_ALIVE=-1
-OLLAMA_SCHED_SPREAD=true
-OLLAMA_MAX_LOADED_MODELS=3
-```
-
-All settings (branding, features, tones, limits, Caddy host, `NEXTAUTH_URL`) are managed from the **Admin panel** at `/admin` — no config file edits required after initial setup.
+Everything else — branding, features, limits, tones, glossaries, Caddy host, `NEXTAUTH_URL`, and the AI engine itself — is managed from the **Admin panel** at `/admin`. Once you save the AI engine in the admin, the admin's settings take precedence over the `.env` values (`leksis config` keeps both in sync).
 
 ---
 
-## 🐳 Docker Architecture
+## 🧱 Architecture
+
+```
+Internet / your reverse proxy
+        │  :80 / :443
+   ┌────▼─────┐      ┌──────────────┐      ┌───────────────────────────────┐
+   │  Caddy   │─────▶│  Next.js app │─────▶│  AI engine                    │
+   └──────────┘      │  (:3000)     │      │  Ollama  or  OpenAI-compat API│
+                     └──────┬───────┘      └───────────────────────────────┘
+                            │
+                     ┌──────▼───────┐
+                     │ PostgreSQL   │
+                     └──────────────┘
+```
 
 Leksis runs as **3 or 4 containers** (the Ollama one is optional) on an isolated Docker network (`leksis-net`):
 
@@ -211,36 +226,74 @@ Leksis runs as **3 or 4 containers** (the Ollama one is optional) on an isolated
 | `leksis-caddy` | `caddy:2-alpine` | Reverse proxy — only public entry point | 80, 443 |
 | `leksis-app` | `leksis-app` (built locally) | Next.js application | internal only |
 | `leksis-postgres` | `postgres:${POSTGRES_VERSION}-alpine` | Database | internal only |
-| `leksis-ollama` *(optional)* | `ollama/ollama:latest` | LLM inference — skipped with a remote Ollama | internal only |
+| `leksis-ollama` *(optional)* | `ollama/ollama:latest` | LLM inference — absent with a remote engine | internal only |
 
-The app container is **never directly exposed** — all traffic flows through Caddy. Caddy's admin API (`port 2019`) is accessible only within the Docker network, allowing hot-reload of the proxy configuration from the admin panel without restarting any container.
+The app container is **never directly exposed** — all traffic flows through Caddy. Caddy's admin API (port 2019) is reachable only within the Docker network, which lets the admin panel hot-reload the proxy configuration without restarting anything. Persistent data lives in named volumes: `postgres_data`, `ollama_data`, `leksis_uploads`, `caddy_data`.
+
+The browser **never talks to the AI engine**: every request goes through the Next.js API layer, which isolates all AI calls behind one provider abstraction (`src/lib/llm/`).
 
 ### Behind an existing proxy (NPM, Traefik…)
 
-If you already have an external proxy handling SSL termination, enable **Behind a reverse proxy** in the admin Caddy panel (or set `CADDY_HOST=:80`) so Caddy listens on all interfaces and preserves the `X-Forwarded-Proto` / `X-Forwarded-Host` headers. Make sure your upstream proxy sends them and set `AUTH_TRUST_HOST=1` in `.env`.
+If an external proxy already handles SSL termination, enable **Behind a reverse proxy** in the admin Caddy panel (or set `CADDY_HOST=:80`) so Caddy listens on all interfaces and preserves the `X-Forwarded-Proto` / `X-Forwarded-Host` headers. Make sure your upstream proxy sends them and set `AUTH_TRUST_HOST=1` in `.env`.
 
 ---
 
-## 🤖 AI Models
+## 🔐 Security & privacy
 
-Leksis delegates all AI work to **one AI engine** for the three features (translation, rewriting, OCR):
+- **No cloud by default** — with Ollama or an API on your own network, texts never leave your infrastructure
+- **External AI servers blocked** unless an admin explicitly allows them (see [AI engines](#-ai-engines))
+- **Reverse proxy** — the app container is never directly exposed; only ports 80/443 are bound to the host
+- **OTP authentication** — no passwords stored; codes are shown inline (no e-mail relay required)
+- **AES-256-GCM** — database credentials and the AI API key are encrypted at rest; the key is never returned to the browser, exported or logged
+- **Server-only AI calls** — the AI engine is never reachable from the browser
+- **Admin guard** — every admin route and page enforces role-based access
+- **Audit log** — every significant action is recorded (secrets are redacted)
+- **Secrets** — the installer generates `AUTH_SECRET` and `ENCRYPTION_KEY`; the `.env` is `chmod 600`, and backups (which contain it) are `chmod 600` too
 
-| Engine | Where | Notes |
-|---|---|---|
-| **Ollama** | container on the Leksis server, or an Ollama server elsewhere | model download, deletion and VRAM loading from the admin |
-| **OpenAI-compatible API** | vLLM, LM Studio, llama.cpp, LocalAI, OpenRouter, OpenAI… | optional API key; models are the ids served by the API (`GET /v1/models`) |
+---
 
-Default Ollama models:
+## 🩺 Troubleshooting
 
-| Model | Role |
+| Symptom | What to check |
 |---|---|
-| `translategemma:27b` | Text & document translation |
-| `maternion/LightOnOCR-2:latest` | OCR — vision-based text extraction |
-| `qwen2.5:14b` | AI rewriting & correction |
+| Something failed during install | `/var/log/leksis-install.log`; re-run the installer — it resumes with saved answers |
+| The site does not answer | `leksis status`, then `leksis logs app` / `leksis logs caddy` |
+| HTTPS certificate not issued | The domain must resolve to the server and ports 80/443 must be reachable from the internet |
+| Sign-in loop behind a proxy | `AUTH_TRUST_HOST=1` and a correct `NEXTAUTH_URL`; keep the `X-Forwarded-*` headers |
+| "AI server unreachable" | Admin → Services → AI → *Test connection*. A remote Ollama must listen on the network (`OLLAMA_HOST=0.0.0.0`) |
+| Saving the AI server is refused | The address is outside your private network — tick *Allow servers outside the private network* if that is intended |
+| A model is "not listed by the server" | With an OpenAI-compatible API, use the exact id returned by `/v1/models` |
+| Translation quality differs between engines | Chat templates differ per server and model — compare Ollama and the API on the same text |
+| The NVIDIA driver installation asked for a reboot | Reboot, then re-run `leksis install` (or the one-liner) and accept to resume |
+| An update failed | The previous version is restored automatically; the pre-update backup is in `<install dir>/backups/` (`leksis restore`) |
 
-With Ollama or an API on your own network, models run **on your infrastructure**: no usage quotas, no data leaving your network. An engine outside your private network is **blocked by default** — enable it explicitly in *Admin → Services → AI* (your users' texts will then leave your network).
+---
 
-> OCR needs a vision-capable model. With an OpenAI-compatible server, check that the model you serve handles images and that its chat template suits the prompts (TranslateGemma on vLLM, for instance, may need testing).
+## 💻 Development
+
+```bash
+npm install
+npm run dev      # → http://localhost:3000
+npm run build    # production build check
+```
+
+Copy your AI engine settings into `.env.development.local` (e.g. `AI_PROVIDER=ollama`, `AI_BASE_URL=http://localhost:11434`, the three `OLLAMA_*_MODEL` ids) and a PostgreSQL `DATABASE_URL` (the schema is in `docker/init-schema.sql`). Releases are tagged `vX.Y.Z` (stable) or `vX.Y.Z-beta.N` (pre-release); `main` is stable, heavier work happens on `dev`.
+
+### Tech stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) + React 19 |
+| Language | TypeScript |
+| Styling | Tailwind CSS v4 (CSS-first `@theme`) |
+| AI backend | Ollama (`/api/generate`) or any OpenAI-compatible API (`/v1/chat/completions`) — local or remote |
+| Database | PostgreSQL 18 via `pg` |
+| Reverse proxy | Caddy v2 — HTTP/HTTPS, hot reload via admin API |
+| Auth | next-auth v5 — OTP e-mail-free login |
+| Encryption | AES-256-GCM |
+| Validation | zod |
+| Document parsing | `pdf-parse`, `mammoth`, `@napi-rs/canvas` |
+| Containerization | Docker + Docker Compose |
 
 ---
 
@@ -251,30 +304,46 @@ The Leksis UI is fully translated in **4 languages**:
 | 🇬🇧 English | 🇩🇪 Deutsch | 🇫🇷 Français | 🇮🇹 Italiano |
 |---|---|---|---|
 
-Users switch the UI language instantly with the language selector — preference is saved locally.
-
-Translation targets cover **dozens of languages** with alphabetically sorted dropdowns and starred favorites.
+Users switch the UI language instantly with the language selector — the preference is saved locally. Translation targets cover **dozens of languages** with alphabetically sorted dropdowns and starred favorites.
 
 ---
 
-## 🔐 Security
+## 🎉 What's new
 
-- **Caddy reverse proxy** — the app container is never directly exposed; only ports 80/443 are bound to the host
-- **OTP authentication** — no passwords stored; codes are generated and displayed inline (on-premise, no email relay required)
-- **AES-256-GCM encryption** — database credentials are encrypted at rest
-- **Server-only AI calls** — Ollama is never reachable from the browser; all requests go through the Next.js API layer
-- **Admin guard** — every admin route and page enforces role-based access via `requireAdmin()`
-- **Audit log** — every significant action is recorded in a paginated audit table
+### v1.2.0
+A major update of the AI engine and of the installer.
+
+**AI engine**
+- **Choose your AI engine** — Ollama (local container or another server) or **any OpenAI-compatible API** (vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI…), at install time or in *Admin → Services → AI*
+- **Private by default** — AI servers outside your private network are blocked until an admin allows them; API keys are encrypted and never exported
+- Engine-aware admin page: model dropdowns (installed / suggested / custom), **Download and use** for Ollama, Ollama-only actions hidden for other engines
+
+**Installer**
+- New terminal UI (gum, with plain-text fallback), progress bars, system pre-checks, install summary, resumable install
+- Ollama is optional; new `backup` / `restore`, unattended mode (`--yes`, `--answers`) and the `leksis` shortcut
+- `update` backs up first, pulls new images and rolls back automatically; `config` switches between the three AI engines
+- Existing installs are migrated automatically on the next `update` / `config`
+
+### v1.0.6
+- `install.sh` selects the latest **stable** release tag and ignores pre-releases (`-beta.N`)
+
+### v1.0.5
+- PostgreSQL `PGDATA` pinned so the container no longer crashes on existing data volumes
+- Backup export/import includes glossaries and strips non-portable branding fields
+- Admin dashboard shows the running app version
+
+### v1.0.0
+First public release: text translation, Document Studio, OCR & image translation, AI rewriting, and the admin panel — fully on-premise, no cloud dependency.
 
 ---
 
 ## 📸 Screenshots
+
 <img width="1794" height="857" alt="image" src="https://github.com/user-attachments/assets/87fea57b-2a73-4913-b6ea-89b420a351a6" />
 
 <img width="1794" height="857" alt="image" src="https://github.com/user-attachments/assets/022de1f2-6182-424f-9d86-b9d9e5c94e8d" />
 
 <img width="1794" height="857" alt="image" src="https://github.com/user-attachments/assets/b923b2c0-6574-4a24-8f8e-77451b4e41ba" />
-
 
 ---
 
