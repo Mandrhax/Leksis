@@ -17,6 +17,9 @@ Leksis is a self-hosted, all-in-one platform for text translation, document proc
 
 ## 🎉 What's new
 
+### v1.0.6
+- Update: `install.sh` now selects the latest **stable** release tag and ignores pre-release tags (`-beta.N`); installs already on a pre-release follow the beta channel
+
 ### v1.0.5
 - Fix: PostgreSQL `PGDATA` pinned so the container no longer crashes on existing data volumes
 - Backup export/import now includes glossaries and strips non-portable branding fields
@@ -87,7 +90,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### One-line install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.5/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.6/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.

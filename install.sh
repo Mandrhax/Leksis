@@ -11,7 +11,7 @@
 # logs       - Tail logs of a service
 #
 # Run from a server via curl (stdin-safe):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.5/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.6/install.sh)
 # ============================================================
 set -euo pipefail
 
@@ -23,23 +23,23 @@ if [[ ! -t 0 ]]; then
   echo "ERROR: stdin is not a terminal -- interactive prompts will not work."
   echo ""
   echo "Run this script with:"
-  echo "  bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.5/install.sh)"
+  echo "  bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.6/install.sh)"
   echo ""
   echo "Or download it first:"
-  echo "  curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.5/install.sh -o install.sh"
+  echo "  curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.6/install.sh -o install.sh"
   echo "  chmod +x install.sh && sudo ./install.sh"
   echo ""
   exit 1
 fi
 
 # ── VERSION from package.json ────────────────────────────────
-VERSION="1.0.5"
+VERSION="1.0.6"
 _pkg="$(dirname "$0")/package.json"
 if [[ -f "$_pkg" ]]; then
   _v=$(grep '"version"' "$_pkg" \
     | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' \
     | head -1)
-  VERSION="${_v:-1.0.5}"
+  VERSION="${_v:-1.0.6}"
   unset _v
 fi
 unset _pkg
@@ -57,6 +57,31 @@ p_info() { printf '  --> %s\n' "$1"; }
 p_ok()   { printf '  [OK] %s\n' "$1"; }
 p_warn() { printf '  [!]  %s\n' "$1"; }
 p_err()  { printf '  [ERROR] %s\n' "$1" >&2; }
+
+# ── Release channel helpers ───────────────────────────────────
+# Pre-release tags (v1.2.0-beta.1) belong to the "beta" channel. Stable installs
+# never see them; an install already on a pre-release tag (or LEKSIS_CHANNEL=beta)
+# follows the beta channel.
+
+# detect_channel <tag> → prints "beta" or "stable"
+detect_channel() {
+  if [[ "${LEKSIS_CHANNEL:-}" == "beta" || "$1" == *-* ]]; then
+    echo "beta"
+  else
+    echo "stable"
+  fi
+}
+
+# latest_tag <repo_dir> <stable|beta> → highest semver tag for the channel (empty if none)
+latest_tag() {
+  local dir="$1" channel="${2:-stable}" tags
+  tags=$(git -C "$dir" -c versionsort.suffix=- tag --list 'v[0-9]*' --sort=-v:refname 2>/dev/null || true)
+  if [[ "$channel" == "beta" ]]; then
+    head -1 <<<"$tags" || true
+  else
+    { grep -v -- '-' <<<"$tags" || true; } | head -1
+  fi
+}
 
 # p_input "prompt" "default"  ->  prints value to stdout
 p_input() {
@@ -550,8 +575,7 @@ cmd_install() {
     p_info "Fetching release tags..."
     git -C "$INSTALL_DIR" fetch --tags --force
     local LATEST_TAG
-    LATEST_TAG=$(git -C "$INSTALL_DIR" describe --tags \
-      "$(git -C "$INSTALL_DIR" rev-list --tags --max-count=1)" 2>/dev/null || echo "")
+    LATEST_TAG=$(latest_tag "$INSTALL_DIR" "$(detect_channel "v${VERSION}")")
     if [[ -n "$LATEST_TAG" ]]; then
       git -C "$INSTALL_DIR" checkout "$LATEST_TAG"
       p_ok "Checked out ${LATEST_TAG}"
@@ -736,10 +760,11 @@ cmd_update() {
   p_info "Fetching release tags..."
   git -C "$INSTALL_DIR" fetch --tags --force
 
-  local CURRENT_TAG LATEST_TAG
+  local CURRENT_TAG LATEST_TAG CHANNEL
   CURRENT_TAG=$(git -C "$INSTALL_DIR" describe --tags --exact-match HEAD 2>/dev/null || echo "")
-  LATEST_TAG=$(git -C "$INSTALL_DIR" describe --tags \
-    "$(git -C "$INSTALL_DIR" rev-list --tags --max-count=1)" 2>/dev/null || echo "")
+  CHANNEL=$(detect_channel "$CURRENT_TAG")
+  LATEST_TAG=$(latest_tag "$INSTALL_DIR" "$CHANNEL")
+  [[ "$CHANNEL" == "beta" ]] && p_warn "Beta channel: pre-release versions are followed."
 
   if [[ -z "$LATEST_TAG" ]]; then
     p_warn "No release tags found in repository. Cannot update sources."

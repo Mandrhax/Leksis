@@ -442,7 +442,7 @@ Sans argument : menu interactif (`show_menu`).
 - Tout nouveau prompt doit cibler `/dev/tty` (lancement fréquent via `bash <(curl …)`)
 - `set -euo pipefail` est actif — garder `|| true` sur les commandes best-effort
 - `cmd_update` contient un **guard de backfill** : si `.env` ne contient pas `POSTGRES_VERSION`, il ajoute `POSTGRES_VERSION=16` pour protéger des données v16 contre une migration majeure accidentelle. ⚠️ `cmd_install` **n'a pas** cette garde (il écrit `POSTGRES_VERSION=18` en dur dans le `.env` généré)
-- `cmd_update` est **tag-only** : `git fetch --tags --force` puis `git checkout <latest_tag>` — ne suit jamais une branche. Affiche le tag courant vs le tag le plus récent avant de proposer le switch ; si le repo n'est pas sur un tag (legacy), avertit et propose de basculer
+- `cmd_update` est **tag-only** : `git fetch --tags --force` puis `git checkout <latest_tag>` (via `latest_tag`, filtré par canal stable/beta — voir « Canal beta ») — ne suit jamais une branche. Affiche le tag courant vs le tag le plus récent avant de proposer le switch ; si le repo n'est pas sur un tag (legacy), avertit et propose de basculer
 - `cmd_install` : clone frais via `git clone --branch "v${VERSION}"` ; repo existant → `git checkout` du dernier tag
 - `cmd_update` propose 5 composants sélectionnables : `app`, `caddy`, `postgres`, `ollama`, `ollama models`
 - `cmd_logs` propose 4 services : `app`, `postgres`, `ollama`, `caddy`
@@ -531,7 +531,16 @@ Flux local :
 - Ne jamais bumper la version dans un seul fichier sans les autres (`package.json`, `install.sh`, `README.md`)
 - Le README étant lu depuis `main`, un README commité après le tag n'est pas dans le tag : il sera embarqué à la release suivante
 - Si un hotfix doit corriger le tag avant toute installation réelle : `git tag -f vX.Y.Z && git push origin vX.Y.Z --force`
-- Le développement courant se fait sur `main` sans impact sur les utilisateurs installés
+- Le développement courant se fait sur `main` sans impact sur les utilisateurs installés (sauf pour les évolutions lourdes : voir ci-dessous)
+
+### Canal beta (versions de test)
+
+- **`main` = stable uniquement.** Les évolutions lourdes se font sur la branche `dev` (ou des sous-branches `feature/*` mergées dans `dev`). Un hotfix fait sur `main` est ensuite reporté avec `git switch dev && git merge main`
+- **Versions de test = tags pré-release semver** posés sur `dev` : `v1.1.0-beta.1`, `-beta.2`, … Bumper les 3 fichiers (`package.json`, `install.sh`, `README.md`) vers `X.Y.Z-beta.N` comme pour une release stable, puis `git tag vX.Y.Z-beta.N && git push origin vX.Y.Z-beta.N` et `gh release create vX.Y.Z-beta.N --prerelease`
+- Installation de test : le même one-liner que le stable, avec l'URL du tag beta (`…/Leksis/vX.Y.Z-beta.N/install.sh`)
+- **Canaux dans `install.sh`** : `detect_channel <tag>` renvoie `beta` si le tag courant contient un `-` (ou si `LEKSIS_CHANNEL=beta`), sinon `stable`. `latest_tag <dir> <canal>` renvoie le plus haut tag semver du canal (tri `versionsort.suffix=-` : `v1.1.0` > `v1.1.0-beta.2`). Une installation stable **ne voit jamais** les pré-releases ; une installation beta suit les betas puis la release stable suivante. Ne jamais réintroduire `git describe … rev-list --tags` pour choisir la dernière version
+- **Publier la stable** : quand la beta est validée, merger `dev` → `main`, bumper vers `X.Y.Z` (sans suffixe) et suivre le workflow release ci-dessus
+- **Environnement de test** : utiliser une machine/VM séparée (`container_name: leksis-*` et ports 80/443 sont fixes). `docker/init-schema.sql` ne s'exécute qu'au premier démarrage du volume : toute évolution de schéma sur une installation existante demande une migration — ne jamais tester une beta sur la production
 
 ---
 
