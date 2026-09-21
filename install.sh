@@ -75,7 +75,7 @@ OLLAMA_MODEL="$DEFAULT_MODEL"
 OLLAMA_OCR_MODEL="$DEFAULT_OCR_MODEL"
 OLLAMA_REWRITE_MODEL="$DEFAULT_REWRITE_MODEL"
 OLLAMA_KEEP_ALIVE="-1"
-OLLAMA_SCHED_SPREAD="false"
+OLLAMA_SCHED_SPREAD="true"
 OLLAMA_MAX_LOADED_MODELS="3"
 FAILED_MODELS=()
 C_RESET="" C_DIM="" C_GREEN="" C_YELLOW="" C_RED="" C_BOLD=""
@@ -936,7 +936,7 @@ load_config_from_env() {
   v=$(env_get "$env" OLLAMA_OCR_MODEL);          OLLAMA_OCR_MODEL="${v:-$DEFAULT_OCR_MODEL}"
   v=$(env_get "$env" OLLAMA_REWRITE_MODEL);      OLLAMA_REWRITE_MODEL="${v:-$DEFAULT_REWRITE_MODEL}"
   v=$(env_get "$env" OLLAMA_KEEP_ALIVE);         OLLAMA_KEEP_ALIVE="${v:--1}"
-  v=$(env_get "$env" OLLAMA_SCHED_SPREAD);       OLLAMA_SCHED_SPREAD="${v:-false}"
+  v=$(env_get "$env" OLLAMA_SCHED_SPREAD);       OLLAMA_SCHED_SPREAD="${v:-true}"
   v=$(env_get "$env" OLLAMA_MAX_LOADED_MODELS);  OLLAMA_MAX_LOADED_MODELS="${v:-3}"
 }
 
@@ -1436,8 +1436,10 @@ configure_remote_ollama() {
 # configure_local_ollama — GPU + runtime settings for the bundled container
 configure_local_ollama() {
   select_gpu
-  OLLAMA_KEEP_ALIVE=$(p_input OLLAMA_KEEP_ALIVE "Keep alive (-1=forever, 5m=5min, 0=unload)" "$OLLAMA_KEEP_ALIVE")
-  OLLAMA_SCHED_SPREAD=$(p_input OLLAMA_SCHED_SPREAD "GPU scheduling spread (true/false)" "$OLLAMA_SCHED_SPREAD")
+  # Not asked: keep-alive is always "forever" and GPU spreading always on (still written to .env;
+  # override non-interactively with LEKSIS_OLLAMA_KEEP_ALIVE / LEKSIS_OLLAMA_SCHED_SPREAD)
+  OLLAMA_KEEP_ALIVE="${LEKSIS_OLLAMA_KEEP_ALIVE:--1}"
+  OLLAMA_SCHED_SPREAD="${LEKSIS_OLLAMA_SCHED_SPREAD:-true}"
   OLLAMA_MAX_LOADED_MODELS=$(p_input OLLAMA_MAX_LOADED_MODELS "Max models loaded in VRAM" "$OLLAMA_MAX_LOADED_MODELS")
 }
 
@@ -1569,8 +1571,8 @@ cmd_install() {
   # ── Step 5/5: Models + database password ───────────────────
   p_header "Configuration 5/5 - AI Models & Database"
   OLLAMA_MODEL=$(ask_translation_model "$OLLAMA_MODEL")
-  OLLAMA_OCR_MODEL=$(ask_model OLLAMA_OCR_MODEL "OCR model" "$OLLAMA_OCR_MODEL")
-  OLLAMA_REWRITE_MODEL=$(ask_model OLLAMA_REWRITE_MODEL "Rewrite model" "$OLLAMA_REWRITE_MODEL")
+  OLLAMA_OCR_MODEL=$(ask_model OLLAMA_OCR_MODEL "OCR model" "$OLLAMA_MODEL")
+  OLLAMA_REWRITE_MODEL=$(ask_model OLLAMA_REWRITE_MODEL "Rewrite model" "$OLLAMA_MODEL")
   POSTGRES_PASSWORD=$(p_password POSTGRES_PASSWORD "Database password")
 
   # ── Summary ────────────────────────────────────────────────
@@ -2015,8 +2017,8 @@ cmd_config() {
 
   if [[ "$OLLAMA_MODE" == "local" ]]; then
     OLLAMA_URL="http://ollama:11434"
-    OLLAMA_KEEP_ALIVE=$(p_input OLLAMA_KEEP_ALIVE "Keep alive" "$old_k")
-    OLLAMA_SCHED_SPREAD=$(p_input OLLAMA_SCHED_SPREAD "Sched spread" "$old_s")
+    OLLAMA_KEEP_ALIVE="${LEKSIS_OLLAMA_KEEP_ALIVE:--1}"
+    OLLAMA_SCHED_SPREAD="${LEKSIS_OLLAMA_SCHED_SPREAD:-true}"
     OLLAMA_MAX_LOADED_MODELS=$(p_input OLLAMA_MAX_LOADED_MODELS "Max loaded models" "$old_x")
   else
     [[ "$old_mode" == "remote" ]] || OLLAMA_URL_RAW=""
@@ -2147,7 +2149,7 @@ Unattended install example:
 
 Answer keys: INSTALL_DIR REPO_URL APP_HOST ADMIN_EMAIL ADMIN_NAME OLLAMA_MODE
 (local|remote) OLLAMA_URL GPU_VENDOR (nvidia|amd|none) OLLAMA_MODEL OLLAMA_OCR_MODEL
-OLLAMA_REWRITE_MODEL OLLAMA_KEEP_ALIVE OLLAMA_SCHED_SPREAD OLLAMA_MAX_LOADED_MODELS
+OLLAMA_REWRITE_MODEL OLLAMA_MAX_LOADED_MODELS (OLLAMA_KEEP_ALIVE and OLLAMA_SCHED_SPREAD are never asked: -1 and true; override only if needed)
 POSTGRES_PASSWORD PULL_REMOTE_MODELS UPDATE_COMPONENTS (e.g. "app caddy") CONFIRM_DELETE
 CONFIRM_RESTORE. Prefix each with LEKSIS_.
 EOF

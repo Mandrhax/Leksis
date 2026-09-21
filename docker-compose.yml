@@ -38,7 +38,7 @@ services:
       - ollama_data:/root/.ollama
     environment:
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:--1}
-      OLLAMA_SCHED_SPREAD: ${OLLAMA_SCHED_SPREAD:-false}
+      OLLAMA_SCHED_SPREAD: ${OLLAMA_SCHED_SPREAD:-true}
       OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-3}
     healthcheck:
       test: ["CMD", "ollama", "list"]
