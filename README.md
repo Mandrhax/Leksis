@@ -17,7 +17,7 @@ Leksis is a self-hosted, all-in-one platform for text translation, document proc
 
 ## 🎉 What's new
 
-### v1.2.0 (in development)
+### v1.2.0-beta.1 (beta)
 - **Choose your AI engine** — Ollama (local container or another server) **or any OpenAI-compatible API**: vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI… Pick it at install time (`leksis install` / `leksis config`) or in **Admin → Services → AI**
 - **Private by default** — an AI server outside your private network is blocked until an admin explicitly ticks *Allow servers outside the private network*; API keys are stored encrypted and never exported
 - The admin only shows the actions the engine supports (model download, VRAM loading and deletion are Ollama-only)
@@ -115,7 +115,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### One-line install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.1.0-beta.4/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.2.0-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
