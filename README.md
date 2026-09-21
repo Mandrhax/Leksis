@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.2.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.3.0-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -320,7 +320,7 @@ Users switch the UI language instantly with the language selector — the prefer
 
 ## 🎉 What's new
 
-### Unreleased
+### v1.3.0-beta.1 (beta)
 - **Simpler access setup** — one setting decides how users reach Leksis: **HTTP**, **HTTPS with a domain name** (automatic Let's Encrypt certificate, with a live certificate status) or **behind a reverse proxy** (NPM, Traefik…). Choose it at install time, in *Admin → Services → Caddy* or with `leksis config`
 - The public address is now **detected automatically** from the request headers: `NEXTAUTH_URL` and `AUTH_TRUST_HOST` are no longer needed (existing installs keep working; changing the access mode with `leksis config` clears a pinned `NEXTAUTH_URL`)
 - Reverse proxies on a private network are trusted automatically; a proxy with a public address can be declared in the admin
