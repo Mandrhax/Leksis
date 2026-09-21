@@ -1436,11 +1436,21 @@ configure_remote_ollama() {
 # configure_local_ollama — GPU + runtime settings for the bundled container
 configure_local_ollama() {
   select_gpu
-  # Not asked: keep-alive is always "forever" and GPU spreading always on (still written to .env;
-  # override non-interactively with LEKSIS_OLLAMA_KEEP_ALIVE / LEKSIS_OLLAMA_SCHED_SPREAD)
+  # Not asked at install time (editable later with `leksis config`); override with LEKSIS_* variables
   OLLAMA_KEEP_ALIVE="${LEKSIS_OLLAMA_KEEP_ALIVE:--1}"
   OLLAMA_SCHED_SPREAD="${LEKSIS_OLLAMA_SCHED_SPREAD:-true}"
-  OLLAMA_MAX_LOADED_MODELS=$(p_input OLLAMA_MAX_LOADED_MODELS "Max models loaded in VRAM" "$OLLAMA_MAX_LOADED_MODELS")
+  OLLAMA_MAX_LOADED_MODELS="${LEKSIS_OLLAMA_MAX_LOADED_MODELS:-3}"
+}
+
+# ask_validated KEY "label" default REGEX "hint" — free input that must match REGEX
+ask_validated() {
+  local key="$1" label="$2" default="$3" regex="$4" hint="$5" v
+  while true; do
+    v=$(p_input "$key" "$label" "$default")
+    if [[ "$v" =~ $regex ]]; then printf '%s' "$v"; return 0; fi
+    $NONINTERACTIVE && die "Invalid value for ${key}: ${v} (${hint})"
+    p_warn "Invalid value: ${v} (${hint})"; p_unset_preset "$key"
+  done
 }
 
 ask_model() {
@@ -2017,9 +2027,13 @@ cmd_config() {
 
   if [[ "$OLLAMA_MODE" == "local" ]]; then
     OLLAMA_URL="http://ollama:11434"
-    OLLAMA_KEEP_ALIVE="${LEKSIS_OLLAMA_KEEP_ALIVE:--1}"
-    OLLAMA_SCHED_SPREAD="${LEKSIS_OLLAMA_SCHED_SPREAD:-true}"
-    OLLAMA_MAX_LOADED_MODELS=$(p_input OLLAMA_MAX_LOADED_MODELS "Max loaded models" "$old_x")
+    # Runtime settings: defaults are -1 / true / 3 and are not asked at install time
+    if [[ -n "${LEKSIS_OLLAMA_KEEP_ALIVE+x}${LEKSIS_OLLAMA_SCHED_SPREAD+x}${LEKSIS_OLLAMA_MAX_LOADED_MODELS+x}" ]] \
+       || p_yesno CONFIG_RUNTIME "Edit the Ollama runtime settings (keep alive, GPU spread, max loaded models)?" "n"; then
+      OLLAMA_KEEP_ALIVE=$(ask_validated OLLAMA_KEEP_ALIVE "Keep alive (-1=forever, 5m=5min, 0=unload)" "$old_k" '^(-1|[0-9]+[smh]?)$' "-1, 0, 30s, 5m, 2h")
+      OLLAMA_SCHED_SPREAD=$(ask_validated OLLAMA_SCHED_SPREAD "GPU scheduling spread (true/false)" "$old_s" '^(true|false)$' "true or false")
+      OLLAMA_MAX_LOADED_MODELS=$(ask_validated OLLAMA_MAX_LOADED_MODELS "Max models loaded in VRAM" "$old_x" '^[1-9][0-9]*$' "a number >= 1")
+    fi
   else
     [[ "$old_mode" == "remote" ]] || OLLAMA_URL_RAW=""
     configure_remote_ollama
@@ -2149,9 +2163,10 @@ Unattended install example:
 
 Answer keys: INSTALL_DIR REPO_URL APP_HOST ADMIN_EMAIL ADMIN_NAME OLLAMA_MODE
 (local|remote) OLLAMA_URL GPU_VENDOR (nvidia|amd|none) OLLAMA_MODEL OLLAMA_OCR_MODEL
-OLLAMA_REWRITE_MODEL OLLAMA_MAX_LOADED_MODELS (OLLAMA_KEEP_ALIVE and OLLAMA_SCHED_SPREAD are never asked: -1 and true; override only if needed)
-POSTGRES_PASSWORD PULL_REMOTE_MODELS UPDATE_COMPONENTS (e.g. "app caddy") CONFIRM_DELETE
-CONFIRM_RESTORE. Prefix each with LEKSIS_.
+OLLAMA_REWRITE_MODEL POSTGRES_PASSWORD PULL_REMOTE_MODELS UPDATE_COMPONENTS (e.g. "app caddy")
+CONFIRM_DELETE CONFIRM_RESTORE. Prefix each with LEKSIS_.
+Ollama runtime overrides (not asked at install; editable with "config"):
+OLLAMA_KEEP_ALIVE (default -1)  OLLAMA_SCHED_SPREAD (true)  OLLAMA_MAX_LOADED_MODELS (3).
 EOF
 }
 
