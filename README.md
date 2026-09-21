@@ -17,6 +17,14 @@ Leksis is a self-hosted, all-in-one platform for text translation, document proc
 
 ## 🎉 What's new
 
+### v1.1.0-beta.1 (beta)
+- **Ollama is now optional** — install it as a container on the Leksis server, or point Leksis at an Ollama server running elsewhere (local container = compose profile `ollama`)
+- **New installer UI** — terminal UI powered by [gum](https://github.com/charmbracelet/gum) (checksum-verified, automatic plain-text fallback), system pre-checks, install summary before anything is changed, resumable after a reboot
+- New commands: `backup` / `restore` (database + uploads + `.env`, rotation), `leksis` shortcut, unattended mode (`--yes`, `--answers`)
+- `update` now takes a backup first, really pulls new `caddy` / `postgres` / `ollama` images, and rolls back automatically if the app does not come back healthy
+- `config` can switch Ollama between local and remote and keeps the admin panel settings in sync
+- Existing installs are migrated automatically on the next `update` / `config`
+
 ### v1.0.6
 - Update: `install.sh` now selects the latest **stable** release tag and ignores pre-release tags (`-beta.N`); installs already on a pre-release follow the beta channel
 
@@ -81,34 +89,63 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 | CPU | 4 cores |
 | RAM | 8 GB (16 GB recommended for LLM inference) |
 | Disk | 40 GB free (model storage varies) |
-| Docker | ≥ 24.0 + Docker Compose plugin |
-| Ollama | ≥ 0.4 (local or remote) |
+| Docker | ≥ 24.0 + Compose plugin ≥ 2.20 (installed by the script if missing) |
+| Ollama | ≥ 0.4 — as a container on the server, **or** an existing server elsewhere |
 | Network | Internet access during install (Docker pull, model download) |
 
-> GPU is optional — CPU inference works but is significantly slower. NVIDIA and AMD variants available.
+> GPU is optional — CPU inference works but is significantly slower. NVIDIA and AMD variants available. With a remote Ollama server, no GPU is needed on the Leksis machine (and 15 GB of disk is enough).
 
 ### One-line install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.0.6/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.1.0-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
 
+The installer downloads a small terminal-UI helper ([gum](https://github.com/charmbracelet/gum), pinned and checksum-verified). If it cannot (no internet, unsupported CPU) or you pass `--no-tui`, it falls back to plain-text prompts.
+
 ### Script commands
 
+After the first install, the script is available everywhere as `leksis` (run as root).
+
 ```bash
-./install.sh install    # Full guided installation on a fresh server
-./install.sh update     # Update to the latest release tag (selective components)
-./install.sh status     # Live status of all services
-./install.sh config     # Edit .env values (models, keep-alive, PostgreSQL version…)
-./install.sh logs       # Tail logs of a service (app, caddy, postgres, ollama)
-./install.sh uninstall  # Clean removal of all Leksis components
+leksis install          # Full guided installation on a fresh server
+leksis update           # Backup, update to the latest release tag, rollback if unhealthy
+leksis status           # Live status of all services and models
+leksis config           # Models, Ollama local ↔ remote, PostgreSQL version…
+leksis logs [service]   # Follow logs (app, caddy, postgres, ollama)
+leksis backup           # Database + uploads + .env  →  <install dir>/backups/
+leksis restore [file]   # Restore a backup
+leksis uninstall        # Clean removal of all Leksis components
 ```
+
+### Ollama: local container or remote server
+
+The installer asks where Ollama runs:
+
+- **Local** — an `ollama` container on the Leksis server (GPU auto-detected).
+- **Remote** — an Ollama server you already run. Enter its URL; the installer tests it, lists the missing models and can pull them for you. On that machine Ollama must listen on the network (`OLLAMA_HOST=0.0.0.0`) — its API has no authentication, keep it on a trusted network. For an Ollama on the *same* host as Leksis, `http://localhost:11434` is rewritten to `host.docker.internal`.
+
+Switch later with `leksis config`. Under the hood the local container is the Docker Compose profile `ollama` (`COMPOSE_PROFILES=ollama` in `.env`).
+
+### Unattended install
+
+```bash
+cat > answers.env <<'EOF'
+LEKSIS_APP_HOST=leksis.example.com
+LEKSIS_ADMIN_EMAIL=admin@example.com
+LEKSIS_OLLAMA_MODE=remote
+LEKSIS_OLLAMA_URL=http://192.168.1.50:11434
+EOF
+sudo ./install.sh --yes --answers answers.env install
+```
+
+See `./install.sh --help` for every answer key. The install log is written to `/var/log/leksis-install.log`.
 
 ### GPU support
 
-`install.sh` detects NVIDIA and AMD GPUs and selects the right overlay automatically. To use one manually, layer it on top of the base file:
+`install.sh` detects NVIDIA and AMD GPUs (local Ollama only) and selects the right overlay automatically. To use one manually, layer it on top of the base file:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.nvidia.yml up -d   # NVIDIA
@@ -139,8 +176,9 @@ CADDY_HOST=your-domain.com   # bare IP = HTTP only; domain = HTTPS via Let's Enc
 # Encryption key for DB credentials (AES-256-GCM)
 ENCRYPTION_KEY=your-64-hex-char-key   # openssl rand -hex 32
 
-# Ollama (resolved through the internal Docker network)
-OLLAMA_BASE_URL=http://ollama:11434
+# Ollama — local container (default) …
+COMPOSE_PROFILES=ollama      # empty = no Ollama container (remote server)
+OLLAMA_BASE_URL=http://ollama:11434   # … or e.g. http://192.168.1.50:11434 for a remote server
 OLLAMA_MODEL=translategemma:27b
 OLLAMA_OCR_MODEL=maternion/LightOnOCR-2:latest
 OLLAMA_REWRITE_MODEL=qwen2.5:14b
@@ -155,14 +193,14 @@ All settings (branding, features, tones, limits, Caddy host, `NEXTAUTH_URL`) are
 
 ## 🐳 Docker Architecture
 
-Leksis runs as **4 containers** on an isolated Docker network (`leksis-net`):
+Leksis runs as **3 or 4 containers** (the Ollama one is optional) on an isolated Docker network (`leksis-net`):
 
 | Container | Image | Role | Exposed ports |
 |---|---|---|---|
 | `leksis-caddy` | `caddy:2-alpine` | Reverse proxy — only public entry point | 80, 443 |
 | `leksis-app` | `leksis-app` (built locally) | Next.js application | internal only |
 | `leksis-postgres` | `postgres:${POSTGRES_VERSION}-alpine` | Database | internal only |
-| `leksis-ollama` | `ollama/ollama:latest` | LLM inference | internal only |
+| `leksis-ollama` *(optional)* | `ollama/ollama:latest` | LLM inference — skipped with a remote Ollama | internal only |
 
 The app container is **never directly exposed** — all traffic flows through Caddy. Caddy's admin API (`port 2019`) is accessible only within the Docker network, allowing hot-reload of the proxy configuration from the admin panel without restarting any container.
 

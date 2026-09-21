@@ -101,7 +101,7 @@ Flux de données :
 Internet / NPM (SSL)
 → Caddy :80  (reverse proxy, Docker)
 → app:3000   (Next.js)
-→ Ollama /api/generate
+→ Ollama /api/generate  (conteneur `ollama` local — profil compose — ou serveur distant)
 ```
 
 ### Règles non négociables
@@ -403,50 +403,68 @@ Le script `install.sh` à la racine du projet gère le cycle de vie complet de l
 
 ### Interface
 
-- **UI texte simple** — pas de `dialog`. Helpers d'affichage : `p_header`, `p_info`, `p_ok`, `p_warn`, `p_err` ; helpers de saisie : `p_input`, `p_yesno`, `p_password`
-- Tous les prompts lisent/écrivent `/dev/tty` (le script est souvent lancé via `bash <(curl -fsSL …/install.sh)`) — fonctionne donc même quand la sortie est capturée en sous-shell `$(...)`
-- `set -euo pipefail` actif. Garde stdin non-TTY : refuse `curl … | bash`, exige `bash <(curl …)` ou un téléchargement préalable
-- Doit tourner en **root** (`check_root`)
-- `VERSION` est lue depuis `package.json` (fallback sur la constante `VERSION="X.Y.Z"` ligne ~36)
+- **TUI [gum](https://github.com/charmbracelet/gum)** (Charm) avec **repli automatique en texte simple**. `ensure_gum` télécharge un binaire épinglé (`GUM_VERSION`) depuis les releases GitHub, vérifie son SHA256 (`GUM_SHA256_AMD64` / `GUM_SHA256_ARM64`) et l'installe dans `/usr/local/bin`. Repli texte si : `--no-tui` / `LEKSIS_NO_TUI=1`, pas de TTY, `TERM=dumb`, mode `--yes`, architecture non supportée, échec de téléchargement ou de checksum. **Le script ne doit jamais dépendre de gum.** Pas de `dialog`
+- **Toute sortie UI passe par le fd 3** (`/dev/tty`, sinon stderr) — les helpers fonctionnent donc en sous-shell `$(...)` et ne se mélangent pas à la sortie des commandes. Ne jamais faire `echo` / `printf` directement vers le terminal : utiliser `p_header`, `p_info`, `p_ok`, `p_warn`, `p_err`, `p_kv`, `say`
+- **Helpers de saisie avec KEY** : `p_input KEY "question" défaut`, `p_yesno KEY "question" y|n`, `p_password KEY "prompt"`, `p_choose KEY "titre" défaut "valeur|Label"…`, `p_multi KEY "titre" "défauts" "valeur|Label"…`. La valeur revient sur **stdout** (`x=$(p_input …)`) ; `p_yesno` renvoie 0/1. **Toute nouvelle question doit avoir une KEY** : `LEKSIS_<KEY>` (env ou fichier `--answers`) y répond sans poser la question ; en mode `--yes` la valeur par défaut est utilisée. Dans une boucle de validation, faire `die` si `$NONINTERACTIVE` et `p_unset_preset KEY` avant de reposer la question (sinon boucle infinie)
+- `p_spin "Titre" cmd args…` (spinner gum, sortie → log, affichée seulement en cas d'échec ; **commandes externes uniquement**, gum ne sait pas appeler une fonction shell) et `run_logged cmd…` (sortie à l'écran + `/var/log/leksis-install.log`)
+- `set -eEuo pipefail` + `trap ERR` (`on_error`, affiche la ligne fautive ; silencieux pour `exit 130` = annulation utilisateur). Garde stdin non-TTY : refuse `curl … | bash` (sauf `--yes`), exige `bash <(curl …)`
+- Doit tourner en **root** (`check_root`, pour toutes les commandes)
+- `VERSION` : constante `VERSION="X.Y.Z"` en tête de script, écrasée par `package.json` quand il est présent. `RAW_URL` en est dérivée
+- **Fin de fichier : `main "$@"; exit $?` sur UNE seule ligne** — `git checkout` du tag pendant `update` réécrit `install.sh` alors que bash le lit encore ; bash ne doit jamais relire le fichier après `main`. `LEKSIS_SOURCE_ONLY=1` permet de `source` le script pour tester les fonctions
+
+### Options et automatisation
+
+`-y/--yes` (jamais de question), `--answers FILE` (lignes `LEKSIS_<KEY>=valeur`, jamais `source`), `--dir DIR`, `--no-tui`, `-V`, `-h`. Clés : `INSTALL_DIR REPO_URL APP_HOST ADMIN_EMAIL ADMIN_NAME OLLAMA_MODE OLLAMA_URL GPU_VENDOR OLLAMA_MODEL OLLAMA_OCR_MODEL OLLAMA_REWRITE_MODEL OLLAMA_KEEP_ALIVE OLLAMA_SCHED_SPREAD OLLAMA_MAX_LOADED_MODELS POSTGRES_PASSWORD PULL_REMOTE_MODELS UPDATE_COMPONENTS CONFIRM_DELETE CONFIRM_RESTORE …`. Les opérations destructives exigent leur confirmation typée même en `--yes` (`LEKSIS_CONFIRM_DELETE=DELETE`, `LEKSIS_CONFIRM_RESTORE=RESTORE`).
 
 ### Commandes disponibles
 
 | Commande | Description |
 |----------|-------------|
-| `install` | Installation guidée : 5 étapes `Configuration N/5` (chemins · URL app · compte admin · modèles Ollama · runtime Ollama) + mot de passe PostgreSQL. Génère `AUTH_SECRET` + `ENCRYPTION_KEY`, clone puis `git checkout` du tag, aperçu `.env` (secrets masqués) + `chmod 600`, `docker compose up -d --build`, `wait_healthy`, pull des modèles, seed admin idempotent (`INSERT … ON CONFLICT (email) DO UPDATE`) |
-| `update` | Lit `.env`, garde `POSTGRES_VERSION`, `pg_backup`, `git fetch --tags --force`, compare tag courant / dernier tag et propose le switch, puis **5 questions y/n** : `app`, `caddy`, `postgres`, `ollama`, `ollama models` — rebuild sélectif via `docker compose up -d --build <svc>` |
-| `uninstall` | Usage disque des volumes, backup optionnel, choix conserver ou non les volumes, confirmation typée `DELETE`, `docker compose down [-v]`, suppression de l'image `leksis-app` et du dossier d'installation |
-| `status` | `docker compose ps`, GPU détecté, `ollama list`, usage disque des volumes, 20 dernières lignes de logs `app` (affichage `echo` simple) |
-| `config` | Édite 7 clés du `.env` : `OLLAMA_MODEL`, `OLLAMA_OCR_MODEL`, `OLLAMA_REWRITE_MODEL`, `OLLAMA_KEEP_ALIVE`, `OLLAMA_SCHED_SPREAD`, `OLLAMA_MAX_LOADED_MODELS`, `POSTGRES_VERSION` — **ne modifie pas NEXTAUTH_URL ni CADDY_HOST** (gérés depuis l'admin web). Propose de redémarrer Ollama si sa config a changé ; avertit **sans** redémarrer si `POSTGRES_VERSION` a changé |
-| `logs [service]` | `docker compose logs -f <service>` ; menu 1-4 (app/postgres/ollama/caddy) si l'argument est absent |
+| `install` | Contrôles système (OS/RAM/CPU) → 5 étapes `Configuration N/5` (chemins · URL app · compte admin · **Ollama local ou distant** · modèles + mot de passe PostgreSQL) → écran récapitulatif + confirmation → **seulement ensuite** les opérations lourdes (Docker, drivers GPU, clone, `.env`, `docker compose up -d --build`, `wait_healthy`, modèles, admin, test HTTP). Les réponses sont sauvegardées dans `/etc/leksis/install.answers` (chmod 600) avant les opérations lourdes : après le reboot exigé par `nouveau`, relancer propose de **reprendre**. Un `.env` existant conserve ses secrets. À la fin : `/etc/leksis/install.conf` + lien `/usr/local/bin/leksis` |
+| `update` | `migrate_env`, `git fetch --tags`, propose le switch de tag, sélection des composants (`p_multi` : `app`, `caddy`, `postgres`, `ollama` si local, `models`), **backup complet avant toute modification**, checkout, puis `docker compose pull` + `up -d` pour les images (caddy/postgres/ollama) et `build --pull` pour `app`. Si `app` n'est pas healthy après un changement de tag → **rollback** proposé (`rollback_app` : `git checkout <sha précédent>` + rebuild) |
+| `backup` | `create_backup` → `backups/leksis-backup-<ts>.tar.gz` (chmod 600) : `postgres.sql`, `uploads.tar` (logo/fond, via `exec app tar`), `.env`, `VERSION`. Rotation : `LEKSIS_BACKUP_KEEP` (défaut 7). Utilisé aussi par `update`, `uninstall` et `restore` |
+| `restore [fichier]` | Accepte `.tar.gz` (ou l'ancien `.sql`). Confirmation typée `RESTORE`, backup de sécurité, arrêt de `app`, `DROP SCHEMA public CASCADE` + rechargement, adopte l'`ENCRYPTION_KEY` du backup si différente (nécessaire pour déchiffrer les identifiants stockés en base), restauration des uploads |
+| `uninstall` | Usage disque des volumes, backup optionnel (**copié dans `/var/backups/leksis` avant suppression du dossier**), conserver ou non les volumes, confirmation typée `DELETE`, `docker compose down --remove-orphans --rmi local [-v]`, suppression du dossier, du lien `leksis` et de `/etc/leksis/install.conf` |
+| `status` | Version installée + canal, URL, test HTTP, `docker compose ps`, mode Ollama (GPU en local, joignabilité en distant), présence de chaque modèle configuré, volumes, backups, 20 dernières lignes de logs `app` |
+| `config` | Édite les 3 modèles, le runtime Ollama (local) ou l'URL (distant), `POSTGRES_VERSION`, et permet de **basculer local ↔ distant**. Synchronise `site_settings.ollama_config` (voir plus bas), recrée `app`, propose de tirer les modèles manquants. **Ne modifie pas NEXTAUTH_URL ni CADDY_HOST** (gérés depuis l'admin web). Avertit **sans** redémarrer si `POSTGRES_VERSION` a changé |
+| `logs [service]` | `docker compose logs -f` ; la liste des services dépend du mode Ollama |
 
-Sans argument : menu interactif (`show_menu`).
+Sans argument : menu interactif (`show_menu`, chaque commande dans un sous-shell pour revenir au menu en cas d'échec).
+
+### Ollama local ou distant (RÈGLE)
+
+- **Ollama est un profil compose** (`profiles: ["ollama"]` dans `docker-compose.yml`). `COMPOSE_PROFILES=ollama` dans `.env` = conteneur local ; vide = serveur distant. **Source de vérité du mode : `ollama_local_enabled`** (lit `COMPOSE_PROFILES`). Ne jamais réintroduire un `depends_on: ollama` sans `required: false` (Compose ≥ 2.20, vérifié par `install_docker` via `MIN_COMPOSE_VERSION`) ni coder `OLLAMA_BASE_URL` en dur dans le compose (`${OLLAMA_BASE_URL:-http://ollama:11434}`)
+- `app` a `extra_hosts: host.docker.internal:host-gateway` : une URL `localhost`/`127.x` saisie pour un Ollama distant est réécrite en `host.docker.internal` (`OLLAMA_URL` = vue des conteneurs, `OLLAMA_URL_HOSTSIDE` = vue de l'hôte pour les tests curl)
+- En mode distant : pas de détection GPU, pas de drivers, pas d'overlay compose, pas de questions de runtime, pas de `wait_healthy ollama`. Les modèles manquants peuvent être tirés via `POST /api/pull` (`stream:false`) après confirmation
+- ⚠️ **`site_settings.ollama_config` (admin → Services → AI) prend le pas sur `.env`** dès qu'il a été sauvegardé (`getOllamaConfig`). `sync_ollama_config_db` met à jour ce JSONB (`baseUrl`, modèles) pour que `install.sh config` ait un effet réel
+- `migrate_env` (appelé par `require_install`) : un `.env` d'avant cette version sans `COMPOSE_PROFILES` reçoit `ollama` (si `OLLAMA_BASE_URL` est vide ou interne) — sans ça, `update` ne redémarrerait plus le conteneur Ollama. Il garde aussi la garde `POSTGRES_VERSION=16`
 
 ### Architecture interne
 
-- **Helpers `p_*`** — ne jamais faire `read` / `printf` vers le terminal directement, toujours passer par eux. `p_input` renvoie la valeur sur **stdout** → s'utilise en capture : `x=$(p_input "Question" "défaut")`. `p_yesno` renvoie 0 (yes) / 1 (no). `p_password` renvoie le mot de passe sur stdout (vide ⇒ auto-généré via `openssl rand -hex 16` par l'appelant)
-- **`_env_set key value file`** — patch une clé via `sed -i "s|^${key}=.*|${key}=${value}|"`. ⚠️ **no-op silencieux si la clé est absente** du `.env` (n'ajoute pas la ligne)
-- **`detect_pkg_manager`** → `PKG_INSTALL` (`apt-get` / `dnf` / `yum`)
-- **`detect_gpu`** → `GPU_VENDOR` / `GPU_NAME` via 5 sondes en cascade (lspci, `nvidia-smi`, `/dev/nvidia0`, `lsmod`, `rocm-smi`) + fallback manuel si lspci voit un GPU non identifié. **`resolve_compose_cmd`** → `COMPOSE_CMD` + overlay compose (`docker-compose.nvidia.yml` / `docker-compose.amd.yml` / aucun)
-- **`wait_healthy service [timeout]`** — poll `docker inspect --format '{{.State.Health.Status}}' leksis-<service>` toutes les 5 s
-- **`pg_backup <dir>`** — `pg_dump -U leksis_user leksis` → `<dir>/backups/leksis-pg-<timestamp>.sql`
-- **`pull_model_if_needed <model>`** — pull uniquement si absent de `ollama list`
-- **Install drivers GPU** — NVIDIA : driver `.run` + DKMS (version épinglée `NVIDIA_DRIVER_VERSION`, blacklist `nouveau` ⇒ reboot requis puis relancer) + `nvidia-container-toolkit`. AMD : ROCm via `.deb` `amdgpu-install` (codename Ubuntu via `UBUNTU_CODENAME`, fallback `jammy` — donc paquet Ubuntu utilisé tel quel sur Debian, non validé). **Chemins apt uniquement**
-- **OS supportés** (README) : Ubuntu 22.04, Debian 12, Debian 13. Le script ne vérifie pas la distribution (seul `apt-get` / `dnf` / `yum` est détecté) et Docker est installé via `get.docker.com`. Debian 13 n'a pas été testée sur machine réelle, en particulier pour le chemin AMD ROCm
-- **Overlays compose GPU** : `docker-compose.nvidia.yml` et `docker-compose.amd.yml` sont sélectionnés par `install.sh` ; `docker-compose.gpu.yml` est un overlay NVIDIA générique utilisable à la main uniquement. Ce sont des **overlays** — toujours les lancer avec `-f docker-compose.yml -f docker-compose.<x>.yml`
+- **`env_get file key`** lit une clé sans jamais `source` le fichier. **`_env_set key value file`** remplace la clé **ou l'ajoute si elle est absente** (awk + `ENVIRON`, sûr avec `|`, `&`, `/`)
+- **`require_install`** : localise l'installation (`--dir` / `LEKSIS_INSTALL_DIR` → `/etc/leksis/install.conf` → `/opt/leksis` → question), `cd` dedans, `migrate_env`, `load_config_from_env`. Toutes les commandes s'exécutent **dans `INSTALL_DIR`** et utilisent `docker compose` nu : `COMPOSE_FILE` / `COMPOSE_PROFILES` / `COMPOSE_PROJECT_NAME` viennent du `.env`
+- `COMPOSE_PROJECT_NAME=leksis` est écrit dans le `.env` des nouvelles installations (volumes `leksis_*`). Pour les anciennes, `compose_project` le déduit du label du conteneur `leksis-app` — ne jamais le backfiller (renommerait les volumes = perte de données)
+- **`detect_pkg_manager`** → `PKG_MGR` ; **`pkg_install`** (apt/dnf/yum, `apt-get update` une fois)
+- **`detect_gpu`** → `GPU_VENDOR` / `GPU_NAME` via 5 sondes (lspci, `nvidia-smi`, `/dev/nvidia0`, `lsmod`, `rocm-smi`) ; **`select_gpu`** ajoute le fallback manuel (réponse `LEKSIS_GPU_VENDOR=nvidia|amd|none`) ; **`resolve_compose_files`** → `COMPOSE_FILE_VALUE` + `OLLAMA_IMAGE` (`docker-compose.nvidia.yml` / `docker-compose.amd.yml` / aucun)
+- ⚠️ **Pas de `cmd | grep -q` sous `pipefail`** : `grep -q` ferme le pipe tôt, la commande amont prend SIGPIPE (141) et le test est faussement négatif. Capturer la sortie dans une variable puis `[[ "$var" == *motif* ]]` (voir `has_nvidia_runtime`)
+- **`wait_healthy service [timeout]`** — poll `docker inspect … leksis-<service>` toutes les 5 s, échoue tout de suite si le conteneur est `exited`/`dead` (affiche ses derniers logs). **`check_app_http`** teste l'entrée via Caddy (`http://127.0.0.1/`, 2xx/3xx)
+- **`list_models` / `model_present` / `pull_model` / `ensure_models`** — fonctionnent en local (`ollama list` dans le conteneur) et en distant (`/api/tags`, `/api/pull`). Les échecs de pull vont dans `FAILED_MODELS` et n'interrompent pas le script
+- **`create_admin_user`** et **`sync_ollama_config_db`** passent les valeurs par `psql -v` + `:'var'` sur stdin (jamais d'interpolation shell dans le SQL)
+- **Preflight** : `preflight_system` (OS testés, RAM, CPU), `preflight_disk local|remote` (40 / 15 Go), `preflight_network` (DNS du domaine, ports 80/443 — ignorés si `leksis-caddy` tourne déjà)
+- **Install drivers GPU** — NVIDIA : driver `.run` + DKMS (version épinglée `NVIDIA_DRIVER_VERSION`, **SHA256 vérifié** via `NVIDIA_DRIVER_SHA256` — à recalculer à chaque changement de version ; blacklist `nouveau` ⇒ reboot requis puis relancer = reprise automatique) + `nvidia-container-toolkit`. AMD : ROCm via `.deb` `amdgpu-install` (codename Ubuntu via `UBUNTU_CODENAME`, fallback `jammy` — paquet Ubuntu utilisé tel quel sur Debian, non validé). **Chemins apt uniquement**
+- **OS supportés** (README) : Ubuntu 22.04, Debian 12, Debian 13 (le preflight avertit sans bloquer sur les autres). Docker est installé via `get.docker.com`. Debian 13 n'a pas été testée sur machine réelle, en particulier pour le chemin AMD ROCm
+- **Overlays compose GPU** : `docker-compose.nvidia.yml` et `docker-compose.amd.yml` sont sélectionnés par `install.sh` (via `COMPOSE_FILE` dans `.env`) ; `docker-compose.gpu.yml` est un overlay NVIDIA générique utilisable à la main uniquement. Ce sont des **overlays** — à la main, toujours `-f docker-compose.yml -f docker-compose.<x>.yml`
 - Aperçu `.env` avant écriture : boucle `while read` qui masque `POSTGRES_PASSWORD` / `AUTH_SECRET` / `ENCRYPTION_KEY` / `DATABASE_URL`
 
 ### Règles pour modifier install.sh
 
-- Toujours passer par les helpers `p_*` — le script **n'utilise pas `dialog`**
-- Tout nouveau prompt doit cibler `/dev/tty` (lancement fréquent via `bash <(curl …)`)
-- `set -euo pipefail` est actif — garder `|| true` sur les commandes best-effort
-- `cmd_update` contient un **guard de backfill** : si `.env` ne contient pas `POSTGRES_VERSION`, il ajoute `POSTGRES_VERSION=16` pour protéger des données v16 contre une migration majeure accidentelle. ⚠️ `cmd_install` **n'a pas** cette garde (il écrit `POSTGRES_VERSION=18` en dur dans le `.env` généré)
-- `cmd_update` est **tag-only** : `git fetch --tags --force` puis `git checkout <latest_tag>` (via `latest_tag`, filtré par canal stable/beta — voir « Canal beta ») — ne suit jamais une branche. Affiche le tag courant vs le tag le plus récent avant de proposer le switch ; si le repo n'est pas sur un tag (legacy), avertit et propose de basculer
-- `cmd_install` : clone frais via `git clone --branch "v${VERSION}"` ; repo existant → `git checkout` du dernier tag
-- `cmd_update` propose 5 composants sélectionnables : `app`, `caddy`, `postgres`, `ollama`, `ollama models`
-- `cmd_logs` propose 4 services : `app`, `postgres`, `ollama`, `caddy`
-- Overlays compose : base + `docker-compose.nvidia.yml` (NVIDIA) ou `docker-compose.amd.yml` (AMD) ou base seule (CPU). `docker-compose.gpu.yml` est un doublon de `docker-compose.nvidia.yml`
+- Toujours passer par les helpers `p_*` (jamais `read` / `printf` direct vers le terminal, jamais `dialog`) ; toute question a une KEY
+- `set -eEuo pipefail` est actif — garder `|| true` sur les commandes best-effort. ⚠️ Une fonction qui se termine par `[[ … ]] && cmd` renvoie 1 quand le test est faux et fait sortir le script sous `set -e` : terminer par `return 0` ou utiliser `if`
+- Appeler `docker compose` **depuis `INSTALL_DIR`** (déjà le cas après `require_install` / dans `cmd_install` après le clone)
+- `cmd_install` : clone frais via `git clone --branch "v${VERSION}"` ; repo existant → `git checkout` du dernier tag du canal
+- `cmd_update` est **tag-only** : `git fetch --tags --force` puis `git checkout <latest_tag>` (via `latest_tag`, filtré par canal stable/beta — voir « Canal beta ») — ne suit jamais une branche. Le backup complet précède tout changement ; les services image (`caddy`, `postgres`, `ollama`) doivent être **`pull`és** (`up --build` ne tire pas les images distantes)
+- `cmd_logs` : services `app`, `postgres`, `caddy` (+ `ollama` en mode local)
+- Tests : `LEKSIS_SOURCE_ONLY=1 source install.sh`, puis fonctions isolées avec de faux `docker` / `curl` dans le `PATH` ; `bash -n install.sh` avant tout commit. Le TUI gum et Docker ne sont pas testables sous Windows — valider sur une VM Linux
 
 ---
 
@@ -486,7 +504,7 @@ Flux local :
 - L'API usage (`/api/admin/usage`) accepte un paramètre `limit` (1–500, défaut 100) pour contrôler le nombre de lignes retournées. `UsagePanel` expose un sélecteur 25/50/100/200/500
 - Schema DB : `docker/init-schema.sql` — exécuté automatiquement par le container PostgreSQL au premier démarrage
 - **Versions Docker** : `postgres` utilise `${POSTGRES_VERSION:-18}-alpine` (configurable via `.env`). `node:22-slim` est épinglé (LTS actuel, Debian requis pour `@napi-rs/canvas`). `caddy:2-alpine` pour le reverse proxy. `ollama/ollama:latest` sans port binding hôte (interne uniquement). Ne jamais hardcoder `postgres:NN-alpine` — toujours passer par la variable. Changer la version majeure PostgreSQL sur une installation existante nécessite une migration de données (`pg_upgrade` ou dump/restore). Le service `postgres` fixe explicitement `PGDATA=/var/lib/postgresql/data` (identique au point de montage du volume) pour désactiver la réorganisation de répertoire style `pg_ctlcluster` introduite dans les builds récents de `postgres:18-alpine` — sans ça, le conteneur refuse de démarrer si le volume contient déjà des données à l'ancien emplacement (erreur "unused mount/volume"). Ne jamais pointer `PGDATA` vers un sous-répertoire (`.../data/pgdata`) : les données existantes sont à la racine du point de montage, un sous-répertoire vide déclencherait un `initdb` silencieux et une perte de données
-- **Ollama** : le port `11434` n'est **pas** exposé sur l'hôte — accessible uniquement via le réseau Docker interne (`http://ollama:11434`). Il n'y a plus de pré-chauffage automatique dans `install.sh` — le chargement en VRAM se fait depuis le panneau admin via le bouton "Load into VRAM" (`POST /api/admin/services/ollama/warmup`). La route déduplique les modèles (translationModel / rewriteModel / ocrModel) et appelle Ollama avec `keep_alive: -1` pour chacun. Le téléchargement de nouveaux modèles se fait via `OllamaPullBlock` (`POST /api/admin/services/ollama/pull`) qui stream le JSON de progression d'Ollama ligne par ligne. La suppression se fait via `DELETE /api/admin/services/ollama/delete` — les modèles référencés dans la config ont leur corbeille désactivée
+- **Ollama** : conteneur **optionnel** (profil compose `ollama`, voir « Ollama local ou distant »). Quand il est local, le port `11434` n'est **pas** exposé sur l'hôte — accessible uniquement via le réseau Docker interne (`http://ollama:11434`). Il n'y a plus de pré-chauffage automatique dans `install.sh` — le chargement en VRAM se fait depuis le panneau admin via le bouton "Load into VRAM" (`POST /api/admin/services/ollama/warmup`). La route déduplique les modèles (translationModel / rewriteModel / ocrModel) et appelle Ollama avec `keep_alive: -1` pour chacun. Le téléchargement de nouveaux modèles se fait via `OllamaPullBlock` (`POST /api/admin/services/ollama/pull`) qui stream le JSON de progression d'Ollama ligne par ligne. La suppression se fait via `DELETE /api/admin/services/ollama/delete` — les modèles référencés dans la config ont leur corbeille désactivée
 - **Caddy** : le Caddyfile est généré depuis `site_settings` (clé `caddy_config` JSONB) via `src/lib/caddy.ts`. `CaddyConfig` = `{ host, behindProxy, nextauthUrl? }`. Le rechargement à chaud se fait via `POST http://caddy:2019/load` (Content-Type: text/caddyfile) — uniquement si `host` ou `behindProxy` a changé (pas si seul `nextauthUrl` change). Si le rechargement échoue, le PATCH renvoie `{ ok: true, reloadError }` sans faire échouer la requête. L'admin API Caddy écoute sur `0.0.0.0:2019` (interne Docker uniquement — pas de port binding hôte). Caddy démarre avec `--resume` : au redémarrage, il charge `/data/config/autosave.json` si présent. Pour forcer le chargement du Caddyfile : `docker exec leksis-caddy caddy reload --config /etc/caddy/Caddyfile`. L'endpoint `GET /` retourne 404 en Caddy v2 — utiliser `GET /config/` pour vérifier la joignabilité. **Version Caddy** : l'API admin (`/config/`) ne retourne pas la version — l'extraire du header HTTP `Server` sur le port proxy (`HEAD http://caddy:80/`) : pattern `Caddy/?([\d.]+)` → si présent afficher le numéro, sinon afficher `'Caddy'`. **Derrière un reverse proxy** : quand `behindProxy=true`, le Caddyfile inclut `header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}` et `header_up X-Forwarded-Host {http.request.header.X-Forwarded-Host}` pour préserver les headers de l'upstream — sans ça, NextAuth construit les callback URLs avec l'IP interne au lieu du domaine public. **NEXTAUTH_URL** : stocké dans `caddy_config.nextauthUrl`, éditable depuis le panneau admin Caddy, pré-rempli depuis `process.env.NEXTAUTH_URL` au premier chargement. `GET /api/admin/services` retourne `{ ollama, db, caddy }`
 - **`showFooterQuotes`** : booléen dans `site_settings.features.showFooterQuotes` (défaut `true` via `!== false`). Contrôle l'affichage des citations françaises en pied de page — affiché uniquement si `showFooterQuotes === true && locale === 'fr'`. Toggle dans `FeaturesForm` (section "Interface", icône `format_quote`). Passer `showFooterQuotes` de `page.tsx` → `HomeClient` → footer guard
 - **Dashboard admin** : `/admin/dashboard` — server component qui interroge directement la DB via `query()` (même pattern que les autres pages admin). Tables : `users` (count), `usage_log` (count WHERE created_at >= CURRENT_DATE), sous-requête `glossary_entries` GROUP BY glossary_id pour le total, `audit_log ORDER BY created_at DESC LIMIT 5`. Les données de santé service sont fetchées côté client dans `AdminDashboard.tsx` via les 3 routes `/api/admin/services/*/metrics`. `/admin/page.tsx` redirige vers `/admin/dashboard`
@@ -508,7 +526,7 @@ Flux local :
 
 1. Bumper **trois fichiers** :
    - `package.json` → `"version": "X.Y.Z"`
-   - `install.sh` → `VERSION="X.Y.Z"` (ligne ~36), le fallback `${_v:-X.Y.Z}` (ligne ~42) **et** les 3 URLs `raw.githubusercontent.com` dans le même fichier
+   - `install.sh` → `VERSION="X.Y.Z"` (ligne ~24) **et** l'URL `raw.githubusercontent.com` du commentaire d'en-tête (ligne ~19) — les autres URLs sont dérivées de `VERSION` (`RAW_URL`)
    - `README.md` → l'URL du one-liner (`…/Leksis/vX.Y.Z/install.sh`) et une entrée « What's new » pour la version
 2. Commit et push sur `main` :
    ```bash

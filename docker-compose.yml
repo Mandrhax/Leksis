@@ -25,7 +25,11 @@ services:
       - leksis-net
 
   # ── Ollama (LLM inference, GPU-accelerated) ─────────────────
+  # Optional: only started when COMPOSE_PROFILES contains "ollama" (set in .env
+  # by install.sh). Leave it out to use an Ollama server running elsewhere —
+  # then point OLLAMA_BASE_URL at it.
   ollama:
+    profiles: ["ollama"]
     image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
     container_name: leksis-ollama
     restart: unless-stopped
@@ -55,8 +59,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      # required: false → ignored when the ollama profile is not enabled
+      # (remote Ollama). Needs Docker Compose >= 2.20.
       ollama:
         condition: service_healthy
+        required: false
+    # Lets the app reach an Ollama running on the Docker host itself
+    # (OLLAMA_BASE_URL=http://host.docker.internal:11434).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       # Database — resolved via internal Docker network
       DATABASE_URL: postgresql://leksis_user:${POSTGRES_PASSWORD}@postgres:5432/leksis
@@ -68,8 +79,9 @@ services:
       # Encryption key (AES-256-GCM, 64 hex chars)
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
 
-      # Ollama — resolved via internal Docker network
-      OLLAMA_BASE_URL: http://ollama:11434
+      # Ollama — internal container by default, or a remote server (see .env).
+      # The admin panel (Services → AI) overrides this once saved.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL}
       OLLAMA_OCR_MODEL: ${OLLAMA_OCR_MODEL}
       OLLAMA_REWRITE_MODEL: ${OLLAMA_REWRITE_MODEL}
