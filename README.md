@@ -17,29 +17,21 @@ Leksis is a self-hosted, all-in-one platform for text translation, document proc
 
 ## 🎉 What's new
 
-### v1.2.0-beta.1 (beta)
+### v1.2.0
+
+A major update of the AI engine and of the installer (first stable release since v1.0.6).
+
+**AI engine**
 - **Choose your AI engine** — Ollama (local container or another server) **or any OpenAI-compatible API**: vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI… Pick it at install time (`leksis install` / `leksis config`) or in **Admin → Services → AI**
 - **Private by default** — an AI server outside your private network is blocked until an admin explicitly ticks *Allow servers outside the private network*; API keys are stored encrypted and never exported
-- The admin only shows the actions the engine supports (model download, VRAM loading and deletion are Ollama-only)
+- **Admin → Services → AI**: engine-aware page. Model fields are dropdowns (installed models, suggested ones such as `translategemma:27b` / `12b` / `4b`, or a custom name); picking a model that is not installed offers **Download and use** (Ollama). Model download, VRAM loading and deletion are only shown for Ollama
 
-### v1.1.0-beta.4 (beta)
-- Installer: the OCR and rewrite models default to the chosen translation model; keep alive (`-1`), GPU spread (`true`) and max loaded models (`3`) are no longer asked — they can be edited later with `leksis config`
-- Installer: fixed the wrong "space = toggle" hint in the component picker (gum uses `x`)
-
-### v1.1.0-beta.3 (beta)
-- Fix: `update` no longer aborts with "local changes would be overwritten" on `install.sh` (file-mode changes are ignored; real local edits are stashed and can be restored with `git stash pop`)
-- The `leksis` command is now a small launcher script instead of a symlink
-
-### v1.1.0-beta.2 (beta)
-- **Admin → Services → AI**: model fields are now dropdowns (installed models, suggested ones such as `translategemma:27b` / `12b` / `4b`, or a custom name). Picking a model that is not installed offers **Download and use** — progress bar, then the configuration is saved automatically
-- Installer: translation model chosen from a list, progress bars for image / model downloads and the app build, screen cleared on the main menu, fix for default values starting with `-` in the terminal UI
-
-### v1.1.0-beta.1 (beta)
-- **Ollama is now optional** — install it as a container on the Leksis server, or point Leksis at an Ollama server running elsewhere (local container = compose profile `ollama`)
-- **New installer UI** — terminal UI powered by [gum](https://github.com/charmbracelet/gum) (checksum-verified, automatic plain-text fallback), system pre-checks, install summary before anything is changed, resumable after a reboot
-- New commands: `backup` / `restore` (database + uploads + `.env`, rotation), `leksis` shortcut, unattended mode (`--yes`, `--answers`)
-- `update` now takes a backup first, really pulls new `caddy` / `postgres` / `ollama` images, and rolls back automatically if the app does not come back healthy
-- `config` can switch Ollama between local and remote and keeps the admin panel settings in sync
+**Installer (`install.sh`)**
+- New terminal UI powered by [gum](https://github.com/charmbracelet/gum) (checksum-verified, automatic plain-text fallback), progress bars for image / model downloads and the app build, system pre-checks, an install summary before anything is changed, resumable after a reboot
+- Ollama is optional: a container on the Leksis server, another Ollama server, or an OpenAI-compatible API
+- New commands: `backup` / `restore` (database + uploads + `.env`, rotation), the `leksis` shortcut, unattended mode (`--yes`, `--answers`)
+- `update` takes a backup first, really pulls new `caddy` / `postgres` / `ollama` images, and rolls back automatically if the app does not come back healthy
+- `config` switches between the three AI engines and keeps the admin panel settings in sync; keep alive, GPU spread and max loaded models default to `-1` / `true` / `3` and are editable there
 - Existing installs are migrated automatically on the next `update` / `config`
 
 ### v1.0.6
@@ -115,7 +107,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### One-line install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.2.0-beta.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.2.0/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
