@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.3.0-beta.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.3.0-beta.3/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -269,7 +269,7 @@ Leksis detects its own public address from the request headers, so **there is no
 | Something failed during install | `/var/log/leksis-install.log`; re-run the installer — it resumes with saved answers |
 | The site does not answer | `leksis status`, then `leksis logs app` / `leksis logs caddy` |
 | HTTPS certificate not issued | The domain must resolve to the server and ports 80 and 443 must be reachable from the internet; Admin → Services → Caddy shows the certificate status, and `leksis logs caddy` the details |
-| Sign-in loop or wrong redirects behind a proxy | Keep `NEXTAUTH_URL` empty, make the proxy forward the original `Host` and `X-Forwarded-Proto`, and choose *Behind a reverse proxy* in Admin → Services → Caddy (add the proxy address if it is not on a private network) |
+| Redirects to the server IP, sign-in loop or wrong redirects behind a proxy | A pinned `NEXTAUTH_URL` (older installs) overrides the detected address: run `leksis config` (it offers to remove it) or `leksis update`. Also make the proxy forward the original `Host` and `X-Forwarded-Proto`, and choose *Behind a reverse proxy* in Admin → Services → Caddy (add the proxy address if it is not on a private network) |
 | "AI server unreachable" | Admin → Services → AI → *Test connection*. A remote Ollama must listen on the network (`OLLAMA_HOST=0.0.0.0`) |
 | Saving the AI server is refused | The address is outside your private network — tick *Allow servers outside the private network* if that is intended |
 | A model is "not listed by the server" | With an OpenAI-compatible API, use the exact id returned by `/v1/models` |
@@ -319,6 +319,9 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.3.0-beta.3 (beta)
+- Fix: an IP-based `NEXTAUTH_URL` left by older installs (e.g. `http://192.168.1.50`) sent users to the IP even through a domain or a reverse proxy — `leksis update` now removes it, `leksis config` offers to remove any pinned value, and the admin Caddy page warns while one is set
 
 ### v1.3.0-beta.2 (beta)
 - **Simpler access setup** — one setting decides how users reach Leksis: **HTTP**, **HTTPS with a domain name** (automatic Let's Encrypt certificate, with a live certificate status) or **behind a reverse proxy** (NPM, Traefik…). Choose it at install time, in *Admin → Services → Caddy* or with `leksis config`

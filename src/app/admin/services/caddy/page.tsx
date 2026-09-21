@@ -6,6 +6,7 @@ import { resolveCaddyConfig } from '@/lib/caddy-config'
 import { ServicesPanel }   from '@/components/admin/ServicesPanel'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { CaddyMetrics, CaddyStatusStrip } from '@/components/admin/CaddyMetrics'
+import { PinnedUrlNotice } from '@/components/admin/PinnedUrlNotice'
 
 export default async function AdminServicesCaddyPage() {
   await requireAdmin()
@@ -16,6 +17,7 @@ export default async function AdminServicesCaddyPage() {
   return (
     <div className="p-4 md:p-8 max-w-[1400px]">
       <AdminPageHeader section="servicesCaddy" />
+      <PinnedUrlNotice url={process.env.NEXTAUTH_URL ?? ''} />
       <CaddyStatusStrip />
       <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-8 items-start">
         <ServicesPanel mode="caddy" initial={initial} />

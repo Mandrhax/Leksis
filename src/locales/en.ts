@@ -495,6 +495,7 @@ export const messages = {
     blockStatusVersion:     'Version',
     blockStatusUpdated:     'Updated',
     blockAccess:            'Access',
+    pinnedWarning:          'NEXTAUTH_URL is pinned to {0} on the server. It overrides the automatically detected address and sends users back to it (wrong redirects behind a reverse proxy or after switching to HTTPS). Remove it with “leksis config”, or empty NEXTAUTH_URL in the .env file and run “leksis update”.',
     certOk:                 'Certificate valid — issued by {0}, expires {1}',
     certPending:            'Certificate not available yet — Caddy is requesting it. Check that {0} points to this server and that ports 80 and 443 are open.',
     blockUpstream:          'Upstreams',

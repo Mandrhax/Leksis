@@ -16,12 +16,12 @@
 # Options: -y/--yes  --answers FILE  --dir DIR  --no-tui  -h/--help
 #
 # Run from a server via curl (stdin-safe):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.3.0-beta.2/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.3.0-beta.3/install.sh)
 # ============================================================
 set -eEuo pipefail
 
 # ── VERSION (bumped at release; package.json wins when present) ──
-VERSION="1.3.0-beta.2"
+VERSION="1.3.0-beta.3"
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "$0")"
 _pkg="$(dirname "$SCRIPT_PATH")/package.json"
 if [[ -f "$_pkg" ]]; then
@@ -1009,6 +1009,26 @@ migrate_env() {
     _env_set AI_API_KEY "" "$env"
     p_info "Migrated .env: AI_PROVIDER=ollama."
   fi
+}
+
+# clear_pinned_url — empties NEXTAUTH_URL in .env. Auth.js forces every redirect to that address, which
+# defeats the automatic detection (wrong host behind a reverse proxy, HTTP kept after switching to HTTPS).
+clear_pinned_url() {
+  _env_set NEXTAUTH_URL "" "${INSTALL_DIR}/.env"
+}
+
+# migrate_pinned_url → 0 when an IP-based NEXTAUTH_URL (the old installer default, e.g. http://192.168.1.50)
+# was removed: it would send users to the IP even when they come through a domain or a reverse proxy.
+# A domain-based value keeps working and is left alone (`leksis config` can still clear it).
+migrate_pinned_url() {
+  local pin
+  pin=$(env_get "${INSTALL_DIR}/.env" NEXTAUTH_URL)
+  if [[ "$pin" =~ ^https?://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(:[0-9]+)?/?$ ]]; then
+    clear_pinned_url
+    p_info "Migrated .env: NEXTAUTH_URL (${pin}) removed — the public address is now detected automatically."
+    return 0
+  fi
+  return 1
 }
 
 # require_install — locates the installation, cd's into it, migrates .env
@@ -2112,6 +2132,10 @@ cmd_update() {
   require_install
   p_header "Leksis v${VERSION} - Update"
 
+  # An IP-based NEXTAUTH_URL from older installs is dropped (the app is restarted below to apply it)
+  local url_migrated=false
+  migrate_pinned_url && url_migrated=true
+
   p_info "Current container status:"
   docker compose ps >&3 2>&1 || p_warn "(unavailable)"
 
@@ -2149,6 +2173,10 @@ cmd_update() {
   [[ -n "$target" ]] && defaults="app"
   components=$(p_multi UPDATE_COMPONENTS "Components to update" "$defaults" "${opts[@]}")
   if [[ -z "$target" && -z "${components// /}" ]]; then
+    if $url_migrated; then
+      p_spin "Restarting the app (public address detection)" docker compose up -d app || true
+      wait_healthy app 180 || true
+    fi
     p_info "Nothing selected. Update cancelled."
     return 0
   fi
@@ -2202,6 +2230,12 @@ cmd_update() {
       [[ -n "$LAST_BACKUP" ]] && p_info "Database backup taken before the update: ${LAST_BACKUP}"
     fi
     return 1
+  fi
+
+  # The app was not rebuilt but the removed NEXTAUTH_URL must reach it
+  if $url_migrated && [[ " $components " != *" app "* ]]; then
+    p_spin "Restarting the app (public address detection)" docker compose up -d app || true
+    wait_healthy app 180 || true
   fi
 
   check_app_http || true
@@ -2473,16 +2507,23 @@ cmd_config() {
   if $access_changed; then
     _env_set CADDY_HOST "$CADDY_HOST" .env
     apply_access_config
-    # A pinned NEXTAUTH_URL (older installs) would override the detected address
-    if [[ -n "$(env_get .env NEXTAUTH_URL)" ]]; then
-      _env_set NEXTAUTH_URL "" .env
-      p_info "The pinned NEXTAUTH_URL was removed: the public address is now detected automatically."
-      p_spin "Restarting the app" docker compose up -d app || true
-      wait_healthy app 180 || true
-    fi
     if [[ "$ACCESS_MODE" == "https" ]]; then
       p_info "The certificate is requested in the background — follow it in Admin → Services → Caddy."
       p_info "${ACCESS_HOST} must point to this server and ports 80 and 443 must be open."
+    fi
+  fi
+
+  # A pinned NEXTAUTH_URL overrides the automatically detected public address (Auth.js forces every
+  # redirect to it): after an access change it is removed, otherwise offered
+  local pinned
+  pinned=$(env_get .env NEXTAUTH_URL)
+  if [[ -n "$pinned" ]]; then
+    if $access_changed \
+       || p_yesno CLEAR_PINNED_URL "NEXTAUTH_URL is pinned to ${pinned} and overrides the detected address (wrong redirects behind a proxy or after switching to HTTPS). Remove it (recommended)?" "y"; then
+      clear_pinned_url
+      p_info "NEXTAUTH_URL removed: the public address is now detected automatically."
+      p_spin "Restarting the app" docker compose up -d app || true
+      wait_healthy app 180 || true
     fi
   fi
 
