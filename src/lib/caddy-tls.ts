@@ -34,7 +34,9 @@ export function checkCertificate(domain: string, connectHost = 'caddy', port = 4
 
     socket.once('secureConnect', () => {
       const cert = socket.getPeerCertificate()
-      const issuer = cert?.issuer?.O || cert?.issuer?.CN || undefined
+      // Selon la version des types Node, une valeur d'émetteur peut être une chaîne ou un tableau
+      const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
+      const issuer = first(cert?.issuer?.O) || first(cert?.issuer?.CN) || undefined
       const validTo = cert?.valid_to ? new Date(cert.valid_to).toISOString() : undefined
       done({
         ok: socket.authorized === true,
