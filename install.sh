@@ -16,12 +16,12 @@
 # Options: -y/--yes  --answers FILE  --dir DIR  --no-tui  -h/--help
 #
 # Run from a server via curl (stdin-safe):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.1.0-beta.2/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.1.0-beta.3/install.sh)
 # ============================================================
 set -eEuo pipefail
 
 # ── VERSION (bumped at release; package.json wins when present) ──
-VERSION="1.1.0-beta.2"
+VERSION="1.1.0-beta.3"
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "$0")"
 _pkg="$(dirname "$SCRIPT_PATH")/package.json"
 if [[ -f "$_pkg" ]]; then
@@ -1609,6 +1609,7 @@ cmd_install() {
     local LATEST_TAG
     LATEST_TAG=$(latest_tag "$INSTALL_DIR" "$(detect_channel "v${VERSION}")")
     if [[ -n "$LATEST_TAG" ]]; then
+      prepare_checkout "$INSTALL_DIR"
       p_spin "Checking out ${LATEST_TAG}" git -C "$INSTALL_DIR" -c advice.detachedHead=false checkout "$LATEST_TAG" \
         || die "Could not check out ${LATEST_TAG} (local changes in ${INSTALL_DIR}?)."
     else
@@ -1630,6 +1631,7 @@ cmd_install() {
   fi
   p_ok "Repository ready at ${INSTALL_DIR}"
   cd "$INSTALL_DIR"
+  git config core.fileMode false
 
   # ── .env (secrets of an existing .env are kept) ────────────
   AUTH_SECRET=$(env_get .env AUTH_SECRET);       [[ -n "$AUTH_SECRET" ]]    || AUTH_SECRET=$(openssl rand -base64 32)
@@ -1698,8 +1700,7 @@ cmd_install() {
   check_app_http || true
   mkdir -p "$LEKSIS_CONF_DIR"; chmod 700 "$LEKSIS_CONF_DIR"
   printf 'INSTALL_DIR=%s\n' "$INSTALL_DIR" >"$INSTALL_CONF"
-  chmod +x "${INSTALL_DIR}/install.sh" 2>/dev/null || true
-  ln -sfn "${INSTALL_DIR}/install.sh" /usr/local/bin/leksis 2>/dev/null || true
+  install_launcher
   rm -f "$ANSWERS_SAVE"
 
   p_header "Installation Complete!"
@@ -1725,6 +1726,29 @@ cmd_install() {
 }
 
 # ── Mode: update ──────────────────────────────────────────────
+# prepare_checkout DIR — makes `git checkout <tag>` safe on an install directory:
+# file-mode changes are ignored (chmod +x on install.sh used to block updates) and
+# real local edits to tracked files are stashed instead of aborting the update.
+prepare_checkout() {
+  local dir="$1"
+  git -C "$dir" config core.fileMode false
+  if [[ -n "$(git -C "$dir" status --porcelain --untracked-files=no 2>/dev/null)" ]]; then
+    p_warn "Local changes found in ${dir} — saving them with 'git stash' before switching versions."
+    git -C "$dir" stash push -q -m "leksis-update-$(date +%Y%m%d-%H%M%S)" \
+      || die "Could not stash the local changes in ${dir}. Review them with: git -C ${dir} status"
+    p_info "Restore them later with: git -C ${dir} stash pop"
+  fi
+  return 0
+}
+
+# install_launcher — /usr/local/bin/leksis runs the install dir's install.sh
+# (a wrapper rather than a symlink: it does not depend on the file's exec bit)
+install_launcher() {
+  printf '#!/usr/bin/env bash\nexec bash "%s/install.sh" "$@"\n' "$INSTALL_DIR" >/usr/local/bin/leksis 2>/dev/null \
+    && chmod 755 /usr/local/bin/leksis 2>/dev/null || p_warn "Could not create /usr/local/bin/leksis — run ${INSTALL_DIR}/install.sh instead."
+  return 0
+}
+
 # rollback_app SHA — puts the sources back and rebuilds the app container
 rollback_app() {
   local sha="$1"
@@ -1788,6 +1812,7 @@ cmd_update() {
   fi
 
   if [[ -n "$target" ]]; then
+    prepare_checkout "$INSTALL_DIR"
     p_spin "Switching to ${target}" git -c advice.detachedHead=false checkout "$target" \
       || die "Could not check out ${target} (local changes in ${INSTALL_DIR}?)."
     [[ " $components " == *" app "* ]] \
@@ -1832,6 +1857,7 @@ cmd_update() {
   fi
 
   check_app_http || true
+  install_launcher
   p_header "Update Complete"
   p_ok "Now on $(current_ref). Volumes (database, models, uploads) preserved."
   if [[ ${#FAILED_MODELS[@]} -gt 0 ]]; then p_warn "Models not pulled: ${FAILED_MODELS[*]}"; fi
@@ -1897,7 +1923,10 @@ cmd_uninstall() {
   p_info "Removing installation directory..."
   cd /
   rm -rf "$INSTALL_DIR"
-  [[ "$(readlink /usr/local/bin/leksis 2>/dev/null)" == "${INSTALL_DIR}/install.sh" ]] && rm -f /usr/local/bin/leksis
+  if [[ "$(readlink /usr/local/bin/leksis 2>/dev/null)" == "${INSTALL_DIR}/install.sh" ]] \
+     || grep -qs "${INSTALL_DIR}/install.sh" /usr/local/bin/leksis; then
+    rm -f /usr/local/bin/leksis
+  fi
   rm -f "$INSTALL_CONF" "$ANSWERS_SAVE"
 
   p_header "Uninstall Complete"

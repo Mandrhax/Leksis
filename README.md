@@ -17,6 +17,10 @@ Leksis is a self-hosted, all-in-one platform for text translation, document proc
 
 ## 🎉 What's new
 
+### v1.1.0-beta.3 (beta)
+- Fix: `update` no longer aborts with "local changes would be overwritten" on `install.sh` (file-mode changes are ignored; real local edits are stashed and can be restored with `git stash pop`)
+- The `leksis` command is now a small launcher script instead of a symlink
+
 ### v1.1.0-beta.2 (beta)
 - **Admin → Services → AI**: model fields are now dropdowns (installed models, suggested ones such as `translategemma:27b` / `12b` / `4b`, or a custom name). Picking a model that is not installed offers **Download and use** — progress bar, then the configuration is saved automatically
 - Installer: translation model chosen from a list, progress bars for image / model downloads and the app build, screen cleared on the main menu, fix for default values starting with `-` in the terminal UI
@@ -102,7 +106,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### One-line install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.1.0-beta.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.1.0-beta.3/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
