@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, createContext, useContext } from 'react'
 import { useI18n } from '@/lib/i18n'
+import { useOllamaPull } from '@/hooks/useOllamaPull'
 import type { OllamaMetricsResult } from '@/app/api/admin/services/ollama/metrics/route'
 
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B'
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB']
@@ -35,7 +36,7 @@ interface OllamaMetricsCtx {
 
 const OllamaCtx = createContext<OllamaMetricsCtx | null>(null)
 
-function useOllamaMetrics() {
+export function useOllamaMetrics() {
   const ctx = useContext(OllamaCtx)
   if (!ctx) throw new Error('useOllamaMetrics must be used inside OllamaMetricsProvider')
   return ctx
@@ -267,11 +268,9 @@ export function OllamaPullBlock() {
   const { t } = useI18n()
   const { load } = useOllamaMetrics()
   const of = t.ollamaForm
+  const { pull, pulling, progress, status } = useOllamaPull()
 
   const [modelName, setModelName] = useState('')
-  const [pulling,   setPulling]   = useState(false)
-  const [progress,  setProgress]  = useState<number | null>(null)
-  const [status,    setStatus]    = useState('')
   const [error,     setError]     = useState<string | null>(null)
   const [success,   setSuccess]   = useState(false)
 
@@ -280,60 +279,15 @@ export function OllamaPullBlock() {
     const name = modelName.trim()
     if (!name || pulling) return
 
-    setPulling(true)
-    setProgress(null)
-    setStatus('')
     setError(null)
     setSuccess(false)
-
-    try {
-      const res = await fetch('/api/admin/services/ollama/pull', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: name }),
-      })
-
-      if (!res.ok || !res.body) {
-        setError(of.pullError)
-        return
-      }
-
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-
-        for (const line of lines) {
-          if (!line.trim()) continue
-          try {
-            const parsed = JSON.parse(line) as {
-              status?: string
-              total?: number
-              completed?: number
-            }
-            if (parsed.status) setStatus(parsed.status)
-            if (parsed.total && parsed.total > 0 && parsed.completed !== undefined) {
-              setProgress(Math.round((parsed.completed / parsed.total) * 100))
-            }
-            if (parsed.status === 'success') {
-              setSuccess(true)
-              setModelName('')
-              await load()
-            }
-          } catch { /* ignore malformed lines */ }
-        }
-      }
-    } catch {
-      setError(of.pullError)
-    } finally {
-      setPulling(false)
+    const result = await pull(name)
+    if (result.ok) {
+      setSuccess(true)
+      setModelName('')
+      await load()
+    } else {
+      setError(result.error ? `${of.pullError}: ${result.error}` : of.pullError)
     }
   }
 
@@ -372,7 +326,7 @@ export function OllamaPullBlock() {
             )}
           </div>
           {status && (
-            <p className="text-xs text-on-surface-variant truncate">{status}</p>
+            <p className="text-xs text-on-surface-variant truncate">{progress !== null ? `${progress}% — ` : ''}{status}</p>
           )}
         </div>
       )}

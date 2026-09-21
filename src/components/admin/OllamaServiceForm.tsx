@@ -1,8 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
+import { useOllamaMetrics } from './OllamaMetrics'
+import { OllamaModelSelect, type ModelSuggestion } from './OllamaModelSelect'
+
+// Approximate download sizes, shown next to models that are not installed yet
+const TRANSLATION_SUGGESTIONS: ModelSuggestion[] = [
+  { name: 'translategemma:27b', hint: '~17 GB' },
+  { name: 'translategemma:12b', hint: '~8 GB' },
+  { name: 'translategemma:4b',  hint: '~3 GB' },
+]
+const REWRITE_SUGGESTIONS: ModelSuggestion[] = [
+  { name: 'qwen2.5:14b', hint: '~9 GB' },
+  { name: 'qwen2.5:7b',  hint: '~5 GB' },
+  { name: 'qwen2.5:3b',  hint: '~2 GB' },
+  ...TRANSLATION_SUGGESTIONS,
+]
+const OCR_SUGGESTIONS: ModelSuggestion[] = [
+  { name: 'maternion/LightOnOCR-2:latest' },
+]
 
 interface OllamaData {
   baseUrl:          string
@@ -21,6 +39,8 @@ interface Props {
 
 export function OllamaServiceForm({ initial, onToast }: Props) {
   const { t } = useI18n()
+  const { data: metrics, load: reloadMetrics } = useOllamaMetrics()
+  const installed = metrics ? metrics.models.map(m => ({ name: m.name, size: m.size })) : null
   const legacyModel = initial.model ?? ''
   const [data, setData] = useState<OllamaData>({
     baseUrl:          initial.baseUrl          ?? '',
@@ -52,7 +72,7 @@ export function OllamaServiceForm({ initial, onToast }: Props) {
     }))
   }
 
-  async function handleSave() {
+  async function handleSave(successMessage?: string) {
     setSaving(true)
     try {
       const payload = {
@@ -69,12 +89,20 @@ export function OllamaServiceForm({ initial, onToast }: Props) {
         body: JSON.stringify(payload),
       })
       if (!res.ok) throw new Error()
-      onToast({ message: t.ollamaForm.toastSaved, type: 'success' })
+      onToast({ message: successMessage ?? t.ollamaForm.toastSaved, type: 'success' })
+      reloadMetrics()
     } catch {
       onToast({ message: t.ollamaForm.toastError, type: 'error' })
     } finally {
       setSaving(false)
     }
+  }
+
+  // "Download and use" finishes long after the render that started it: save with the latest form state
+  const saveRef = useRef(handleSave)
+  useEffect(() => { saveRef.current = handleSave })
+  function savePulled(model: string) {
+    void saveRef.current(t.ollamaForm.toastPulledUsed.replace('{0}', model))
   }
 
   async function handleWarmup() {
@@ -154,48 +182,48 @@ export function OllamaServiceForm({ initial, onToast }: Props) {
       </label>
 
       {data.sameModelForAll ? (
-        <div>
-          <label className="block text-sm text-on-surface mb-1.5">{t.ollamaForm.modelAllLabel}</label>
-          <input
-            type="text"
-            value={data.translationModel}
-            onChange={e => setField('translationModel', e.target.value)}
-            className={inputCls}
-            placeholder="translategemma:27b"
-          />
-        </div>
+        <OllamaModelSelect
+          label={t.ollamaForm.modelAllLabel}
+          value={data.translationModel}
+          onChange={v => setField('translationModel', v)}
+          installed={installed}
+          suggestions={TRANSLATION_SUGGESTIONS}
+          inputCls={inputCls}
+          onPulled={savePulled}
+          onRefresh={reloadMetrics}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div>
-            <label className="block text-sm text-on-surface mb-1.5">{t.ollamaForm.modelTranslation}</label>
-            <input
-              type="text"
-              value={data.translationModel}
-              onChange={e => setField('translationModel', e.target.value)}
-              className={inputCls}
-              placeholder="translategemma:27b"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-on-surface mb-1.5">{t.ollamaForm.modelRewrite}</label>
-            <input
-              type="text"
-              value={data.rewriteModel}
-              onChange={e => setField('rewriteModel', e.target.value)}
-              className={inputCls}
-              placeholder="translategemma:27b"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-on-surface mb-1.5">{t.ollamaForm.modelOcr}</label>
-            <input
-              type="text"
-              value={data.ocrModel}
-              onChange={e => setField('ocrModel', e.target.value)}
-              className={inputCls}
-              placeholder="maternion/LightOnOCR-2:latest"
-            />
-          </div>
+          <OllamaModelSelect
+            label={t.ollamaForm.modelTranslation}
+            value={data.translationModel}
+            onChange={v => setField('translationModel', v)}
+            installed={installed}
+            suggestions={TRANSLATION_SUGGESTIONS}
+            inputCls={inputCls}
+            onPulled={savePulled}
+            onRefresh={reloadMetrics}
+          />
+          <OllamaModelSelect
+            label={t.ollamaForm.modelRewrite}
+            value={data.rewriteModel}
+            onChange={v => setField('rewriteModel', v)}
+            installed={installed}
+            suggestions={REWRITE_SUGGESTIONS}
+            inputCls={inputCls}
+            onPulled={savePulled}
+            onRefresh={reloadMetrics}
+          />
+          <OllamaModelSelect
+            label={t.ollamaForm.modelOcr}
+            value={data.ocrModel}
+            onChange={v => setField('ocrModel', v)}
+            installed={installed}
+            suggestions={OCR_SUGGESTIONS}
+            inputCls={inputCls}
+            onPulled={savePulled}
+            onRefresh={reloadMetrics}
+          />
         </div>
       )}
 
@@ -252,7 +280,7 @@ export function OllamaServiceForm({ initial, onToast }: Props) {
           {warming ? t.ollamaForm.warmupLoading : t.ollamaForm.warmup}
         </button>
         <div className="flex-1" />
-        <button onClick={handleSave} disabled={saving} className="action-btn disabled:opacity-40">
+        <button onClick={() => handleSave()} disabled={saving} className="action-btn disabled:opacity-40">
           {saving ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
           ) : (

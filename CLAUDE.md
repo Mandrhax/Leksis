@@ -215,11 +215,12 @@ src/
 │       ├── GeneralForm.tsx              (Email contact, bannière, mode maintenance — sous-blocs en grille)
 │       ├── ExportImportForm.tsx         (Export/Import configuration JSON)
 │       ├── ServicesPanel.tsx            (Client wrapper pour OllamaServiceForm | DbServiceForm | CaddyServiceForm selon mode="ai"|"db"|"caddy")
-│       ├── OllamaServiceForm.tsx        (Config Ollama, test connexion, bouton "Load into VRAM" — POST /api/admin/services/ollama/warmup)
+│       ├── OllamaServiceForm.tsx        (Config Ollama : 3 sélecteurs de modèle `OllamaModelSelect`, test connexion, bouton "Load into VRAM" — POST /api/admin/services/ollama/warmup)
+│       ├── OllamaModelSelect.tsx        (Sélecteur de modèle : installés / suggérés non installés / « Autre… » ; modèle absent du serveur → « Télécharger et utiliser » = pull avec barre de progression puis sauvegarde de la config. Repli en input + datalist si le serveur est injoignable)
 │       ├── DbServiceForm.tsx            (Config PostgreSQL, test connexion)
 │       ├── CaddyServiceForm.tsx         (Config Caddy : host (CADDY_HOST), behindProxy toggle, nextauthUrl (NEXTAUTH_URL), preview Caddyfile live — PATCH /api/admin/services)
 │       ├── OllamaServicesLayout.tsx     (Layout page Ollama : grille [3fr_2fr] — gauche=formulaire+InstalledBlock, droite=StatusBlock+RunningBlock+PullBlock — wraps OllamaMetricsProvider)
-│       ├── OllamaMetrics.tsx            (Métriques Ollama : OllamaMetricsProvider (contexte fetch+delete), OllamaStatusBlock, OllamaInstalledBlock (corbeille par modèle), OllamaRunningBlock, OllamaPullBlock (barre de progression streaming), OllamaStatusStrip (bande live version/latence/modèles))
+│       ├── OllamaMetrics.tsx            (Métriques Ollama : OllamaMetricsProvider (contexte fetch+delete, `useOllamaMetrics` + `formatBytes` exportés), OllamaStatusBlock, OllamaInstalledBlock (corbeille par modèle), OllamaRunningBlock, OllamaPullBlock (barre de progression streaming), OllamaStatusStrip (bande live version/latence/modèles))
 │       ├── DbMetrics.tsx                (Métriques PostgreSQL live : statut serveur, connexions, tables application + DbStatusStrip (bande live version/taille/uptime/connexions))
 │       ├── CaddyMetrics.tsx             (Métriques Caddy live : reachable, version, upstream app:3000 health + CaddyStatusStrip (bande live version/statut/upstreams))
 │       ├── GlossaryAdmin.tsx            (CRUD glossaires nommés + entrées avec paires de langues + import CSV + export CSV client-side)
@@ -229,7 +230,8 @@ src/
 │       └── PurgeButton.tsx              (Purge avec confirmation et date)
 │
 ├── hooks/
-│   └── useCopyToClipboard.ts            (Hook partagé copie presse-papiers + feedback 2s)
+│   ├── useCopyToClipboard.ts            (Hook partagé copie presse-papiers + feedback 2s)
+│   └── useOllamaPull.ts                 (Hook client : pull d’un modèle via /api/admin/services/ollama/pull, progression agrégée par couche — utilisé par OllamaPullBlock et OllamaModelSelect)
 │
 ├── locales/
 │   ├── en.ts                            (Source canonique — définit le type Messages)
