@@ -8,6 +8,18 @@ import { UILanguageSwitcher } from '@/components/ui/UILanguageSwitcher'
 
 type Step = 'email' | 'otp'
 
+// Le proxy (middleware) construit callbackUrl avec l'adresse INTERNE du serveur Next (http://0.0.0.0:3000/…)
+// quand NEXTAUTH_URL n'est pas définie : on ne garde que le chemin, relatif à l'adresse réellement
+// utilisée par le navigateur (protège aussi contre une redirection vers un autre site).
+function safeCallbackPath(raw: string): string {
+  try {
+    const url = new URL(raw, window.location.origin)
+    return `${url.pathname}${url.search}${url.hash}`
+  } catch {
+    return '/'
+  }
+}
+
 export function SignInForm({ siteName }: { siteName: string }) {
   const searchParams = useSearchParams()
   const callbackUrl  = searchParams.get('callbackUrl') ?? '/'
@@ -66,7 +78,7 @@ export function SignInForm({ siteName }: { siteName: string }) {
         return
       }
 
-      window.location.href = callbackUrl
+      window.location.href = safeCallbackPath(callbackUrl)
     } finally {
       setLoading(false)
     }

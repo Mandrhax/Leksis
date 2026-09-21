@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.3.0-beta.3/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.3.0-beta.4/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,9 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.3.0-beta.4 (beta)
+- Fix: after signing in, users landed on the server's internal address (`http://0.0.0.0:3000/`) when `NEXTAUTH_URL` is empty — the sign-in redirect now keeps only the path and stays on the address the browser uses
 
 ### v1.3.0-beta.3 (beta)
 - Fix: an IP-based `NEXTAUTH_URL` left by older installs (e.g. `http://192.168.1.50`) sent users to the IP even through a domain or a reverse proxy — `leksis update` now removes it, `leksis config` offers to remove any pinned value, and the admin Caddy page warns while one is set
