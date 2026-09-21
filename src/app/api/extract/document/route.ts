@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseFile, parsePdf, isProbablyScanned, countBlockChars } from '@/lib/file-parser'
 import { parsePdfWithVision } from '@/lib/pdf-vision'
-import { OLLAMA_OCR_MODEL } from '@/lib/ollama'
+import { getAiOrError } from '@/lib/llm'
 import { DOCUMENT_MAX_CHARS, validateFileExtension } from '@/lib/validators'
 
 export async function POST(req: NextRequest) {
@@ -26,7 +26,9 @@ export async function POST(req: NextRequest) {
     if (ext === 'pdf') {
       blocks = await parsePdf(buffer)
       if (isProbablyScanned(blocks)) {
-        blocks = await parsePdfWithVision(buffer, req.signal, OLLAMA_OCR_MODEL)
+        const ai = await getAiOrError()
+        if (ai.error) return ai.error
+        blocks = await parsePdfWithVision(buffer, ai.ai.provider, ai.ai.cfg.ocrModel, req.signal)
       }
     } else {
       blocks = await parseFile(buffer, file.name)

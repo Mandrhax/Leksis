@@ -1,8 +1,8 @@
-// Server-only — OCR de PDFs scannés via Ollama vision
-// Convertit chaque page en PNG via pdfjs-dist + @napi-rs/canvas, puis appelle callOllama
+// Server-only — OCR de PDFs scannés via un modèle vision (Ollama ou API OpenAI-compatible)
+// Convertit chaque page en PNG via pdfjs-dist + @napi-rs/canvas, puis appelle provider.complete
 // LightOnOCR-2 retourne du texte/Markdown avec des tableaux en HTML — on parse les deux
 
-import { callOllama } from '@/lib/ollama'
+import type { LlmProvider } from '@/lib/llm/types'
 import { buildOcrPrompt } from '@/lib/prompts'
 import { textToBlocks } from '@/lib/file-parser'
 import type { Block } from '@/types/leksis'
@@ -64,7 +64,7 @@ function parseOcrOutput(text: string): Block[] {
   return blocks
 }
 
-export async function parsePdfWithVision(buffer: Buffer, signal?: AbortSignal, model?: string, baseUrl?: string): Promise<Block[]> {
+export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, model: string, signal?: AbortSignal): Promise<Block[]> {
   // Import dynamique pour éviter les problèmes de bundling côté client
   const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as string) as typeof import('pdfjs-dist')
   const { createCanvas } = await import('@napi-rs/canvas')
@@ -85,12 +85,11 @@ export async function parsePdfWithVision(buffer: Buffer, signal?: AbortSignal, m
 
     const base64 = canvas.toBuffer('image/png').toString('base64')
 
-    const pageOutput = await callOllama({
+    const pageOutput = await provider.complete({
       prompt: buildOcrPrompt(),
       images: [base64],
       signal,
       model,
-      baseUrl,
     })
 
     if (pageOutput.trim()) {

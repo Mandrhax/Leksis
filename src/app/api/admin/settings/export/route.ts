@@ -20,6 +20,13 @@ export async function GET() {
     settings.db_config = db
   }
 
+  // Supprimer la clé API chiffrée du serveur IA — jamais exportée
+  if (settings.ai_config && typeof settings.ai_config === 'object') {
+    const ai = { ...(settings.ai_config as Record<string, unknown>) }
+    delete ai.apiKeyEnc
+    settings.ai_config = ai
+  }
+
   // Supprimer logo et image de fond — fichiers locaux non portables
   if (settings.branding && typeof settings.branding === 'object') {
     const b = { ...(settings.branding as Record<string, unknown>) }

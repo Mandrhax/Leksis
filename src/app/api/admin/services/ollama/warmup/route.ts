@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/admin-guard'
-import { getOllamaConfig } from '@/lib/ollama'
+import { getOllamaAdminBase, aiErrorResponse } from '@/lib/llm'
 
 export async function POST(req: NextRequest) {
   const session = await getAdminSession()
@@ -14,7 +14,12 @@ export async function POST(req: NextRequest) {
   if (models.length === 0)
     return NextResponse.json({ error: 'No models provided' }, { status: 400 })
 
-  const { baseUrl } = await getOllamaConfig()
+  let baseUrl: string
+  try {
+    baseUrl = await getOllamaAdminBase()
+  } catch (err) {
+    return aiErrorResponse(err) ?? NextResponse.json({ error: 'AI configuration error' }, { status: 500 })
+  }
 
   const loaded: string[] = []
   const errors: { model: string; error: string }[] = []

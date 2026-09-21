@@ -78,7 +78,7 @@ Cette fonctionnalité **n'est pas une traduction**, mais une transformation du t
 - TypeScript
 - React 19
 - API server-side intégrée (Backend-for-Frontend)
-- Ollama (LLM local ou distant) via `/api/generate`
+- Moteur IA : Ollama (`/api/generate`) **ou** API compatible OpenAI (`/v1/chat/completions` — vLLM, LM Studio, llama.cpp, OpenAI…), local ou distant
 - Tailwind CSS v4 (configuration CSS-first avec `@theme`)
 - Fonts : Manrope (headlines) + Inter (body) via `next/font/google`
 - Material Symbols Outlined (icons) : **self-hébergé** — woff2 dans `public/fonts/material-symbols/`, `@font-face` + classe `.material-symbols-outlined` définis dans `globals.css`
@@ -109,7 +109,7 @@ Internet / NPM (SSL)
 - Le client React **NE DOIT JAMAIS** appeler Ollama directement
 - Toute interaction IA passe par une API server-side (`/api/*`)
 - Les prompts système sont **centralisés** dans `src/lib/prompts.ts`
-- Les appels IA sont **isolés** dans `src/lib/ollama.ts` (server-only)
+- Les appels IA sont **isolés** dans `src/lib/llm/` (server-only, point d'entrée `@/lib/llm`) — un fournisseur (Ollama ou OpenAI-compatible) pour les 3 fonctions
 - Aucun secret ne doit être exposé au client
 
 ---
@@ -146,8 +146,8 @@ src/
 │   │       ├── glossary/[id]/import/route.ts         (Import CSV POST)
 │   │       ├── logo/route.ts            (Upload/suppression du logo)
 │   │       ├── services/route.ts        (Config Ollama + PostgreSQL + Caddy GET/PATCH — discriminatedUnion sur service=)
-│   │       ├── services/ollama/test/route.ts    (Test connexion Ollama)
-│   │       ├── services/ollama/metrics/route.ts (Métriques Ollama : version, latence, modèles, running)
+│   │       ├── services/ai/test/route.ts        (Test de la config IA en cours d'édition : liste les modèles, latence, présence du modèle)
+│   │       ├── services/ai/metrics/route.ts     (Métriques du moteur IA : fournisseur, capacités, version, latence, modèles, modèles en mémoire)
 │   │       ├── services/ollama/unload/route.ts  (Décharge un modèle — keep_alive: 0)
 │   │       ├── services/ollama/warmup/route.ts  (Charge les modèles configurés en VRAM — keep_alive: -1, dédupliqués)
 │   │       ├── services/ollama/pull/route.ts    (Télécharge un modèle — stream ndjson de progression depuis /api/pull)
@@ -214,8 +214,8 @@ src/
 │       ├── TonesForm.tsx                (CRUD tonalités : label EN/FR/DE/IT, instruction prompt, on/off, min 1 / max 6)
 │       ├── GeneralForm.tsx              (Email contact, bannière, mode maintenance — sous-blocs en grille)
 │       ├── ExportImportForm.tsx         (Export/Import configuration JSON)
-│       ├── ServicesPanel.tsx            (Client wrapper pour OllamaServiceForm | DbServiceForm | CaddyServiceForm selon mode="ai"|"db"|"caddy")
-│       ├── OllamaServiceForm.tsx        (Config Ollama : 3 sélecteurs de modèle `OllamaModelSelect`, test connexion, bouton "Load into VRAM" — POST /api/admin/services/ollama/warmup)
+│       ├── ServicesPanel.tsx            (Client wrapper pour AiServiceForm | DbServiceForm | CaddyServiceForm selon mode="ai"|"db"|"caddy")
+│       ├── AiServiceForm.tsx            (Config du moteur IA : choix Ollama / API OpenAI-compatible, URL, clé API, case « serveurs hors réseau privé », 3 sélecteurs `OllamaModelSelect`, test connexion ; « Load into VRAM » seulement pour Ollama)
 │       ├── OllamaModelSelect.tsx        (Sélecteur de modèle : installés / suggérés non installés / « Autre… » ; modèle absent du serveur → « Télécharger et utiliser » = pull avec barre de progression puis sauvegarde de la config. Repli en input + datalist si le serveur est injoignable)
 │       ├── DbServiceForm.tsx            (Config PostgreSQL, test connexion)
 │       ├── CaddyServiceForm.tsx         (Config Caddy : host (CADDY_HOST), behindProxy toggle, nextauthUrl (NEXTAUTH_URL), preview Caddyfile live — PATCH /api/admin/services)
@@ -242,7 +242,7 @@ src/
 ├── lib/
 │   ├── i18n.tsx                         (I18nProvider, useI18n, UILocale — zero-dep)
 │   ├── caddy.ts                         (SERVER-ONLY: CaddyConfig, generateCaddyfile(), reloadCaddy() — POST http://caddy:2019/load)
-│   ├── ollama.ts                        (SERVER-ONLY: streamOllamaResponse, callOllama, getOllamaConfig)
+│   ├── llm/                             (SERVER-ONLY sauf types.ts : types, ollama-provider, openai-provider, config, service, network, index — voir « Moteur IA »)
 │   ├── prompts.ts                       (Factory prompts: translate, document, ocr, rewrite, correct)
 │   ├── tones.ts                         (SERVER-ONLY: DEFAULT_TONES, getConfiguredTones — fallback + migration DB)
 │   ├── file-parser.ts                   (SERVER-ONLY: parsePdf, parseDocx, parseTxt, Block model)
@@ -358,15 +358,43 @@ Classes CSS custom dans `globals.css` : `.icon-btn`, `.text-button`, `.action-bt
 
 ---
 
-## 🤖 Ollama & IA
+## 🤖 Moteur IA (Ollama ou API compatible OpenAI)
 
-- Ollama est configuré via variables d'environnement (`.env.development.local`)
-- `OLLAMA_BASE_URL=http://192.168.1.39:11434`
-- `OLLAMA_MODEL=translategemma:27b`
-- API utilisée : `/api/generate` avec `stream: true`
-- Tous les appels sont **exclusivement server-side** (`src/lib/ollama.ts`)
-- `streamOllamaResponse()` → `ReadableStream<Uint8Array>` pour les routes streaming
-- `callOllama()` → `string` pour les routes qui attendent le résultat complet (traduction document)
+Un **seul fournisseur** pour les 3 fonctions (traduction, réécriture, OCR) — choisi dans l'admin (Services → AI) ou à l'installation :
+
+| Fournisseur | API | Usage |
+|---|---|---|
+| `ollama` | `/api/generate` (NDJSON) | conteneur local (profil compose `ollama`) ou serveur Ollama distant |
+| `openai` | `/v1/chat/completions` (SSE) + `/v1/models` | vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI… (clé API optionnelle, `Authorization: Bearer`) |
+
+### Architecture (`src/lib/llm/`, server-only sauf `types.ts`)
+
+- `types.ts` — types partagés (importables côté client en `import type`) : `LlmProvider`, `LlmRequest`, `LlmCapabilities`, `AiMetricsResult`, `AiPublicConfig`
+- `ollama-provider.ts` / `openai-provider.ts` — `createOllamaProvider(url)` / `createOpenAiProvider(url, key)` : `stream(req)` → `ReadableStream<Uint8Array>` de **texte brut** (les routes et le client ne voient jamais NDJSON/SSE), `complete(req)` → `string`, `listModels()`. `openai` : `system` → message `system`, `images` (base64) → blocs `image_url` (data URI, MIME détecté), base `http://h:8000` normalisée en `.../v1`
+- `config.ts` — `getAiConfig()` (ai_config → ancienne clé `ollama_config` → env), `getAi()` / `getAiOrError()` (config + provider, **lève/renvoie une erreur si le serveur est externe non autorisé**), `getOllamaAdminBase()` (actions Ollama-only), `aiErrorResponse()`
+- `service.ts` — `fetchAiMetrics()` (modèles, latence, version, modèles en mémoire Ollama), `sameModelName()`
+- `network.ts` — `isExternalUrl()` : IP/nom hors réseau privé (RFC1918, loopback, link-local, CGNAT, `.local/.lan/.internal`, noms sans point) ; un nom public est résolu en DNS (fail closed)
+- `index.ts` — point d'entrée unique : **les routes n'importent que `@/lib/llm`** (plus de `src/lib/ollama.ts`)
+
+Usage dans une route : `const ai = await getAiOrError(); if (ai.error) return ai.error; const { cfg, provider } = ai.ai` puis `provider.stream({ prompt, system?, images?, model: cfg.translationModel, signal })` (streaming) ou `provider.complete(...)` (traduction document, OCR PDF via `parsePdfWithVision(buffer, provider, model, signal)`).
+
+### Configuration
+
+- Base `site_settings.ai_config` : `{ provider, baseUrl, apiKeyEnc, translationModel, ocrModel, rewriteModel, sameModelForAll, allowExternal }`. **La clé API est chiffrée AES-256-GCM (`crypto.ts`), jamais renvoyée au client** (`hasApiKey`), jamais dans le journal d'audit (`updateSetting(..., auditValue)`), jamais exportée ni importée (export/import strippent `apiKeyEnc`, l'import conserve aussi `allowExternal` existant)
+- Précédence : `ai_config` (base) → `ollama_config` (ancienne clé, lecture seule) → variables d'environnement `AI_PROVIDER`, `AI_BASE_URL`, `AI_API_KEY`, puis `OLLAMA_BASE_URL` ; les 3 modèles restent `OLLAMA_MODEL` / `OLLAMA_OCR_MODEL` / `OLLAMA_REWRITE_MODEL` (quel que soit le fournisseur). La clé enregistrée ne suit pas un changement d'URL/fournisseur (PATCH et test)
+- **Serveurs externes bloqués par défaut** : tant que `allowExternal` n'est pas coché (Admin → Services → AI : « Autoriser les serveurs hors du réseau privé »), toute requête vers un hôte hors réseau privé est refusée (403 `external_blocked`) et la sauvegarde d'une telle URL est rejetée. Les textes des utilisateurs quittent alors le réseau : c'est un choix explicite de l'admin
+- Capacités (`capabilities`) : seul Ollama sait `pull`, `delete`, `warmup` (VRAM), `unload`, `running`. Les routes `services/ollama/{pull,delete,warmup,unload}` répondent 400 pour un autre fournisseur ; l'UI masque ces blocs
+
+### Routes admin
+
+- `GET /api/admin/services/ai/metrics` (générique) et `POST /api/admin/services/ai/test` (teste la config **en cours d'édition** ; renvoie `ok`, `code`, `models`, `modelFound` — les messages sont construits côté client en i18n)
+- `PATCH /api/admin/services` avec `service: 'ai'` (zod `AiSchema`)
+
+### Points d'attention
+
+- Les prompts (`src/lib/prompts.ts`) sont des chaînes libres envoyées comme message `user` : avec certains modèles servis par vLLM (ex. TranslateGemma, dont le chat template attend une structure de contenu), le résultat peut différer de celui d'Ollama — à valider par modèle
+- Pas d'équivalent à `keep_alive` / `num_ctx` pour `openai` (gérés côté serveur) ; l'OCR exige un modèle multimodal
+- Aucun appel IA depuis le client, jamais (règle inchangée)
 
 ---
 
@@ -436,6 +464,11 @@ Le script `install.sh` à la racine du projet gère le cycle de vie complet de l
 Sans argument : menu interactif (`show_menu`, chaque commande dans un sous-shell pour revenir au menu en cas d'échec).
 
 ### Ollama local ou distant (RÈGLE)
+
+- **3 modes de moteur IA** (variable interne `OLLAMA_MODE`) : `local` (conteneur Ollama), `remote` (serveur Ollama) et **`openai`** (API compatible OpenAI). `.env` : `AI_PROVIDER` (`ollama`|`openai`), `AI_BASE_URL`, `AI_API_KEY` (en clair dans le `.env` chmod 600, masquée dans l'aperçu ; la clé enregistrée par l'admin — chiffrée en base — a priorité), `OLLAMA_BASE_URL` (copie de compatibilité) ; `COMPOSE_PROFILES=ollama` **uniquement** en `local`. Clés de réponse : `AI_MODE` (`local|remote|openai`), `AI_URL`, `AI_API_KEY` (les anciennes `OLLAMA_MODE` / `OLLAMA_URL` restent acceptées via `map_answer_aliases`)
+- Mode `openai` : `configure_openai_api` (URL normalisée en `.../v1`, clé via `p_secret`, test `GET /models` avec `openai_models`, avertissement `host_looks_private` si le serveur semble externe — l'app le bloquera tant que « Autoriser les serveurs hors du réseau privé » n'est pas coché dans l'admin) ; les modèles sont les **ids servis** (`ask_openai_model` propose la liste renvoyée par l'API) ; **aucun pull** (`ensure_models` vérifie seulement) ; pas de GPU / drivers / runtime
+- `sync_ai_config_db [yes]` remplace `sync_ollama_config_db` : met à jour `site_settings.ai_config` (ou l'ajoute à partir de l'ancienne `ollama_config`) ; `yes` efface aussi la clé chiffrée stockée quand le mode / l'URL / la clé changent, pour que la clé du `.env` s'applique
+- `migrate_env` ajoute `AI_PROVIDER=ollama`, `AI_BASE_URL`, `AI_API_KEY=` aux `.env` d'avant la 1.2
 
 - **Ollama est un profil compose** (`profiles: ["ollama"]` dans `docker-compose.yml`). `COMPOSE_PROFILES=ollama` dans `.env` = conteneur local ; vide = serveur distant. **Source de vérité du mode : `ollama_local_enabled`** (lit `COMPOSE_PROFILES`). Ne jamais réintroduire un `depends_on: ollama` sans `required: false` (Compose ≥ 2.20, vérifié par `install_docker` via `MIN_COMPOSE_VERSION`) ni coder `OLLAMA_BASE_URL` en dur dans le compose (`${OLLAMA_BASE_URL:-http://ollama:11434}`)
 - `app` a `extra_hosts: host.docker.internal:host-gateway` : une URL `localhost`/`127.x` saisie pour un Ollama distant est réécrite en `host.docker.internal` (`OLLAMA_URL` = vue des conteneurs, `OLLAMA_URL_HOSTSIDE` = vue de l'hôte pour les tests curl)

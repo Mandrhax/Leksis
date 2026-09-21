@@ -24,6 +24,8 @@ interface Props {
   installed:   InstalledModel[] | null
   suggestions: ModelSuggestion[]
   inputCls:    string
+  /** false = le serveur ne sait pas télécharger (API OpenAI-compatible) : simple avertissement */
+  canPull:     boolean
   /** Called once a model has been downloaded from this control (use it → save). */
   onPulled:    (model: string) => void
   /** Called after a download so the installed list can be reloaded. */
@@ -34,7 +36,7 @@ interface Props {
  * Model picker: installed models, suggestions still to download, or a free name.
  * Choosing a model that is not installed offers "Download and use".
  */
-export function OllamaModelSelect({ label, value, onChange, installed, suggestions, inputCls, onPulled, onRefresh }: Props) {
+export function OllamaModelSelect({ label, value, onChange, installed, suggestions, inputCls, canPull, onPulled, onRefresh }: Props) {
   const { t } = useI18n()
   const of = t.ollamaForm
   const id = useId()
@@ -117,7 +119,7 @@ export function OllamaModelSelect({ label, value, onChange, installed, suggestio
         {installed.length > 0 && (
           <optgroup label={of.modelGroupInstalled}>
             {installed.map(m => (
-              <option key={m.name} value={m.name}>{m.name} · {formatBytes(m.size)}</option>
+              <option key={m.name} value={m.name}>{m.size > 0 ? `${m.name} · ${formatBytes(m.size)}` : m.name}</option>
             ))}
           </optgroup>
         )}
@@ -161,12 +163,16 @@ export function OllamaModelSelect({ label, value, onChange, installed, suggestio
           ) : (
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs text-on-surface-variant flex items-center gap-1 min-w-0">
-                <span className="material-symbols-outlined text-[14px] shrink-0" aria-hidden="true">cloud_download</span>
-                <span className="truncate">{of.modelNotInstalled}</span>
+                <span className="material-symbols-outlined text-[14px] shrink-0" aria-hidden="true">
+                  {canPull ? 'cloud_download' : 'info'}
+                </span>
+                <span className="truncate">{canPull ? of.modelNotInstalled : of.modelNotListed}</span>
               </span>
-              <button type="button" onClick={handlePull} className="text-button text-xs shrink-0">
-                {of.modelPullAndUse}
-              </button>
+              {canPull && (
+                <button type="button" onClick={handlePull} className="text-button text-xs shrink-0">
+                  {of.modelPullAndUse}
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { callOllama, getOllamaConfig } from '@/lib/ollama'
+import { getAiOrError } from '@/lib/llm'
 import { buildDocumentTranslationPrompt } from '@/lib/prompts'
 
 export const maxDuration = 300
@@ -35,13 +35,16 @@ export async function POST(req: NextRequest) {
   const arrayBuffer = await file.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
 
+  const aiResult = await getAiOrError()
+  if (aiResult.error) return aiResult.error
+  const { cfg, provider } = aiResult.ai
+
   let blocks
   try {
     if (ext === 'pdf') {
       blocks = await parsePdf(buffer)
       if (isProbablyScanned(blocks)) {
-        const { ocrModel, baseUrl: docBaseUrl } = await getOllamaConfig()
-        blocks = await parsePdfWithVision(buffer, req.signal, ocrModel, docBaseUrl)
+        blocks = await parsePdfWithVision(buffer, provider, cfg.ocrModel, req.signal)
       }
     } else {
       blocks = await parseFile(buffer, file.name)
@@ -66,11 +69,11 @@ export async function POST(req: NextRequest) {
     targetLang,
   })
 
-  const [cfg, session] = await Promise.all([getOllamaConfig(), auth()])
+  const session = await auth()
 
   let translated: string
   try {
-    translated = await callOllama({ prompt, signal: req.signal, model: cfg.translationModel, baseUrl: cfg.baseUrl })
+    translated = await provider.complete({ prompt, signal: req.signal, model: cfg.translationModel })
   } catch (err) {
     return NextResponse.json({ error: `Translation failed: ${(err as Error).message}` }, { status: 502 })
   }

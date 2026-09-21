@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 300 // 5 min — needed for large model cold-start + long texts
-import { streamOllamaResponse, getOllamaConfig } from '@/lib/ollama'
+import { getAiOrError } from '@/lib/llm'
 import { buildTranslationPrompt, buildMarkdownTranslationPrompt } from '@/lib/prompts'
 import { validateTextInput } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
@@ -43,7 +43,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Target language is required.' }, { status: 400 })
   }
 
-  const [cfg, session] = await Promise.all([getOllamaConfig(), auth()])
+  const session = await auth()
+  const ai = await getAiOrError()
+  if (ai.error) return ai.error
+  const { cfg, provider } = ai.ai
 
   // Fetch glossary server-side (respects user preferences)
   const glossaryEntries = await fetchGlossaryEntries(
@@ -76,7 +79,7 @@ export async function POST(req: NextRequest) {
     charCount: text.length,
   })
 
-  const stream = streamOllamaResponse({ prompt, signal: req.signal, model: cfg.translationModel, baseUrl: cfg.baseUrl })
+  const stream = provider.stream({ prompt, signal: req.signal, model: cfg.translationModel })
 
   return new Response(stream, {
     headers: {

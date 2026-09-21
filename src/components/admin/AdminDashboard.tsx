@@ -104,17 +104,18 @@ export function AdminDashboard({ stats, recentActivity, appVersion }: Props) {
 
     async function fetchOne(key: ServiceHealth['key']) {
       try {
-        const res = await fetch(`/api/admin/services/${key === 'ollama' ? 'ollama' : key === 'db' ? 'db' : 'caddy'}/metrics`, { cache: 'no-store' })
+        const res = await fetch(`/api/admin/services/${key === 'ollama' ? 'ai' : key === 'db' ? 'db' : 'caddy'}/metrics`, { cache: 'no-store' })
         const data = await res.json()
 
         if (key === 'ollama') {
           setServices(s => s.map(svc => svc.key !== 'ollama' ? svc : {
             ...svc,
-            ok:      data.version != null,
-            version: data.version ?? null,
+            name:    data.provider ? (data.provider === 'openai' ? 'OpenAI API' : 'Ollama') : svc.name,
+            ok:      res.ok,
+            version: data.version || null,
             latency: data.latencyMs != null ? `${data.latencyMs} ms` : null,
           }))
-          setLoadedModels((data.running ?? []).length)
+          setLoadedModels((data.capabilities?.running ? (data.running ?? []) : (data.models ?? [])).length)
         } else if (key === 'db') {
           setServices(s => s.map(svc => svc.key !== 'db' ? svc : {
             ...svc,

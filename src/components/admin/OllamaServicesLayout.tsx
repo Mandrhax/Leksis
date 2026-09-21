@@ -1,10 +1,11 @@
 'use client'
 
 import { ServicesPanel }         from './ServicesPanel'
+import type { AiPublicConfig }  from '@/lib/llm/types'
 import { OllamaMetricsProvider, OllamaStatusBlock, OllamaStatusStrip, OllamaInstalledBlock, OllamaRunningBlock, OllamaPullBlock } from './OllamaMetrics'
 
 interface Props {
-  initial: { baseUrl: string; translationModel: string; ocrModel: string; rewriteModel: string; sameModelForAll: boolean }
+  initial: AiPublicConfig
 }
 
 export function OllamaServicesLayout({ initial }: Props) {

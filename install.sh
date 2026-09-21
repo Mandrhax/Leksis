@@ -68,8 +68,9 @@ GPU_NAME=""
 COMPOSE_FILE_VALUE="docker-compose.yml"
 OLLAMA_IMAGE="ollama/ollama:latest"
 COMPOSE_PROJECT="leksis"
-OLLAMA_MODE="local"          # local | remote
-OLLAMA_URL=""                # remote server URL as seen from the containers
+OLLAMA_MODE="local"          # AI engine: local (Ollama container) | remote (Ollama server) | openai (OpenAI-compatible API)
+AI_API_KEY=""                # API key of the OpenAI-compatible server (optional)
+OLLAMA_URL=""                # remote server / API base URL as seen from the containers
 OLLAMA_URL_HOSTSIDE=""       # same server as seen from this host (differs for host.docker.internal)
 OLLAMA_MODEL="$DEFAULT_MODEL"
 OLLAMA_OCR_MODEL="$DEFAULT_OCR_MODEL"
@@ -233,6 +234,20 @@ p_password() {
     if [[ "$p1" == "$p2" ]]; then printf '%s' "$p1"; return 0; fi
     p_warn "Passwords do not match. Try again."
   done
+}
+
+# p_secret KEY "prompt" → secret on stdout, no confirmation (API keys are pasted); empty allowed
+p_secret() {
+  local key="$1" prompt="$2" v
+  if p_preset "$key"; then return 0; fi
+  if $NONINTERACTIVE; then printf '%s' ""; return 0; fi
+  if $USE_GUM; then
+    v=$(gum input --password --header="$prompt" --prompt="> " </dev/tty 2>&3) || _abort
+  else
+    printf '  %s: ' "$prompt" >&3
+    read -rs v </dev/tty || _abort; echo >&3
+  fi
+  printf '%s' "$v"
 }
 
 # p_choose KEY "Header" default_value "value|Label" ... → selected value
@@ -655,7 +670,19 @@ load_answers_file() {
       if [[ -z "${!k+x}" ]]; then export "${k}=${v}"; fi
     fi
   done <"$1"
+  map_answer_aliases
   return 0
+}
+
+# alias_answer NEW OLD — LEKSIS_<NEW> defaults to LEKSIS_<OLD> (answer keys renamed in v1.2)
+alias_answer() {
+  local new="LEKSIS_$1" old="LEKSIS_$2"
+  if [[ -z "${!new+x}" && -n "${!old+x}" ]]; then export "${new}=${!old}"; fi
+  return 0
+}
+map_answer_aliases() {
+  alias_answer AI_MODE OLLAMA_MODE
+  alias_answer AI_URL  OLLAMA_URL
 }
 
 # ── Docker ────────────────────────────────────────────────────
@@ -927,9 +954,18 @@ ollama_local_enabled() {
 
 # load_config_from_env — fills the OLLAMA_* / mode globals from the installed .env
 load_config_from_env() {
-  local env="${INSTALL_DIR}/.env" v
-  if ollama_local_enabled; then OLLAMA_MODE="local"; OLLAMA_URL="http://ollama:11434"
-  else OLLAMA_MODE="remote"; OLLAMA_URL=$(env_get "$env" OLLAMA_BASE_URL); fi
+  local env="${INSTALL_DIR}/.env" v provider
+  provider=$(env_get "$env" AI_PROVIDER)
+  AI_API_KEY=$(env_get "$env" AI_API_KEY)
+  if [[ "$provider" == "openai" ]]; then
+    OLLAMA_MODE="openai"; OLLAMA_URL=$(env_get "$env" AI_BASE_URL)
+  elif ollama_local_enabled; then
+    OLLAMA_MODE="local"; OLLAMA_URL="http://ollama:11434"
+  else
+    OLLAMA_MODE="remote"
+    OLLAMA_URL=$(env_get "$env" AI_BASE_URL)
+    [[ -n "$OLLAMA_URL" ]] || OLLAMA_URL=$(env_get "$env" OLLAMA_BASE_URL)
+  fi
   # host.docker.internal only resolves inside containers — test it as localhost from here
   OLLAMA_URL_HOSTSIDE="${OLLAMA_URL/host.docker.internal/localhost}"
   v=$(env_get "$env" OLLAMA_MODEL);             OLLAMA_MODEL="${v:-$DEFAULT_MODEL}"
@@ -960,6 +996,14 @@ migrate_env() {
       _env_set COMPOSE_PROFILES "" "$env"
       p_info "Migrated .env: remote Ollama at ${url}."
     fi
+  fi
+  # Multi-provider AI engine (Ollama or OpenAI-compatible API): explicit provider + generic URL / key
+  if ! grep -q "^AI_PROVIDER=" "$env"; then
+    url=$(env_get "$env" OLLAMA_BASE_URL)
+    _env_set AI_PROVIDER "ollama" "$env"
+    _env_set AI_BASE_URL "${url:-http://ollama:11434}" "$env"
+    _env_set AI_API_KEY "" "$env"
+    p_info "Migrated .env: AI_PROVIDER=ollama."
   fi
 }
 
@@ -1135,6 +1179,39 @@ normalize_ollama_url() {
   printf '%s' "$u"
 }
 
+# normalize_openai_url RAW → base URL of an OpenAI-compatible API ("http://host:8000" → ".../v1")
+normalize_openai_url() {
+  local u="$1"
+  u="${u%"${u##*[![:space:]]}"}"; u="${u#"${u%%[![:space:]]*}"}"
+  [[ "$u" =~ ^https?:// ]] || u="http://${u}"
+  while [[ "$u" == */ ]]; do u="${u%/}"; done
+  [[ "$u" =~ ^https?://[^/]+$ ]] && u="${u}/v1"
+  printf '%s' "$u"
+}
+
+# openai_models URL [KEY] → served model ids, one per line; returns 1 when unreachable
+openai_models() {
+  local out
+  out=$(curl -fsS --max-time 10 ${2:+-H "Authorization: Bearer $2"} "${1}/models" 2>/dev/null) || return 1
+  { grep -oE '"id"[[:space:]]*:[[:space:]]*"[^"]*"' <<<"$out" \
+    | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/' | grep -v '^modelperm-'; } || true
+}
+
+# host_looks_private URL → 0 when the host is on a private network (Leksis blocks the others by default)
+host_looks_private() {
+  local h="${1#*://}"
+  h="${h%%/*}"; h="${h%%:*}"
+  if is_ipv4 "$h"; then
+    [[ "$h" =~ ^(10\.|127\.|192\.168\.|169\.254\.) ]] && return 0
+    [[ "$h" =~ ^172\.(1[6-9]|2[0-9]|3[01])\. ]] && return 0
+    [[ "$h" =~ ^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\. ]] && return 0
+    return 1
+  fi
+  [[ "$h" != *.* ]] && return 0
+  [[ "$h" =~ \.(local|lan|internal|home\.arpa|localdomain)$ ]] && return 0
+  return 1
+}
+
 # ollama_version URL → version string, returns 1 when unreachable
 ollama_version() {
   local out
@@ -1144,7 +1221,9 @@ ollama_version() {
 
 # list_models → installed model names, one per line (local container or remote server)
 list_models() {
-  if [[ "$OLLAMA_MODE" == "local" ]]; then
+  if [[ "$OLLAMA_MODE" == "openai" ]]; then
+    openai_models "${OLLAMA_URL_HOSTSIDE:-$OLLAMA_URL}" "$AI_API_KEY" || true
+  elif [[ "$OLLAMA_MODE" == "local" ]]; then
     docker compose exec -T ollama ollama list 2>/dev/null | awk 'NR > 1 { print $1 }' || true
   else
     { curl -fsS --max-time 10 "${OLLAMA_URL_HOSTSIDE:-$OLLAMA_URL}/api/tags" 2>/dev/null \
@@ -1154,7 +1233,8 @@ list_models() {
 
 model_present() {
   local m="$1"
-  [[ "$m" == *:* ]] || m="${m}:latest"
+  # "qwen2.5" and "qwen2.5:latest" are the same Ollama model; OpenAI-style ids are exact
+  if [[ "$OLLAMA_MODE" != "openai" && "$m" != *:* ]]; then m="${m}:latest"; fi
   grep -Fxq -- "$m" <<<"$2"
 }
 
@@ -1183,6 +1263,20 @@ ensure_models() {
   local -a missing=()
   models=$(printf '%s\n' "$OLLAMA_MODEL" "$OLLAMA_OCR_MODEL" "$OLLAMA_REWRITE_MODEL" | awk 'NF && !seen[$0]++')
   present=$(list_models)
+
+  # OpenAI-compatible API: models are loaded by the server — check only, never pull
+  if [[ "$OLLAMA_MODE" == "openai" ]]; then
+    if [[ -z "$present" ]]; then
+      p_warn "Could not list the models served by the API — skipping the model check."
+      return 0
+    fi
+    while IFS= read -r m; do
+      if model_present "$m" "$present"; then p_ok "Model served by the API: ${m}"
+      else p_warn "Model not served by the API: ${m} — available: $(tr '\n' ' ' <<<"$present")"; fi
+    done <<<"$models"
+    return 0
+  fi
+
   if [[ "$OLLAMA_MODE" == "remote" && -z "$present" ]]; then
     p_warn "Could not list the models of the remote Ollama server — skipping model check."
     return 0
@@ -1207,27 +1301,40 @@ ensure_models() {
   return 0
 }
 
-# sync_ollama_config_db — the admin panel (Services → AI) stores its own Ollama
-# config in site_settings and takes precedence over .env once saved: keep it in sync.
-sync_ollama_config_db() {
-  local exists url="$OLLAMA_URL"
+# sync_ai_config_db [yes] — the admin panel (Services → AI) keeps its own AI config in site_settings
+# (ai_config, or the older ollama_config) and it takes precedence over .env once saved: keep it in
+# sync after `leksis config`. With "yes" the stored (encrypted) API key is cleared so the AI_API_KEY
+# of .env applies. Nothing to do when the admin panel never saved a config.
+sync_ai_config_db() {
+  local wipe="${1:-no}" exists url="$OLLAMA_URL" provider="ollama"
   [[ "$OLLAMA_MODE" == "local" ]] && url="http://ollama:11434"
+  [[ "$OLLAMA_MODE" == "openai" ]] && provider="openai"
   exists=$(docker compose exec -T postgres psql -U leksis_user -d leksis -tAc \
-    "SELECT 1 FROM site_settings WHERE key = 'ollama_config'" 2>/dev/null | tr -d '[:space:]' || true)
+    "SELECT 1 FROM site_settings WHERE key IN ('ai_config', 'ollama_config') LIMIT 1" 2>/dev/null | tr -d '[:space:]' || true)
   [[ "$exists" == "1" ]] || return 0
   if docker compose exec -T postgres psql -U leksis_user -d leksis -q -v ON_ERROR_STOP=1 \
-      -v url="$url" -v tm="$OLLAMA_MODEL" -v om="$OLLAMA_OCR_MODEL" -v rm="$OLLAMA_REWRITE_MODEL" \
-      >/dev/null 2>&1 <<'SQL'
+      -v provider="$provider" -v url="$url" -v tm="$OLLAMA_MODEL" -v om="$OLLAMA_OCR_MODEL" \
+      -v rm="$OLLAMA_REWRITE_MODEL" -v wipe="$wipe" >/dev/null 2>&1 <<'SQL'
 UPDATE site_settings
-   SET value = value || jsonb_build_object('baseUrl', :'url', 'translationModel', :'tm',
-                                           'ocrModel', :'om', 'rewriteModel', :'rm'),
+   SET value = value || jsonb_build_object('provider', :'provider', 'baseUrl', :'url',
+                                           'translationModel', :'tm', 'ocrModel', :'om', 'rewriteModel', :'rm')
+                     || CASE WHEN :'wipe' = 'yes' THEN jsonb_build_object('apiKeyEnc', '') ELSE '{}'::jsonb END,
        updated_at = NOW()
- WHERE key = 'ollama_config';
+ WHERE key = 'ai_config';
+INSERT INTO site_settings (key, value, updated_at)
+SELECT 'ai_config',
+       value || jsonb_build_object('provider', :'provider', 'baseUrl', :'url',
+                                   'translationModel', :'tm', 'ocrModel', :'om', 'rewriteModel', :'rm')
+             || CASE WHEN :'wipe' = 'yes' THEN jsonb_build_object('apiKeyEnc', '') ELSE '{}'::jsonb END,
+       NOW()
+  FROM site_settings
+ WHERE key = 'ollama_config'
+   AND NOT EXISTS (SELECT 1 FROM site_settings WHERE key = 'ai_config');
 SQL
   then
-    p_ok "Admin panel Ollama settings synchronised."
+    p_ok "Admin panel AI settings synchronised."
   else
-    p_warn "Could not update the Ollama settings stored by the admin panel — check Services → AI."
+    p_warn "Could not update the AI settings stored by the admin panel — check Admin → Services → AI."
   fi
 }
 
@@ -1381,8 +1488,9 @@ save_answers() {
       printf 'LEKSIS_APP_HOST=%s\n'                 "$APP_HOST"
       printf 'LEKSIS_ADMIN_EMAIL=%s\n'              "$ADMIN_EMAIL"
       printf 'LEKSIS_ADMIN_NAME=%s\n'               "$ADMIN_NAME"
-      printf 'LEKSIS_OLLAMA_MODE=%s\n'              "$OLLAMA_MODE"
-      printf 'LEKSIS_OLLAMA_URL=%s\n'               "${OLLAMA_URL_RAW:-}"
+      printf 'LEKSIS_AI_MODE=%s\n'                  "$OLLAMA_MODE"
+      printf 'LEKSIS_AI_URL=%s\n'                   "${OLLAMA_URL_RAW:-}"
+      printf 'LEKSIS_AI_API_KEY=%s\n'               "$AI_API_KEY"
       printf 'LEKSIS_GPU_VENDOR=%s\n'               "${GPU_VENDOR:-none}"
       printf 'LEKSIS_OLLAMA_MODEL=%s\n'             "$OLLAMA_MODEL"
       printf 'LEKSIS_OLLAMA_OCR_MODEL=%s\n'         "$OLLAMA_OCR_MODEL"
@@ -1400,8 +1508,8 @@ save_answers() {
 configure_remote_ollama() {
   local raw url ver choice
   while true; do
-    raw=$(p_input OLLAMA_URL "Ollama server URL (e.g. http://192.168.1.50:11434)" "${OLLAMA_URL_RAW:-}")
-    p_unset_preset OLLAMA_URL
+    raw=$(p_input AI_URL "Ollama server URL (e.g. http://192.168.1.50:11434)" "${OLLAMA_URL_RAW:-}")
+    p_unset_preset AI_URL
     url=$(normalize_ollama_url "$raw")
     if ! validate_url "$url"; then
       $NONINTERACTIVE && die "Invalid Ollama URL: ${raw}"
@@ -1431,6 +1539,52 @@ configure_remote_ollama() {
   done
   p_warn "The Ollama API has no authentication — keep that server on a trusted network."
   p_info "On the remote machine Ollama must listen on the network (OLLAMA_HOST=0.0.0.0)."
+}
+
+# configure_openai_api — asks for and validates an OpenAI-compatible API (vLLM, LM Studio, llama.cpp, OpenAI…)
+configure_openai_api() {
+  local raw url choice models
+  while true; do
+    raw=$(p_input AI_URL "API base URL (e.g. http://192.168.1.50:8000/v1)" "${OLLAMA_URL_RAW:-}")
+    p_unset_preset AI_URL
+    url=$(normalize_openai_url "$raw")
+    if ! validate_url "$url"; then
+      $NONINTERACTIVE && die "Invalid API URL: ${raw}"
+      p_warn "Invalid URL: ${raw}"; continue
+    fi
+    OLLAMA_URL_RAW="$raw"
+    OLLAMA_URL_HOSTSIDE="$url"
+    OLLAMA_URL="$url"
+    # From inside a container, localhost is the container itself: use the host gateway
+    if [[ "$url" =~ ^(https?://)(localhost|127\.[0-9.]+|0\.0\.0\.0)(:[0-9]+)(/.*)?$ ]]; then
+      OLLAMA_URL="${BASH_REMATCH[1]}host.docker.internal${BASH_REMATCH[3]}${BASH_REMATCH[4]}"
+      p_info "API on this same host: the app will use ${OLLAMA_URL}."
+    fi
+    if [[ -n "${AI_API_KEY:-}" ]]; then
+      p_info "Keeping the current API key (enter a new one below to replace it)."
+    fi
+    local key
+    key=$(p_secret AI_API_KEY "API key (optional — leave empty if the server has none${AI_API_KEY:+, or to keep the current one})")
+    [[ -n "$key" ]] && AI_API_KEY="$key"
+    if models=$(openai_models "$url" "$AI_API_KEY") && [[ -n "$models" ]]; then
+      p_ok "API reachable at ${url} — $(wc -l <<<"$models" | tr -d ' ') model(s) served."
+      break
+    fi
+    p_warn "Cannot list the models at ${url}/models (server down, wrong URL or wrong API key)."
+    if $NONINTERACTIVE; then p_warn "Continuing anyway (non-interactive mode)."; break; fi
+    choice=$(p_choose OLLAMA_UNREACHABLE "What now?" retry \
+      "retry|Enter another URL / key" "continue|Continue anyway (configure it later)" "abort|Abort")
+    case "$choice" in
+      continue) break ;;
+      abort)    _abort ;;
+    esac
+  done
+  if ! host_looks_private "$url"; then
+    p_warn "This server looks EXTERNAL to your network: your users' texts would be sent to it."
+    p_warn "Leksis blocks external AI servers by default — after installing, tick"
+    p_warn "'Allow servers outside the private network' in Admin → Services → AI."
+  fi
+  return 0
 }
 
 # configure_local_ollama — GPU + runtime settings for the bundled container
@@ -1463,6 +1617,34 @@ ask_model() {
   done
 }
 
+# ai_engine_label → one-line description of the configured AI engine
+ai_engine_label() {
+  case "$OLLAMA_MODE" in
+    local)  echo "Ollama container on this server ($(gpu_label))" ;;
+    remote) echo "Ollama server ${OLLAMA_URL}" ;;
+    openai) echo "OpenAI-compatible API ${OLLAMA_URL}" ;;
+  esac
+}
+
+# ask_openai_model KEY "label" DEFAULT — pick among the models served by the API (free text if none listed)
+ask_openai_model() {
+  local key="$1" label="$2" default="$3" list m
+  local -a opts=()
+  list=$(list_models)
+  if [[ -n "$list" ]]; then
+    if [[ -z "$default" ]] || ! grep -Fxq -- "$default" <<<"$list"; then default=$(head -1 <<<"$list"); fi
+    if ! $NONINTERACTIVE && ! p_preset "$key" >/dev/null; then
+      while IFS= read -r m; do
+        [[ -n "$m" ]] && opts+=("${m}|${m}")
+      done <<<"$list"
+      m=$(p_choose "$key" "$label" "$default" "${opts[@]}")
+      printf '%s' "$m"
+      return 0
+    fi
+  fi
+  ask_model "$key" "$label" "$default"
+}
+
 # ask_translation_model DEFAULT — pick a TranslateGemma size from a list
 # (a current custom model stays selectable; LEKSIS_OLLAMA_MODEL may set any name)
 ask_translation_model() {
@@ -1481,8 +1663,12 @@ ask_translation_model() {
 
 # build_env_content — generated .env (globals must be set)
 build_env_content() {
-  local profiles="" base_url="http://ollama:11434"
-  if [[ "$OLLAMA_MODE" == "local" ]]; then profiles="ollama"; else base_url="$OLLAMA_URL"; fi
+  local profiles="" base_url="http://ollama:11434" provider="ollama"
+  case "$OLLAMA_MODE" in
+    local)  profiles="ollama" ;;
+    remote) base_url="$OLLAMA_URL" ;;
+    openai) base_url="$OLLAMA_URL"; provider="openai" ;;
+  esac
   cat <<EOF
 # Generated by install.sh v${VERSION} on $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -1499,6 +1685,9 @@ AUTH_TRUST_HOST=1
 CADDY_HOST=${CADDY_HOST}
 ENCRYPTION_KEY=${ENCRYPTION_KEY}
 
+AI_PROVIDER=${provider}
+AI_BASE_URL=${base_url}
+AI_API_KEY=${AI_API_KEY}
 OLLAMA_BASE_URL=${base_url}
 OLLAMA_MODEL=${OLLAMA_MODEL}
 OLLAMA_OCR_MODEL=${OLLAMA_OCR_MODEL}
@@ -1567,22 +1756,30 @@ cmd_install() {
   done
 
   # ── Step 4/5: Ollama ───────────────────────────────────────
-  p_header "Configuration 4/5 - Ollama (AI engine)"
-  OLLAMA_MODE=$(p_choose OLLAMA_MODE "Where does Ollama run?" "local" \
-    "local|Install Ollama in a container on this server" \
-    "remote|Use an Ollama server that already runs elsewhere")
-  if [[ "$OLLAMA_MODE" == "local" ]]; then
-    configure_local_ollama
-  else
-    GPU_VENDOR=""; GPU_NAME=""
-    configure_remote_ollama
-  fi
+  p_header "Configuration 4/5 - AI Engine"
+  OLLAMA_MODE=$(p_choose AI_MODE "Which AI engine should Leksis use?" "local" \
+    "local|Ollama in a container on this server" \
+    "remote|An Ollama server that already runs elsewhere" \
+    "openai|An OpenAI-compatible API (vLLM, LM Studio, llama.cpp, OpenAI…)")
+  case "$OLLAMA_MODE" in
+    local)  configure_local_ollama ;;
+    remote) GPU_VENDOR=""; GPU_NAME=""; configure_remote_ollama ;;
+    openai) GPU_VENDOR=""; GPU_NAME=""; configure_openai_api ;;
+    *)      die "Unknown AI mode: ${OLLAMA_MODE} (expected local, remote or openai)" ;;
+  esac
 
   # ── Step 5/5: Models + database password ───────────────────
   p_header "Configuration 5/5 - AI Models & Database"
-  OLLAMA_MODEL=$(ask_translation_model "$OLLAMA_MODEL")
-  OLLAMA_OCR_MODEL=$(ask_model OLLAMA_OCR_MODEL "OCR model" "$OLLAMA_MODEL")
-  OLLAMA_REWRITE_MODEL=$(ask_model OLLAMA_REWRITE_MODEL "Rewrite model" "$OLLAMA_MODEL")
+  if [[ "$OLLAMA_MODE" == "openai" ]]; then
+    p_info "Models are the ids served by the API (GET /models)."
+    OLLAMA_MODEL=$(ask_openai_model OLLAMA_MODEL "Translation model" "")
+    OLLAMA_OCR_MODEL=$(ask_openai_model OLLAMA_OCR_MODEL "OCR model (must accept images)" "$OLLAMA_MODEL")
+    OLLAMA_REWRITE_MODEL=$(ask_openai_model OLLAMA_REWRITE_MODEL "Rewrite model" "$OLLAMA_MODEL")
+  else
+    OLLAMA_MODEL=$(ask_translation_model "$OLLAMA_MODEL")
+    OLLAMA_OCR_MODEL=$(ask_model OLLAMA_OCR_MODEL "OCR model" "$OLLAMA_MODEL")
+    OLLAMA_REWRITE_MODEL=$(ask_model OLLAMA_REWRITE_MODEL "Rewrite model" "$OLLAMA_MODEL")
+  fi
   POSTGRES_PASSWORD=$(p_password POSTGRES_PASSWORD "Database password")
 
   # ── Summary ────────────────────────────────────────────────
@@ -1591,12 +1788,8 @@ cmd_install() {
   p_kv "App URL"       "$APP_URL"
   p_kv "Caddy host"    "$CADDY_HOST"
   p_kv "Admin"         "${ADMIN_EMAIL:-not set}"
-  if [[ "$OLLAMA_MODE" == "local" ]]; then
-    p_kv "Ollama"      "container on this server ($(gpu_label))"
-  else
-    p_kv "Ollama"      "remote server ${OLLAMA_URL}"
-  fi
-  p_kv "Models"        "${OLLAMA_MODEL}, ${OLLAMA_OCR_MODEL}, ${OLLAMA_REWRITE_MODEL}"
+  p_kv "AI engine"     "$(ai_engine_label)"
+  p_kv "Models"       "${OLLAMA_MODEL}, ${OLLAMA_OCR_MODEL}, ${OLLAMA_REWRITE_MODEL}"
   p_kv "DB password"   "$([[ -n "$POSTGRES_PASSWORD" ]] && echo 'custom' || echo 'auto-generated')"
   preflight_disk "$OLLAMA_MODE"
   preflight_network "$CADDY_HOST"
@@ -1660,7 +1853,7 @@ cmd_install() {
 
   p_header ".env Preview (secrets masked)"
   while IFS= read -r line; do
-    if [[ "$line" =~ ^(POSTGRES_PASSWORD|AUTH_SECRET|ENCRYPTION_KEY|DATABASE_URL)= ]]; then
+    if [[ "$line" =~ ^(POSTGRES_PASSWORD|AUTH_SECRET|ENCRYPTION_KEY|DATABASE_URL|AI_API_KEY)= ]]; then
       say "  ${line%%=*}=****"
     else
       say "  ${line}"
@@ -1719,8 +1912,7 @@ cmd_install() {
   p_kv "App URL"     "$APP_URL"
   p_kv "Admin"       "${ADMIN_EMAIL:-not set}"
   p_kv "Install dir" "$INSTALL_DIR"
-  if [[ "$OLLAMA_MODE" == "local" ]]; then p_kv "Ollama" "${OLLAMA_IMAGE} ($(gpu_label))"
-  else p_kv "Ollama" "remote — ${OLLAMA_URL}"; fi
+  p_kv "AI engine"   "$(ai_engine_label)"
   p_kv "Log file"    "${LOG_FILE:-n/a}"
   if [[ ${#FAILED_MODELS[@]} -gt 0 ]]; then
     say ""
@@ -1733,7 +1925,7 @@ cmd_install() {
   say "    leksis logs     - follow logs"
   say "    leksis update   - update to the latest release"
   say "    leksis backup   - backup database + uploads"
-  say "    leksis config   - edit models / Ollama location"
+  say "    leksis config   - edit the AI engine / models"
   say ""
 }
 
@@ -1808,7 +2000,8 @@ cmd_update() {
   local -a opts=("app|Application (rebuild from sources)" "caddy|Caddy reverse proxy (pull image)"
                  "postgres|PostgreSQL (pull minor updates)")
   ollama_local_enabled && opts+=("ollama|Ollama container (pull image)")
-  opts+=("models|AI models (pull the missing ones)")
+  if [[ "$OLLAMA_MODE" == "openai" ]]; then opts+=("models|AI models (check they are served by the API)")
+  else opts+=("models|AI models (pull the missing ones)"); fi
   local defaults="" components c
   [[ -n "$target" ]] && defaults="app"
   components=$(p_multi UPDATE_COMPONENTS "Components to update" "$defaults" "${opts[@]}")
@@ -1966,16 +2159,22 @@ cmd_status() {
   say ""; say "  === Containers ==="
   docker compose ps >&3 2>&1 || say "    (unavailable)"
 
-  say ""; say "  === Ollama ==="
-  if [[ "$OLLAMA_MODE" == "local" ]]; then
-    p_kv "Mode" "container on this server"
-    ensure_lspci; detect_gpu
-    p_kv "GPU" "$(gpu_label)"
-  else
-    p_kv "Mode" "remote server ${OLLAMA_URL}"
-    if ver=$(ollama_version "${OLLAMA_URL_HOSTSIDE:-$OLLAMA_URL}"); then p_ok "Reachable (version ${ver:-?})"
-    else p_warn "Not reachable from this host."; fi
-  fi
+  say ""; say "  === AI engine ==="
+  p_kv "Engine" "$(ai_engine_label)"
+  case "$OLLAMA_MODE" in
+    local)
+      ensure_lspci; detect_gpu
+      p_kv "GPU" "$(gpu_label)" ;;
+    remote)
+      if ver=$(ollama_version "${OLLAMA_URL_HOSTSIDE:-$OLLAMA_URL}"); then p_ok "Reachable (version ${ver:-?})"
+      else p_warn "Not reachable from this host."; fi ;;
+    openai)
+      if [[ -n "$(list_models)" ]]; then p_ok "API reachable"
+      else p_warn "API not reachable from this host (or no model listed)."; fi
+      if ! host_looks_private "$OLLAMA_URL"; then
+        p_warn "External server: allowed only if 'Allow servers outside the private network' is ticked in Admin → Services → AI."
+      fi ;;
+  esac
   local models m present
   models=$(printf '%s\n' "$OLLAMA_MODEL" "$OLLAMA_OCR_MODEL" "$OLLAMA_REWRITE_MODEL" | awk 'NF && !seen[$0]++')
   present=$(list_models)
@@ -2014,19 +2213,43 @@ cmd_config() {
   p_header "Leksis v${VERSION} - Configuration"
   say "  (press Enter to keep the current value)"
 
-  local old_mode="$OLLAMA_MODE" old_url="$OLLAMA_URL" old_m="$OLLAMA_MODEL" old_o="$OLLAMA_OCR_MODEL"
+  local old_mode="$OLLAMA_MODE" old_url="$OLLAMA_URL" old_key="$AI_API_KEY" old_m="$OLLAMA_MODEL" old_o="$OLLAMA_OCR_MODEL"
   local old_r="$OLLAMA_REWRITE_MODEL" old_k="$OLLAMA_KEEP_ALIVE" old_s="$OLLAMA_SCHED_SPREAD" old_x="$OLLAMA_MAX_LOADED_MODELS"
-  local old_pg new_pg OLLAMA_URL_RAW="$OLLAMA_URL_HOSTSIDE"
+  local old_pg new_pg key_changed="no" provider="ollama" OLLAMA_URL_RAW="$OLLAMA_URL_HOSTSIDE"
   old_pg=$(env_get .env POSTGRES_VERSION)
 
-  OLLAMA_MODE=$(p_choose OLLAMA_MODE "Where does Ollama run?" "$old_mode" \
-    "local|Container on this server" "remote|Server running elsewhere")
-  OLLAMA_MODEL=$(ask_translation_model "$old_m")
-  OLLAMA_OCR_MODEL=$(ask_model OLLAMA_OCR_MODEL "OCR model" "$old_o")
-  OLLAMA_REWRITE_MODEL=$(ask_model OLLAMA_REWRITE_MODEL "Rewrite model" "$old_r")
+  OLLAMA_MODE=$(p_choose AI_MODE "Which AI engine should Leksis use?" "$old_mode" \
+    "local|Ollama in a container on this server" \
+    "remote|An Ollama server running elsewhere" \
+    "openai|An OpenAI-compatible API (vLLM, LM Studio, llama.cpp, OpenAI…)")
+
+  # Connection first: the list of models to choose from comes from the server
+  case "$OLLAMA_MODE" in
+    local)
+      OLLAMA_URL="http://ollama:11434"; AI_API_KEY="" ;;
+    remote)
+      AI_API_KEY=""
+      [[ "$old_mode" == "remote" ]] || OLLAMA_URL_RAW=""
+      configure_remote_ollama ;;
+    openai)
+      if [[ "$old_mode" != "openai" ]]; then OLLAMA_URL_RAW=""; AI_API_KEY=""; fi
+      configure_openai_api ;;
+    *) die "Unknown AI mode: ${OLLAMA_MODE} (expected local, remote or openai)" ;;
+  esac
+
+  if [[ "$OLLAMA_MODE" == "openai" ]]; then
+    OLLAMA_MODEL=$(ask_openai_model OLLAMA_MODEL "Translation model" "$old_m")
+    OLLAMA_OCR_MODEL=$(ask_openai_model OLLAMA_OCR_MODEL "OCR model (must accept images)" "$old_o")
+    OLLAMA_REWRITE_MODEL=$(ask_openai_model OLLAMA_REWRITE_MODEL "Rewrite model" "$old_r")
+  else
+    # Coming from an API, its model ids mean nothing to Ollama: propose the usual models instead
+    if [[ "$old_mode" == "openai" ]]; then old_m="$DEFAULT_MODEL"; old_o=""; old_r=""; fi
+    OLLAMA_MODEL=$(ask_translation_model "$old_m")
+    OLLAMA_OCR_MODEL=$(ask_model OLLAMA_OCR_MODEL "OCR model" "${old_o:-$OLLAMA_MODEL}")
+    OLLAMA_REWRITE_MODEL=$(ask_model OLLAMA_REWRITE_MODEL "Rewrite model" "${old_r:-$OLLAMA_MODEL}")
+  fi
 
   if [[ "$OLLAMA_MODE" == "local" ]]; then
-    OLLAMA_URL="http://ollama:11434"
     # Runtime settings: defaults are -1 / true / 3 and are not asked at install time
     if [[ -n "${LEKSIS_OLLAMA_KEEP_ALIVE+x}${LEKSIS_OLLAMA_SCHED_SPREAD+x}${LEKSIS_OLLAMA_MAX_LOADED_MODELS+x}" ]] \
        || p_yesno CONFIG_RUNTIME "Edit the Ollama runtime settings (keep alive, GPU spread, max loaded models)?" "n"; then
@@ -2034,20 +2257,17 @@ cmd_config() {
       OLLAMA_SCHED_SPREAD=$(ask_validated OLLAMA_SCHED_SPREAD "GPU scheduling spread (true/false)" "$old_s" '^(true|false)$' "true or false")
       OLLAMA_MAX_LOADED_MODELS=$(ask_validated OLLAMA_MAX_LOADED_MODELS "Max models loaded in VRAM" "$old_x" '^[1-9][0-9]*$' "a number >= 1")
     fi
-  else
-    [[ "$old_mode" == "remote" ]] || OLLAMA_URL_RAW=""
-    configure_remote_ollama
   fi
   new_pg=$(p_input POSTGRES_VERSION "PostgreSQL version" "${old_pg:-18}")
 
   # ── Apply ──────────────────────────────────────────────────
-  if [[ "$old_mode" == "local" && "$OLLAMA_MODE" == "remote" ]]; then
+  if [[ "$old_mode" == "local" && "$OLLAMA_MODE" != "local" ]]; then
     if p_yesno REMOVE_OLLAMA_CONTAINER "Stop and remove the local Ollama container? (the models volume is kept)" "y"; then
       docker compose --profile ollama rm -sf ollama >/dev/null 2>&1 || true
     fi
     _env_set COMPOSE_PROFILES "" .env
     _env_set COMPOSE_FILE "docker-compose.yml" .env
-  elif [[ "$old_mode" == "remote" && "$OLLAMA_MODE" == "local" ]]; then
+  elif [[ "$old_mode" != "local" && "$OLLAMA_MODE" == "local" ]]; then
     select_gpu
     resolve_compose_files
     _env_set COMPOSE_PROFILES "ollama" .env
@@ -2055,6 +2275,10 @@ cmd_config() {
     _env_set OLLAMA_IMAGE "$OLLAMA_IMAGE" .env
     [[ "$GPU_VENDOR" == "nvidia" ]] && install_gpu_toolkit
   fi
+  [[ "$OLLAMA_MODE" == "openai" ]] && provider="openai"
+  _env_set AI_PROVIDER "$provider" .env
+  _env_set AI_BASE_URL "$OLLAMA_URL" .env
+  _env_set AI_API_KEY "$AI_API_KEY" .env
   _env_set OLLAMA_BASE_URL "$OLLAMA_URL" .env
   _env_set OLLAMA_MODEL "$OLLAMA_MODEL" .env
   _env_set OLLAMA_OCR_MODEL "$OLLAMA_OCR_MODEL" .env
@@ -2068,12 +2292,15 @@ cmd_config() {
   p_ok "Settings written to: ${INSTALL_DIR}/.env"
 
   local app_changed=false ollama_changed=false
-  [[ "$OLLAMA_MODE" != "$old_mode" || "$OLLAMA_URL" != "$old_url" || "$OLLAMA_MODEL" != "$old_m" \
-     || "$OLLAMA_OCR_MODEL" != "$old_o" || "$OLLAMA_REWRITE_MODEL" != "$old_r" ]] && app_changed=true
+  [[ "$OLLAMA_MODE" != "$old_mode" || "$OLLAMA_URL" != "$old_url" || "$AI_API_KEY" != "$old_key" \
+     || "$OLLAMA_MODEL" != "$old_m" || "$OLLAMA_OCR_MODEL" != "$old_o" \
+     || "$OLLAMA_REWRITE_MODEL" != "$old_r" ]] && app_changed=true
   [[ "$OLLAMA_KEEP_ALIVE" != "$old_k" || "$OLLAMA_SCHED_SPREAD" != "$old_s" \
      || "$OLLAMA_MAX_LOADED_MODELS" != "$old_x" ]] && ollama_changed=true
+  # A new server / mode / key: the key stored (encrypted) by the admin panel must not follow
+  [[ "$OLLAMA_MODE" != "$old_mode" || "$OLLAMA_URL" != "$old_url" || "$AI_API_KEY" != "$old_key" ]] && key_changed="yes"
 
-  if [[ "$old_mode" == "remote" && "$OLLAMA_MODE" == "local" ]]; then
+  if [[ "$old_mode" != "local" && "$OLLAMA_MODE" == "local" ]]; then
     p_spin "Starting the Ollama container" docker compose up -d ollama || true
     wait_healthy ollama 120 || true
   elif [[ "$OLLAMA_MODE" == "local" && "$ollama_changed" == true ]]; then
@@ -2082,10 +2309,10 @@ cmd_config() {
     fi
   fi
   if $app_changed; then
-    sync_ollama_config_db
+    sync_ai_config_db "$key_changed"
     p_spin "Applying the new configuration to the app" docker compose up -d app || true
     wait_healthy app 180 || true
-    if p_yesno CHECK_MODELS "Check for missing models and pull them now?" "y"; then ensure_models; fi
+    if p_yesno CHECK_MODELS "Check the models on the AI server now?" "y"; then ensure_models; fi
   fi
 
   if [[ "$new_pg" != "$old_pg" ]]; then
@@ -2095,6 +2322,7 @@ cmd_config() {
     p_warn "migration (pg_upgrade or pg_dump / pg_restore). The container has NOT been restarted."
   fi
   if [[ ${#FAILED_MODELS[@]} -gt 0 ]]; then p_warn "Models not pulled: ${FAILED_MODELS[*]}"; fi
+  return 0
 }
 
 # ── Interactive menu (no argument) ────────────────────────────
@@ -2139,7 +2367,7 @@ Commands:
   restore [file]     Restore a backup created by "backup"
   uninstall          Clean removal of all Leksis components
   status             Show live status of all services
-  config             Edit models, Ollama location (local container / remote server)
+  config             Edit the AI engine (local Ollama / remote Ollama / OpenAI-compatible API) and models
   logs [service]     Follow the logs of a service
 
 Options:
@@ -2156,14 +2384,15 @@ Unattended install example:
   cat > answers.env <<'ANS'
   LEKSIS_APP_HOST=leksis.example.com
   LEKSIS_ADMIN_EMAIL=admin@example.com
-  LEKSIS_OLLAMA_MODE=remote
-  LEKSIS_OLLAMA_URL=http://192.168.1.50:11434
+  LEKSIS_AI_MODE=openai
+  LEKSIS_AI_URL=http://192.168.1.50:8000/v1
+  LEKSIS_AI_API_KEY=sk-...          # optional
   ANS
   sudo ./install.sh --yes --answers answers.env install
 
-Answer keys: INSTALL_DIR REPO_URL APP_HOST ADMIN_EMAIL ADMIN_NAME OLLAMA_MODE
-(local|remote) OLLAMA_URL GPU_VENDOR (nvidia|amd|none) OLLAMA_MODEL OLLAMA_OCR_MODEL
-OLLAMA_REWRITE_MODEL POSTGRES_PASSWORD PULL_REMOTE_MODELS UPDATE_COMPONENTS (e.g. "app caddy")
+Answer keys: INSTALL_DIR REPO_URL APP_HOST ADMIN_EMAIL ADMIN_NAME AI_MODE
+(local|remote|openai) AI_URL AI_API_KEY GPU_VENDOR (nvidia|amd|none) OLLAMA_MODEL OLLAMA_OCR_MODEL
+OLLAMA_REWRITE_MODEL (the model ids, for any engine) POSTGRES_PASSWORD PULL_REMOTE_MODELS UPDATE_COMPONENTS (e.g. "app caddy")
 CONFIRM_DELETE CONFIRM_RESTORE. Prefix each with LEKSIS_.
 Ollama runtime overrides (not asked at install; editable with "config"):
 OLLAMA_KEEP_ALIVE (default -1)  OLLAMA_SCHED_SPREAD (true)  OLLAMA_MAX_LOADED_MODELS (3).
@@ -2212,6 +2441,7 @@ main() {
   check_root
   init_logging "$cmd"
   [[ -n "$ANSWERS_FILE" ]] && load_answers_file "$ANSWERS_FILE"
+  map_answer_aliases
   detect_pkg_manager
   ensure_base_deps
   ensure_gum

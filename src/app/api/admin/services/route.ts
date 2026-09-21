@@ -4,16 +4,19 @@ import { getAdminSession } from '@/lib/admin-guard'
 import { updateSetting, getSetting } from '@/lib/settings'
 import { encrypt } from '@/lib/crypto'
 import { generateCaddyfile, reloadCaddy } from '@/lib/caddy'
+import { getAiConfig, getAiPublicConfig, isExternalUrl } from '@/lib/llm'
 
-const OllamaSchema = z.object({
-  service:          z.literal('ollama'),
-  baseUrl:          z.string().url(),
+const AiSchema = z.object({
+  service:          z.literal('ai'),
+  provider:         z.enum(['ollama', 'openai']),
+  baseUrl:          z.string().url().refine(u => /^https?:\/\//i.test(u)),
+  apiKey:           z.string().optional(),      // vide = ne pas modifier
+  clearApiKey:      z.boolean().optional(),
   translationModel: z.string().min(1),
   ocrModel:         z.string().min(1),
   rewriteModel:     z.string().min(1),
   sameModelForAll:  z.boolean().optional(),
-  // backward-compat: ancienne clé "model"
-  model:            z.string().optional(),
+  allowExternal:    z.boolean().optional(),
 })
 
 const DbSchema = z.object({
@@ -32,13 +35,13 @@ const CaddySchema = z.object({
   nextauthUrl: z.union([z.string().url(), z.literal('')]).optional(),
 })
 
-const Schema = z.discriminatedUnion('service', [OllamaSchema, DbSchema, CaddySchema])
+const Schema = z.discriminatedUnion('service', [AiSchema, DbSchema, CaddySchema])
 
 export async function GET() {
   const session = await getAdminSession()
   if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
 
-  const ollama = await getSetting<Record<string, unknown>>('ollama_config')
+  const ai     = await getAiPublicConfig()
   const db     = await getSetting<Record<string, unknown>>('db_config')
   const caddy  = await getSetting<Record<string, unknown>>('caddy_config')
 
@@ -46,7 +49,7 @@ export async function GET() {
   const safeDb = { ...db }
   delete safeDb.passwordEnc
 
-  return NextResponse.json({ ollama, db: safeDb, caddy })
+  return NextResponse.json({ ai, db: safeDb, caddy })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -61,14 +64,45 @@ export async function PATCH(req: NextRequest) {
 
   const data = parsed.data
 
-  if (data.service === 'ollama') {
-    await updateSetting('ollama_config', {
+  if (data.service === 'ai') {
+    const existing = await getSetting<Record<string, unknown>>('ai_config')
+    const current  = await getAiConfig()
+    const allowExternal = data.allowExternal ?? (existing.allowExternal === true)
+
+    // Un serveur hors réseau privé reçoit les textes des utilisateurs : refusé sans autorisation explicite
+    if (!allowExternal && await isExternalUrl(data.baseUrl)) {
+      return NextResponse.json({ error: 'external_blocked' }, { status: 400 })
+    }
+
+    // La clé enregistrée ne suit pas un changement de serveur (elle ne doit pas partir vers une autre adresse)
+    const trimSlash = (u: string) => u.replace(/\/+$/, '')
+    const sameTarget = current.provider === data.provider && trimSlash(current.baseUrl) === trimSlash(data.baseUrl)
+    const apiKeyEnc = data.clearApiKey
+      ? ''
+      : data.apiKey
+        ? encrypt(data.apiKey)
+        : (sameTarget ? ((existing.apiKeyEnc as string | undefined) ?? '') : '')
+
+    const value = {
+      provider:         data.provider,
       baseUrl:          data.baseUrl,
+      apiKeyEnc,
       translationModel: data.translationModel,
       ocrModel:         data.ocrModel,
-      rewriteModel:     data.rewriteModel,
+      rewriteModel:     data.sameModelForAll ? data.translationModel : data.rewriteModel,
       sameModelForAll:  data.sameModelForAll ?? false,
-    }, session.user.id, session.user.email!)
+      allowExternal,
+    }
+    // Le journal d'audit ne reçoit jamais la clé, même chiffrée
+    await updateSetting('ai_config', value, session.user.id, session.user.email!, {
+      provider:         value.provider,
+      baseUrl:          value.baseUrl,
+      translationModel: value.translationModel,
+      ocrModel:         value.ocrModel,
+      rewriteModel:     value.rewriteModel,
+      allowExternal,
+      hasApiKey:        apiKeyEnc !== '',
+    })
   } else if (data.service === 'db') {
     const existing = await getSetting<Record<string, unknown>>('db_config')
     const passwordEnc = data.password

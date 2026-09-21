@@ -1,15 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { OllamaServiceForm } from './OllamaServiceForm'
+import { AiServiceForm }     from './AiServiceForm'
 import { DbServiceForm }     from './DbServiceForm'
 import { CaddyServiceForm }  from './CaddyServiceForm'
 import { AdminToast }        from './AdminToast'
 import type { ToastState }   from './AdminToast'
+import type { AiPublicConfig } from '@/lib/llm/types'
 
-interface OllamaProps {
+interface AiProps {
   mode: 'ai'
-  initial: { baseUrl: string; translationModel: string; ocrModel: string; rewriteModel: string; sameModelForAll: boolean }
+  initial: AiPublicConfig
 }
 
 interface DbProps {
@@ -22,7 +23,7 @@ interface CaddyProps {
   initial: { host: string; behindProxy: boolean }
 }
 
-type Props = OllamaProps | DbProps | CaddyProps
+type Props = AiProps | DbProps | CaddyProps
 
 export function ServicesPanel(props: Props) {
   const [toast, setToast] = useState<ToastState>(null)
@@ -30,7 +31,7 @@ export function ServicesPanel(props: Props) {
   return (
     <>
       {props.mode === 'ai'
-        ? <OllamaServiceForm initial={props.initial} onToast={setToast} />
+        ? <AiServiceForm     initial={props.initial} onToast={setToast} />
         : props.mode === 'db'
         ? <DbServiceForm     initial={props.initial} onToast={setToast} />
         : <CaddyServiceForm  initial={props.initial} onToast={setToast} />

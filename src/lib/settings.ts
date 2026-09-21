@@ -16,12 +16,14 @@ export async function getSetting<T = Record<string, unknown>>(key: string): Prom
 
 /**
  * Met à jour une clé de réglage (merge partiel) et journalise.
+ * `auditValue` : version expurgée de la valeur pour le journal (secrets, même chiffrés).
  */
 export async function updateSetting(
   key: string,
   value: object,
   userId: string,
-  userEmail: string
+  userEmail: string,
+  auditValue?: object
 ): Promise<void> {
   await query(
     `INSERT INTO site_settings (key, value, updated_at, updated_by)
@@ -32,7 +34,7 @@ export async function updateSetting(
            updated_by = $3`,
     [key, JSON.stringify(value), userId]
   )
-  await logAudit(userId, userEmail, 'UPDATE_SETTINGS', `settings:${key}`, value)
+  await logAudit(userId, userEmail, 'UPDATE_SETTINGS', `settings:${key}`, auditValue ?? value)
 }
 
 /**

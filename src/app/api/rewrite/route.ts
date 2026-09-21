@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { streamOllamaResponse, getOllamaConfig } from '@/lib/ollama'
+import { getAiOrError } from '@/lib/llm'
 import { buildRewritePrompt, buildCorrectPrompt, buildLangClause } from '@/lib/prompts'
 
 export const maxDuration = 300
@@ -55,7 +55,10 @@ export async function POST(req: NextRequest) {
     toneInstruction = matched.instruction
   }
 
-  const [cfg, session] = await Promise.all([getOllamaConfig(), auth()])
+  const session = await auth()
+  const ai = await getAiOrError()
+  if (ai.error) return ai.error
+  const { cfg, provider } = ai.ai
 
   // Fetch glossary server-side — rewrite is same-language, so only use "any → any" entries
   const glossaryEntries = await fetchGlossaryEntries(
@@ -86,7 +89,7 @@ export async function POST(req: NextRequest) {
     charCount: text.length,
   })
 
-  const stream = streamOllamaResponse({ system, prompt, signal: req.signal, model: cfg.rewriteModel, baseUrl: cfg.baseUrl })
+  const stream = provider.stream({ system, prompt, signal: req.signal, model: cfg.rewriteModel })
 
   return new Response(stream, {
     headers: {

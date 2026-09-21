@@ -16,12 +16,12 @@ function useServiceStatus(): ServiceStatus {
       try {
         const res = await fetch(url, { cache: 'no-store' })
         const data = await res.json()
-        setStatus(prev => ({ ...prev, [key]: data.reachable ?? data.ok ?? true }))
+        setStatus(prev => ({ ...prev, [key]: res.ok && (data.reachable ?? data.ok ?? true) }))
       } catch {
         setStatus(prev => ({ ...prev, [key]: false }))
       }
     }
-    check('ollama', '/api/admin/services/ollama/metrics')
+    check('ollama', '/api/admin/services/ai/metrics')
     check('db',     '/api/admin/services/db/metrics')
     check('caddy',  '/api/admin/services/caddy/metrics')
   }, [])

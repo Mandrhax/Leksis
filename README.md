@@ -17,6 +17,11 @@ Leksis is a self-hosted, all-in-one platform for text translation, document proc
 
 ## 🎉 What's new
 
+### v1.2.0 (in development)
+- **Choose your AI engine** — Ollama (local container or another server) **or any OpenAI-compatible API**: vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI… Pick it at install time (`leksis install` / `leksis config`) or in **Admin → Services → AI**
+- **Private by default** — an AI server outside your private network is blocked until an admin explicitly ticks *Allow servers outside the private network*; API keys are stored encrypted and never exported
+- The admin only shows the actions the engine supports (model download, VRAM loading and deletion are Ollama-only)
+
 ### v1.1.0-beta.4 (beta)
 - Installer: the OCR and rewrite models default to the chosen translation model; keep alive (`-1`), GPU spread (`true`) and max loaded models (`3`) are no longer asked — they can be edited later with `leksis config`
 - Installer: fixed the wrong "space = toggle" hint in the component picker (gum uses `x`)
@@ -81,7 +86,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 | Framework | Next.js 16 (App Router) + React 19 |
 | Language | TypeScript 5 |
 | Styling | Tailwind CSS v4 (CSS-first `@theme`) |
-| AI Backend | Ollama (`/api/generate`) — local or remote |
+| AI Backend | Ollama (`/api/generate`) or any OpenAI-compatible API (`/v1/chat/completions`) — local or remote |
 | Database | PostgreSQL 18 via `pg` |
 | Reverse proxy | Caddy v2 — HTTP/HTTPS, hot-reload via admin API |
 | Auth | next-auth v5 — OTP email-free login |
@@ -102,7 +107,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 | RAM | 8 GB (16 GB recommended for LLM inference) |
 | Disk | 40 GB free (model storage varies) |
 | Docker | ≥ 24.0 + Compose plugin ≥ 2.20 (installed by the script if missing) |
-| Ollama | ≥ 0.4 — as a container on the server, **or** an existing server elsewhere |
+| AI engine | Ollama ≥ 0.4 (container or existing server) **or** any OpenAI-compatible API |
 | Network | Internet access during install (Docker pull, model download) |
 
 > GPU is optional — CPU inference works but is significantly slower. NVIDIA and AMD variants available. With a remote Ollama server, no GPU is needed on the Leksis machine (and 15 GB of disk is enough).
@@ -132,14 +137,15 @@ leksis restore [file]   # Restore a backup
 leksis uninstall        # Clean removal of all Leksis components
 ```
 
-### Ollama: local container or remote server
+### AI engine: Ollama or an OpenAI-compatible API
 
-The installer asks where Ollama runs:
+The installer asks which AI engine Leksis should use:
 
-- **Local** — an `ollama` container on the Leksis server (GPU auto-detected).
-- **Remote** — an Ollama server you already run. Enter its URL; the installer tests it, lists the missing models and can pull them for you. On that machine Ollama must listen on the network (`OLLAMA_HOST=0.0.0.0`) — its API has no authentication, keep it on a trusted network. For an Ollama on the *same* host as Leksis, `http://localhost:11434` is rewritten to `host.docker.internal`.
+- **Local Ollama** — an `ollama` container on the Leksis server (GPU auto-detected).
+- **Remote Ollama** — an Ollama server you already run. Enter its URL; the installer tests it, lists the missing models and can pull them for you. On that machine Ollama must listen on the network (`OLLAMA_HOST=0.0.0.0`) — its API has no authentication, keep it on a trusted network. For an Ollama on the *same* host as Leksis, `http://localhost:11434` is rewritten to `host.docker.internal`.
+- **OpenAI-compatible API** — vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI… Enter the API base URL (e.g. `http://192.168.1.50:8000/v1`) and, if needed, an API key. The installer lists the models the API serves so you can pick them; nothing is downloaded.
 
-Switch later with `leksis config`. Under the hood the local container is the Docker Compose profile `ollama` (`COMPOSE_PROFILES=ollama` in `.env`).
+Switch later with `leksis config` or in **Admin → Services → AI** (where the API key can also be changed). An engine **outside your private network** is blocked until an admin ticks *Allow servers outside the private network* in that page — your users' texts would then leave your network. Under the hood the local Ollama container is the Docker Compose profile `ollama` (`COMPOSE_PROFILES=ollama` in `.env`); `AI_PROVIDER`, `AI_BASE_URL` and `AI_API_KEY` select the engine.
 
 ### Unattended install
 
@@ -147,8 +153,9 @@ Switch later with `leksis config`. Under the hood the local container is the Doc
 cat > answers.env <<'EOF'
 LEKSIS_APP_HOST=leksis.example.com
 LEKSIS_ADMIN_EMAIL=admin@example.com
-LEKSIS_OLLAMA_MODE=remote
-LEKSIS_OLLAMA_URL=http://192.168.1.50:11434
+LEKSIS_AI_MODE=openai
+LEKSIS_AI_URL=http://192.168.1.50:8000/v1
+LEKSIS_AI_API_KEY=sk-...   # optional
 EOF
 sudo ./install.sh --yes --answers answers.env install
 ```
@@ -224,7 +231,14 @@ If you already have an external proxy handling SSL termination, enable **Behind 
 
 ## 🤖 AI Models
 
-Leksis delegates all AI work to **Ollama**. Three models cover the four use cases:
+Leksis delegates all AI work to **one AI engine** for the three features (translation, rewriting, OCR):
+
+| Engine | Where | Notes |
+|---|---|---|
+| **Ollama** | container on the Leksis server, or an Ollama server elsewhere | model download, deletion and VRAM loading from the admin |
+| **OpenAI-compatible API** | vLLM, LM Studio, llama.cpp, LocalAI, OpenRouter, OpenAI… | optional API key; models are the ids served by the API (`GET /v1/models`) |
+
+Default Ollama models:
 
 | Model | Role |
 |---|---|
@@ -232,7 +246,9 @@ Leksis delegates all AI work to **Ollama**. Three models cover the four use case
 | `maternion/LightOnOCR-2:latest` | OCR — vision-based text extraction |
 | `qwen2.5:14b` | AI rewriting & correction |
 
-Models run **locally** on your infrastructure. No API keys, no usage quotas, no data leaving your network.
+With Ollama or an API on your own network, models run **on your infrastructure**: no usage quotas, no data leaving your network. An engine outside your private network is **blocked by default** — enable it explicitly in *Admin → Services → AI* (your users' texts will then leave your network).
+
+> OCR needs a vision-capable model. With an OpenAI-compatible server, check that the model you serve handles images and that its chat template suits the prompts (TranslateGemma on vLLM, for instance, may need testing).
 
 ---
 

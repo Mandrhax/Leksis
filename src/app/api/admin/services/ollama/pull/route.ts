@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/admin-guard'
-import { getOllamaConfig } from '@/lib/ollama'
+import { getOllamaAdminBase, aiErrorResponse } from '@/lib/llm'
 import { logAudit } from '@/lib/audit'
 
 export async function POST(req: NextRequest) {
@@ -11,7 +11,12 @@ export async function POST(req: NextRequest) {
   const model: string | undefined = body?.model
   if (!model?.trim()) return NextResponse.json({ error: 'Missing model' }, { status: 400 })
 
-  const { baseUrl } = await getOllamaConfig()
+  let baseUrl: string
+  try {
+    baseUrl = await getOllamaAdminBase()
+  } catch (err) {
+    return aiErrorResponse(err) ?? NextResponse.json({ error: 'AI configuration error' }, { status: 500 })
+  }
 
   let ollamaRes: Response
   try {

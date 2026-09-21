@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react'
 import { useI18n } from '@/lib/i18n'
 import { useOllamaPull } from '@/hooks/useOllamaPull'
-import type { OllamaMetricsResult } from '@/app/api/admin/services/ollama/metrics/route'
+import type { AiMetricsResult } from '@/lib/llm/types'
 
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B'
@@ -23,7 +23,7 @@ function formatExpiry(isoDate: string): string {
 }
 
 interface OllamaMetricsCtx {
-  data:         OllamaMetricsResult | null
+  data:         AiMetricsResult | null
   loading:      boolean
   error:        boolean
   updatedAt:    Date | null
@@ -43,7 +43,7 @@ export function useOllamaMetrics() {
 }
 
 export function OllamaMetricsProvider({ children }: { children: React.ReactNode }) {
-  const [data,      setData]      = useState<OllamaMetricsResult | null>(null)
+  const [data,      setData]      = useState<AiMetricsResult | null>(null)
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState(false)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
@@ -54,7 +54,7 @@ export function OllamaMetricsProvider({ children }: { children: React.ReactNode 
     setLoading(true)
     setError(false)
     try {
-      const res = await fetch('/api/admin/services/ollama/metrics')
+      const res = await fetch('/api/admin/services/ai/metrics')
       if (!res.ok) throw new Error()
       const json = await res.json()
       setData(json)
@@ -126,7 +126,7 @@ export function OllamaStatusBlock() {
     <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${data.version ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span className={`w-2 h-2 rounded-full bg-green-500`} />
           <h3 className="text-sm font-semibold text-on-surface">{of.blockStatus}</h3>
         </div>
         <button onClick={load} disabled={loading} className="icon-btn" title={of.metricsRefresh}>
@@ -156,6 +156,7 @@ export function OllamaStatusBlock() {
 }
 
 export function OllamaStatusStrip() {
+  const { t } = useI18n()
   const { data, loading, error, load } = useOllamaMetrics()
 
   const ok = !error && data?.version != null
@@ -172,7 +173,7 @@ export function OllamaStatusStrip() {
       {ok && data ? (
         <>
           <span className="text-sm text-on-surface-variant">
-            Version: <span className="font-semibold text-on-surface">{data.version}</span>
+            Version: <span className="font-semibold text-on-surface">{data.version || '—'}</span>
           </span>
           <span className="text-sm text-on-surface-variant">
             Latency: <span className="font-semibold text-on-surface">{data.latencyMs} ms</span>
@@ -180,12 +181,14 @@ export function OllamaStatusStrip() {
           <span className="text-sm text-on-surface-variant">
             Models: <span className="font-semibold text-on-surface">{data.models.length}</span>
           </span>
-          <span className="text-sm text-on-surface-variant">
-            In VRAM: <span className="font-semibold text-on-surface">{data.running.length}</span>
-          </span>
+          {data.capabilities.running && (
+            <span className="text-sm text-on-surface-variant">
+              In VRAM: <span className="font-semibold text-on-surface">{data.running.length}</span>
+            </span>
+          )}
         </>
       ) : (
-        <span className="text-sm font-medium text-error">Ollama unreachable — check configuration</span>
+        <span className="text-sm font-medium text-error">{t.ollamaForm.metricsOffline}</span>
       )}
       <button
         type="button"
@@ -239,21 +242,25 @@ export function OllamaInstalledBlock() {
                   )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0 ml-4">
-                  <span className="text-xs text-on-surface-variant">
-                    {formatBytes(m.size)}
-                  </span>
-                  <button
-                    onClick={() => !isConfigured && !isDeleting && handleDelete(m.name)}
-                    disabled={isConfigured || isDeleting}
-                    title={isConfigured ? of.deleteBlockedConfigured : of.actionDelete}
-                    className={`icon-btn text-[18px] transition-opacity ${
-                      isConfigured ? 'opacity-30 cursor-not-allowed' : 'text-on-surface-variant hover:text-error'
-                    }`}
-                  >
-                    <span className={`material-symbols-outlined text-[18px]${isDeleting ? ' animate-pulse' : ''}`}>
-                      delete
+                  {m.size > 0 && (
+                    <span className="text-xs text-on-surface-variant">
+                      {formatBytes(m.size)}
                     </span>
-                  </button>
+                  )}
+                  {data.capabilities.delete && (
+                    <button
+                      onClick={() => !isConfigured && !isDeleting && handleDelete(m.name)}
+                      disabled={isConfigured || isDeleting}
+                      title={isConfigured ? of.deleteBlockedConfigured : of.actionDelete}
+                      className={`icon-btn text-[18px] transition-opacity ${
+                        isConfigured ? 'opacity-30 cursor-not-allowed' : 'text-on-surface-variant hover:text-error'
+                      }`}
+                    >
+                      <span className={`material-symbols-outlined text-[18px]${isDeleting ? ' animate-pulse' : ''}`}>
+                        delete
+                      </span>
+                    </button>
+                  )}
                 </div>
               </div>
             )
@@ -266,7 +273,7 @@ export function OllamaInstalledBlock() {
 
 export function OllamaPullBlock() {
   const { t } = useI18n()
-  const { load } = useOllamaMetrics()
+  const { data: metrics, load } = useOllamaMetrics()
   const of = t.ollamaForm
   const { pull, pulling, progress, status } = useOllamaPull()
 
@@ -290,6 +297,9 @@ export function OllamaPullBlock() {
       setError(result.error ? `${of.pullError}: ${result.error}` : of.pullError)
     }
   }
+
+  // Un serveur OpenAI-compatible ne sait pas télécharger de modèles
+  if (metrics && !metrics.capabilities.pull) return null
 
   return (
     <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-4">
@@ -353,7 +363,7 @@ export function OllamaRunningBlock() {
   const { data, unloading, handleUnload } = useOllamaMetrics()
   const of = t.ollamaForm
 
-  if (!data) return null
+  if (!data || !data.capabilities.running) return null
 
   return (
     <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-3">

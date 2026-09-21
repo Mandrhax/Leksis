@@ -11,6 +11,7 @@ const ALLOWED_KEYS = [
   'rewrite_tones',
   'general',
   'ollama_config',
+  'ai_config',
   'db_config',
 ] as const
 
@@ -60,6 +61,24 @@ export async function POST(req: NextRequest) {
       delete safeValue.passwordEnc
       const merged = { ...safeValue, passwordEnc: existing.passwordEnc ?? '' }
       await updateSetting('db_config', merged, session.user.id, session.user.email!)
+      imported.push(key)
+      continue
+    }
+
+    if (key === 'ai_config') {
+      // Jamais de clé API importée, et jamais d'autorisation « serveur externe » importée :
+      // les deux restent ceux de cette instance
+      const existing = await getSetting<Record<string, unknown>>('ai_config')
+      const safeValue = { ...(value as Record<string, unknown>) }
+      delete safeValue.apiKeyEnc
+      const merged = {
+        ...safeValue,
+        apiKeyEnc:     existing.apiKeyEnc ?? '',
+        allowExternal: existing.allowExternal === true,
+      }
+      await updateSetting('ai_config', merged, session.user.id, session.user.email!, {
+        ...safeValue, allowExternal: merged.allowExternal, hasApiKey: merged.apiKeyEnc !== '',
+      })
       imported.push(key)
       continue
     }

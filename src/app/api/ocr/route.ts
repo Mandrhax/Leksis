@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { streamOllamaResponse, getOllamaConfig } from '@/lib/ollama'
+import { getAiOrError } from '@/lib/llm'
 import { buildOcrPrompt } from '@/lib/prompts'
 
 export const maxDuration = 300
@@ -35,7 +35,10 @@ export async function POST(req: NextRequest) {
   const arrayBuffer = await image.arrayBuffer()
   const base64 = Buffer.from(arrayBuffer).toString('base64')
 
-  const [cfg, session] = await Promise.all([getOllamaConfig(), auth()])
+  const session = await auth()
+  const ai = await getAiOrError()
+  if (ai.error) return ai.error
+  const { cfg, provider } = ai.ai
 
   logUsage({
     userId:    session?.user?.id,
@@ -46,7 +49,7 @@ export async function POST(req: NextRequest) {
   })
 
   const prompt = buildOcrPrompt()
-  const stream = streamOllamaResponse({ prompt, images: [base64], signal: req.signal, model: cfg.ocrModel, baseUrl: cfg.baseUrl })
+  const stream = provider.stream({ prompt, images: [base64], signal: req.signal, model: cfg.ocrModel })
 
   return new Response(stream, {
     headers: {
