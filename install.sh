@@ -125,6 +125,12 @@ p_kv()   { log_line "$1: $2"; printf '  %s%-18s%s %s\n' "$C_BOLD" "$1" "$C_RESET
 say()    { printf '%s\n' "$*" >&3; }
 die()    { p_err "$1"; exit 1; }
 
+# clear_screen — wipes the visible screen (scrollback kept); only in interactive mode
+clear_screen() {
+  if $TTY_OK && ! $NONINTERACTIVE; then printf '\033[H\033[2J' >&3; fi
+  return 0
+}
+
 p_banner() {
   if $USE_GUM; then
     gum style --border double --border-foreground 212 --bold --align center \
@@ -2052,6 +2058,7 @@ show_menu() {
   while true; do
     default="install"
     if [[ -f "$INSTALL_CONF" || -f "${DEFAULT_INSTALL_DIR}/.env" ]]; then default="status"; fi
+    clear_screen
     p_banner
     choice=$(p_choose MENU "What do you want to do?" "$default" \
       "install|install    Full installation on a fresh server" \
