@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.2-beta.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.2-beta.2/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,9 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.4.2-beta.2
+- Fix: the mobile header (tabs, help, language switcher, account menu) could overlap into an unreadable jumble on narrow screens — it's now two stacked rows on mobile instead of one overcrowded row
 
 ### v1.4.2-beta.1
 Workspace UI pass: mobile usability, accessibility, and small polish across the four tabs.
