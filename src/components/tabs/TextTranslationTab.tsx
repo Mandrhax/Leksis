@@ -27,9 +27,10 @@ interface Props {
   defaultSourceLang?: string
   defaultTargetLang?: string
   maxTextChars?:      number
+  defaultFormality?:  Formality
 }
 
-export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_CHARS }: Props) {
+export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_CHARS, defaultFormality = 'Informal' }: Props) {
   const { t } = useI18n()
 
   const [sourceText, setSourceText]     = useState('')
@@ -37,7 +38,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
   const [sourceLang, setSourceLang]     = useState<Language | null>(null)
   const [detectedLang, setDetectedLang] = useState<Language | null>(null)
   const [targetLang, setTargetLang]     = useState<Language>(DEFAULT_TARGET)
-  const [formality, setFormality]       = useState<Formality>('Informal')
+  const [formality, setFormality]       = useState<Formality>(defaultFormality)
   const [isLoading, setIsLoading]       = useState(false)
   const [error, setError]               = useState<string | null>(null)
 

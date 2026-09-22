@@ -11,6 +11,7 @@ interface BrandingData {
   darkMode:          boolean
   logoUrl?:          string
   backgroundImage?:  string
+  headerLogoSize:    string
 }
 
 interface Props {
@@ -23,6 +24,7 @@ export function BrandingForm({ initial, onToast }: Props) {
   const [data, setData] = useState<BrandingData>({
     ...initial,
     backgroundColor: initial.backgroundColor ?? '#f7f9fb',
+    headerLogoSize:  initial.headerLogoSize  ?? '32',
   })
   const [saving, setSaving] = useState(false)
 
@@ -289,6 +291,17 @@ export function BrandingForm({ initial, onToast }: Props) {
           className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f) }}
         />
+        <div>
+          <label className="block text-sm text-on-surface mb-1.5">{t.brandingForm.logoSizeLabel}</label>
+          <input
+            type="number"
+            min={16}
+            max={120}
+            value={data.headerLogoSize}
+            onChange={e => set('headerLogoSize', e.target.value)}
+            className="w-32 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+          />
+        </div>
       </div>
 
       {/* Couleur primaire */}

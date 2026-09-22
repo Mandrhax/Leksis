@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.3.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.0-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,12 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.4.0-beta.1 (beta)
+- *Admin → Settings* reorganized into tabs (Identity / Appearance / Features & limits / AI tones / General), matching the rest of the admin
+- "General" replaces the old "Access" tab name (it never held access-control settings — just contact, banner and maintenance)
+- Footer quotes toggle moved next to the other footer settings (Appearance); logo size moved next to the logo upload (Identity)
+- New setting: default tone (informal/formal) for English-source translations, in *Features & limits → Defaults*
 
 ### v1.3.0
 Simpler access setup, and a reorganized admin services UI.

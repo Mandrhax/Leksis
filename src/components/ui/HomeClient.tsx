@@ -10,7 +10,7 @@ import { UILanguageSwitcher }   from '@/components/ui/UILanguageSwitcher'
 import { HelpModal }            from '@/components/ui/HelpModal'
 import { I18nProvider, useI18n } from '@/lib/i18n'
 import { FR_QUOTES } from '@/lib/fr-quotes'
-import type { ToneConfig } from '@/types/leksis'
+import type { ToneConfig, Formality } from '@/types/leksis'
 
 type TabId = 'text' | 'document' | 'image' | 'rewrite'
 
@@ -31,6 +31,7 @@ interface Props {
   enabledTabs:       EnabledTabs
   defaultSourceLang: string
   defaultTargetLang: string
+  defaultFormality:  Formality
   maxTextChars:      number
   showFooterQuotes:  boolean
   configuredTones:   ToneConfig[]
@@ -44,7 +45,7 @@ export function HomeClient(props: Props) {
   )
 }
 
-function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, maxTextChars, showFooterQuotes, configuredTones }: Props) {
+function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, defaultFormality, maxTextChars, showFooterQuotes, configuredTones }: Props) {
   const { t, locale } = useI18n()
 
   const ALL_TABS: { id: TabId; label: string; icon: string }[] = [
@@ -124,7 +125,7 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
       {/* ── Main workspace ── */}
       <main className="flex-grow flex flex-col items-center px-6 md:px-8 pb-6 pt-6">
         <div className="w-full max-w-[1440px]">
-          {safeActiveTab === 'text'     && <TextTranslationTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} maxTextChars={maxTextChars} />}
+          {safeActiveTab === 'text'     && <TextTranslationTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} defaultFormality={defaultFormality} maxTextChars={maxTextChars} />}
           {safeActiveTab === 'document' && <DocumentStudioTab  defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} />}
           {safeActiveTab === 'image'    && <ImageExtractionTab defaultTargetLang={defaultTargetLang} />}
           {safeActiveTab === 'rewrite'  && <AIRewriteTab maxTextChars={maxTextChars} configuredTones={configuredTones} />}

@@ -1,5 +1,5 @@
 import { HomeClient } from '@/components/ui/HomeClient'
-import type { ToneConfig } from '@/types/leksis'
+import type { ToneConfig, Formality } from '@/types/leksis'
 import { DEFAULT_TONES } from '@/lib/tones'
 
 export const dynamic = 'force-dynamic'
@@ -8,16 +8,17 @@ async function loadPageSettings() {
   try {
     const { getAllSettings } = await import('@/lib/settings')
     const settings = await getAllSettings()
-    const branding  = (settings.branding  ?? {}) as { logoUrl?: string; siteName?: string }
+    const branding  = (settings.branding  ?? {}) as { logoUrl?: string; siteName?: string; headerLogoSize?: string }
     const design    = (settings.design    ?? {}) as {
-      headerLogoSize?: string
-      footerText?:     string
-      footerTextColor?: string
-      footerLinks?:    { label: string; url: string }[]
+      headerLogoSize?:   string
+      footerText?:       string
+      footerTextColor?:  string
+      footerLinks?:      { label: string; url: string }[]
+      showFooterQuotes?: boolean
     }
     const features  = (settings.features  ?? {}) as {
       tabs?:             { text?: boolean; document?: boolean; image?: boolean; rewrite?: boolean }
-      defaults?:         { sourceLang?: string; targetLang?: string }
+      defaults?:         { sourceLang?: string; targetLang?: string; formality?: Formality }
       limits?:           { maxTextChars?: number; maxDocChars?: number; maxImageMB?: number }
       showFooterQuotes?: boolean
     }
@@ -42,7 +43,8 @@ async function loadPageSettings() {
 
     return {
       logoUrl:           branding.logoUrl  ?? null,
-      logoSize:          parseInt(design.headerLogoSize ?? '32', 10),
+      // headerLogoSize moved from `design` to `branding` — fall back to the old key for installs that haven't re-saved yet
+      logoSize:          parseInt(branding.headerLogoSize ?? design.headerLogoSize ?? '32', 10),
       siteName:          branding.siteName ?? 'Leksis',
       footerText:        design.footerText      ?? '',
       footerTextColor:   design.footerTextColor ?? '',
@@ -50,8 +52,10 @@ async function loadPageSettings() {
       enabledTabs:       tabs,
       defaultSourceLang: features.defaults?.sourceLang ?? 'auto',
       defaultTargetLang: features.defaults?.targetLang ?? 'en',
+      defaultFormality:  features.defaults?.formality  ?? 'Informal',
       maxTextChars:      features.limits?.maxTextChars  ?? 5000,
-      showFooterQuotes:  features.showFooterQuotes !== false,
+      // showFooterQuotes moved from `features` to `design` — fall back to the old key for installs that haven't re-saved yet
+      showFooterQuotes:  (design.showFooterQuotes ?? features.showFooterQuotes) !== false,
       configuredTones,
     }
   } catch {
@@ -65,6 +69,7 @@ async function loadPageSettings() {
       enabledTabs:       { text: true, document: true, image: true, rewrite: true },
       defaultSourceLang: 'auto',
       defaultTargetLang: 'en',
+      defaultFormality:  'Informal' as Formality,
       maxTextChars:      5000,
       showFooterQuotes:  true,
       configuredTones:   DEFAULT_TONES,

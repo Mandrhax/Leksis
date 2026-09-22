@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { LANGUAGES } from '@/lib/languages'
 import type { ToastState } from './AdminToast'
+import type { Formality } from '@/types/leksis'
 import { useI18n } from '@/lib/i18n'
 
 interface FeaturesTabs {
@@ -15,6 +16,7 @@ interface FeaturesTabs {
 interface FeaturesDefaults {
   sourceLang: string
   targetLang: string
+  formality:  Formality
 }
 
 interface FeaturesLimits {
@@ -27,14 +29,12 @@ interface FeaturesData {
   tabs:             FeaturesTabs
   defaults:         FeaturesDefaults
   limits:           FeaturesLimits
-  showFooterQuotes: boolean
 }
 
 const DEFAULT_FEATURES: FeaturesData = {
   tabs:             { text: true, document: true, image: true, rewrite: true },
-  defaults:         { sourceLang: 'auto', targetLang: 'en' },
+  defaults:         { sourceLang: 'auto', targetLang: 'en', formality: 'Informal' },
   limits:           { maxTextChars: 5000, maxDocChars: 12000, maxImageMB: 10 },
-  showFooterQuotes: true,
 }
 
 interface Props {
@@ -48,7 +48,6 @@ export function FeaturesForm({ initial, onToast }: Props) {
     tabs:             { ...DEFAULT_FEATURES.tabs,     ...(initial.tabs     ?? {}) },
     defaults:         { ...DEFAULT_FEATURES.defaults, ...(initial.defaults ?? {}) },
     limits:           { ...DEFAULT_FEATURES.limits,   ...(initial.limits   ?? {}) },
-    showFooterQuotes: initial.showFooterQuotes !== false,
   })
   const [saving, setSaving] = useState(false)
 
@@ -169,6 +168,21 @@ export function FeaturesForm({ initial, onToast }: Props) {
               </select>
             </div>
           </div>
+          <div>
+            <label className="block text-sm text-on-surface mb-2">{t.featuresForm.formalityLabel}</label>
+            <div className="flex gap-2">
+              {(['Informal', 'Formal'] as const).map(f => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setDefault('formality', f)}
+                  className={`formal-btn ${data.defaults.formality === f ? 'border-primary text-primary' : ''}`}
+                >
+                  {f === 'Informal' ? t.featuresForm.formalityInformal : t.featuresForm.formalityFormal}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Section C — Limites */}
@@ -219,35 +233,6 @@ export function FeaturesForm({ initial, onToast }: Props) {
       </div>
 
       </div>{/* end grid */}
-
-      {/* Section Interface */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">{t.featuresForm.sectionInterface}</h3>
-        <label className="flex items-center justify-between gap-4 bg-surface-container border border-outline-variant/20 rounded-lg px-4 py-3 cursor-pointer hover:bg-surface-container/60 transition-colors">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-on-surface-variant text-base leading-none" aria-hidden="true">format_quote</span>
-            <div>
-              <span className="text-sm font-medium text-on-surface">{t.featuresForm.showFooterQuotesLabel}</span>
-              <span className="text-xs text-on-surface-variant ml-2">{t.featuresForm.showFooterQuotesDesc}</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={data.showFooterQuotes}
-            onClick={() => setData(prev => ({ ...prev, showFooterQuotes: !prev.showFooterQuotes }))}
-            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
-              data.showFooterQuotes ? 'bg-primary' : 'bg-outline-variant/40'
-            }`}
-          >
-            <span
-              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                data.showFooterQuotes ? 'translate-x-4' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </label>
-      </div>
 
       {/* Save */}
       <div className="flex justify-end pt-2">

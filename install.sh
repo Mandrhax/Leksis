@@ -16,12 +16,12 @@
 # Options: -y/--yes  --answers FILE  --dir DIR  --no-tui  -h/--help
 #
 # Run from a server via curl (stdin-safe):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.3.0/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.0-beta.1/install.sh)
 # ============================================================
 set -eEuo pipefail
 
 # ── VERSION (bumped at release; package.json wins when present) ──
-VERSION="1.3.0"
+VERSION="1.4.0-beta.1"
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "$0")"
 _pkg="$(dirname "$SCRIPT_PATH")/package.json"
 if [[ -f "$_pkg" ]]; then
