@@ -176,7 +176,7 @@ export function FeaturesForm({ initial, onToast }: Props) {
                   key={f}
                   type="button"
                   onClick={() => setDefault('formality', f)}
-                  className={`formal-btn ${data.defaults.formality === f ? 'border-primary text-primary' : ''}`}
+                  className={`formal-btn ${data.defaults.formality === f ? 'active' : ''}`}
                 >
                   {f === 'Informal' ? t.featuresForm.formalityInformal : t.featuresForm.formalityFormal}
                 </button>
