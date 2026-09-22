@@ -40,6 +40,9 @@ export function BrandingForm({ initial, onToast }: Props) {
   const [bgPreview,   setBgPreview]   = useState<string | null>(initial.backgroundImage ?? null)
   const bgInputRef = useRef<HTMLInputElement>(null)
 
+  // Fond : couleur ou image, jamais les deux en même temps
+  const [bgMode, setBgMode] = useState<'color' | 'image'>(initial.backgroundImage ? 'image' : 'color')
+
   const set = useCallback(<K extends keyof BrandingData>(k: K, v: BrandingData[K]) => {
     setData(prev => ({ ...prev, [k]: v }))
   }, [])
@@ -114,6 +117,12 @@ export function BrandingForm({ initial, onToast }: Props) {
     }
   }
 
+  function chooseBgMode(mode: 'color' | 'image') {
+    // Passer en couleur retire l'image existante : les deux ne coexistent jamais
+    if (mode === 'color' && bgPreview) handleBgRemove()
+    setBgMode(mode)
+  }
+
   // ── Save ──────────────────────────────────────────────────────────────────────
   async function handleSave() {
     setSaving(true)
@@ -158,67 +167,87 @@ export function BrandingForm({ initial, onToast }: Props) {
         <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.brandingForm.sectionBackground}</h3>
         <p className="text-xs text-on-surface-variant">{t.brandingForm.bgDesc}</p>
 
-        {/* Couleur de fond */}
-        <div>
-          <label className="block text-sm text-on-surface mb-1.5">{t.brandingForm.bgColorLabel}</label>
-          <div className="flex items-center gap-3">
-            <input type="color" value={data.backgroundColor} onChange={e => set('backgroundColor', e.target.value)}
-              className="w-10 h-10 rounded-lg border border-outline-variant/20 cursor-pointer bg-transparent p-0.5" />
-            <input type="text" value={data.backgroundColor} onChange={e => set('backgroundColor', e.target.value)}
-              className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface font-mono focus:outline-none focus:border-primary/50"
-              placeholder="#f7f9fb" />
-          </div>
+        {/* Couleur ou image — jamais les deux */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => chooseBgMode('color')}
+            className={`formal-btn ${bgMode === 'color' ? 'active' : ''}`}
+          >
+            <span className="material-symbols-outlined text-sm leading-none align-middle mr-1" aria-hidden="true">palette</span>
+            {t.brandingForm.bgModeColor}
+          </button>
+          <button
+            type="button"
+            onClick={() => chooseBgMode('image')}
+            className={`formal-btn ${bgMode === 'image' ? 'active' : ''}`}
+          >
+            <span className="material-symbols-outlined text-sm leading-none align-middle mr-1" aria-hidden="true">image</span>
+            {t.brandingForm.bgModeImage}
+          </button>
         </div>
 
-        {/* Image de fond */}
-        <div>
-          <label className="block text-sm text-on-surface mb-1.5">{t.brandingForm.bgImageLabel}</label>
-          <p className="text-xs text-on-surface-variant mb-3">{t.brandingForm.bgImageDesc}</p>
-          {bgPreview ? (
-            <div className="flex items-center gap-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={bgPreview}
-                alt="Background"
-                className="h-16 w-auto max-w-[200px] object-cover rounded border border-outline-variant/20 bg-surface-container"
-              />
-              <div className="flex flex-col gap-2">
-                <button type="button" onClick={() => bgInputRef.current?.click()} disabled={bgUploading} className="text-button text-xs">
-                  <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">upload</span>
-                  {t.brandingForm.logoReplace}
-                </button>
-                <button type="button" onClick={handleBgRemove} disabled={bgRemoving} className="text-button text-xs text-error">
-                  {bgRemoving
-                    ? <span className="material-symbols-outlined animate-spin text-sm leading-none" aria-hidden="true">progress_activity</span>
-                    : <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">delete</span>
-                  }
-                  {t.brandingForm.logoDelete}
-                </button>
-              </div>
+        {bgMode === 'color' ? (
+          <div>
+            <label className="block text-sm text-on-surface mb-1.5">{t.brandingForm.bgColorLabel}</label>
+            <div className="flex items-center gap-3">
+              <input type="color" value={data.backgroundColor} onChange={e => set('backgroundColor', e.target.value)}
+                className="w-10 h-10 rounded-lg border border-outline-variant/20 cursor-pointer bg-transparent p-0.5" />
+              <input type="text" value={data.backgroundColor} onChange={e => set('backgroundColor', e.target.value)}
+                className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface font-mono focus:outline-none focus:border-primary/50"
+                placeholder="#f7f9fb" />
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => bgInputRef.current?.click()}
-              disabled={bgUploading}
-              className="flex flex-col items-center justify-center w-full border-2 border-dashed border-outline-variant/30 rounded-xl py-8 gap-2 text-on-surface-variant hover:border-primary/40 hover:text-on-surface transition-colors"
-            >
-              {bgUploading
-                ? <span className="material-symbols-outlined animate-spin text-2xl" aria-hidden="true">progress_activity</span>
-                : <span className="material-symbols-outlined text-2xl" aria-hidden="true">add_photo_alternate</span>
-              }
-              <span className="text-sm">{bgUploading ? t.brandingForm.logoUploading : t.brandingForm.logoClickToChoose}</span>
-              <span className="text-xs text-on-surface-variant/60">{t.brandingForm.bgImageFormats}</span>
-            </button>
-          )}
-          <input
-            ref={bgInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml"
-            className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) handleBgUpload(f) }}
-          />
-        </div>
+          </div>
+        ) : (
+          <div>
+            <label className="block text-sm text-on-surface mb-1.5">{t.brandingForm.bgImageLabel}</label>
+            <p className="text-xs text-on-surface-variant mb-3">{t.brandingForm.bgImageDesc}</p>
+            {bgPreview ? (
+              <div className="flex items-center gap-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={bgPreview}
+                  alt="Background"
+                  className="h-16 w-auto max-w-[200px] object-cover rounded border border-outline-variant/20 bg-surface-container"
+                />
+                <div className="flex flex-col gap-2">
+                  <button type="button" onClick={() => bgInputRef.current?.click()} disabled={bgUploading} className="text-button text-xs">
+                    <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">upload</span>
+                    {t.brandingForm.logoReplace}
+                  </button>
+                  <button type="button" onClick={handleBgRemove} disabled={bgRemoving} className="text-button text-xs text-error">
+                    {bgRemoving
+                      ? <span className="material-symbols-outlined animate-spin text-sm leading-none" aria-hidden="true">progress_activity</span>
+                      : <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">delete</span>
+                    }
+                    {t.brandingForm.logoDelete}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => bgInputRef.current?.click()}
+                disabled={bgUploading}
+                className="flex flex-col items-center justify-center w-full border-2 border-dashed border-outline-variant/30 rounded-xl py-8 gap-2 text-on-surface-variant hover:border-primary/40 hover:text-on-surface transition-colors"
+              >
+                {bgUploading
+                  ? <span className="material-symbols-outlined animate-spin text-2xl" aria-hidden="true">progress_activity</span>
+                  : <span className="material-symbols-outlined text-2xl" aria-hidden="true">add_photo_alternate</span>
+                }
+                <span className="text-sm">{bgUploading ? t.brandingForm.logoUploading : t.brandingForm.logoClickToChoose}</span>
+                <span className="text-xs text-on-surface-variant/60">{t.brandingForm.bgImageFormats}</span>
+              </button>
+            )}
+            <input
+              ref={bgInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleBgUpload(f) }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Mode sombre */}

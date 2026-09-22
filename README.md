@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.0-beta.3/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.0-beta.4/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,9 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.4.0-beta.4 (beta)
+- *Admin → Settings → Identity*: the site background is now either a color or an image, picked with a toggle instead of showing both fields at once — switching to color removes any previously uploaded background image
 
 ### v1.4.0-beta.3 (beta)
 - Removed the "Preview" block from *Admin → Settings → Identity* (primary color swatch + site name) — not useful in practice
