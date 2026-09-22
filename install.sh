@@ -2352,10 +2352,12 @@ cmd_status() {
   docker compose ps >&3 2>&1 || say "    (unavailable)"
 
   say ""; say "  === AI engine ==="
+  if [[ "$OLLAMA_MODE" == "local" ]]; then
+    ensure_lspci; detect_gpu
+  fi
   p_kv "Engine" "$(ai_engine_label)"
   case "$OLLAMA_MODE" in
     local)
-      ensure_lspci; detect_gpu
       p_kv "GPU" "$(gpu_label)" ;;
     remote)
       if ver=$(ollama_version "${OLLAMA_URL_HOSTSIDE:-$OLLAMA_URL}"); then p_ok "Reachable (version ${ver:-?})"
