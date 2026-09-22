@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.1-beta.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -320,12 +320,10 @@ Users switch the UI language instantly with the language selector — the prefer
 
 ## 🎉 What's new
 
-### v1.4.1-beta.2 (beta)
-- Fix: on some window heights, "Back to app" and other sidebar items below the fold required scrolling the whole admin page — the sidebar's nav list now scrolls internally instead, keeping "Back to app" always pinned in view
-
-### v1.4.1-beta.1 (beta)
+### v1.4.1
 - *Admin → Backup* now clearly distinguishes the two backup mechanisms: a new "Full server backup" status card explains `leksis backup` is the only one usable with `leksis restore` (database, accounts, history, files, secrets) and shows when it last ran; "Export configuration" is relabeled and its description clarified as a settings/glossary snapshot, not a full backup
 - The configuration export now embeds the logo and background image themselves (base64) instead of dropping them — restoring a config no longer loses your branding images
+- Fix: on some window heights, "Back to app" and other sidebar items below the fold required scrolling the whole admin page — the sidebar's nav list now scrolls internally instead, keeping "Back to app" always pinned in view
 
 ### v1.4.0
 A reorganized Settings page, a couple of new settings, and a more useful admin dashboard.
