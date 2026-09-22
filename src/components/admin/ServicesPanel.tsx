@@ -1,18 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { AiServiceForm }     from './AiServiceForm'
 import { DbServiceForm }     from './DbServiceForm'
 import { CaddyServiceForm }  from './CaddyServiceForm'
 import { AdminToast }        from './AdminToast'
 import type { ToastState }   from './AdminToast'
-import type { AiPublicConfig } from '@/lib/llm/types'
 import type { CaddyConfig }     from '@/lib/caddy-config'
-
-interface AiProps {
-  mode: 'ai'
-  initial: AiPublicConfig
-}
 
 interface DbProps {
   mode: 'db'
@@ -24,16 +17,14 @@ interface CaddyProps {
   initial: CaddyConfig
 }
 
-type Props = AiProps | DbProps | CaddyProps
+type Props = DbProps | CaddyProps
 
 export function ServicesPanel(props: Props) {
   const [toast, setToast] = useState<ToastState>(null)
 
   return (
     <>
-      {props.mode === 'ai'
-        ? <AiServiceForm     initial={props.initial} onToast={setToast} />
-        : props.mode === 'db'
+      {props.mode === 'db'
         ? <DbServiceForm     initial={props.initial} onToast={setToast} />
         : <CaddyServiceForm  initial={props.initial} onToast={setToast} />
       }

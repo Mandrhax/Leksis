@@ -431,6 +431,10 @@ export const messages = {
     testOkModel:            'Connessione riuscita — modello «{0}» disponibile',
     testModelMissing:       "Connessione riuscita — modello «{0}» non trovato nell'elenco",
     testFailed:             'Connessione non riuscita: {0}',
+    tabsAriaLabel:          'Sezioni del servizio AI',
+    tabConfig:              'Connessione',
+    tabModels:              'Modelli',
+    tabMonitoring:          'Monitoraggio',
   },
   dbForm: {
     hostLabel:        'Host',

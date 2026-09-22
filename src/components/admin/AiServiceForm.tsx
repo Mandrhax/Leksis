@@ -42,11 +42,12 @@ interface TestResult {
 interface Props {
   initial: AiPublicConfig
   onToast: (t: ToastState) => void
+  activeTab: 'config' | 'models' | 'monitoring'
 }
 
 const trimSlash = (u: string) => u.replace(/\/+$/, '')
 
-export function AiServiceForm({ initial, onToast }: Props) {
+export function AiServiceForm({ initial, onToast, activeTab }: Props) {
   const { t } = useI18n()
   const of = t.ollamaForm
   const { data: metrics, load: reloadMetrics } = useOllamaMetrics()
@@ -222,6 +223,8 @@ export function AiServiceForm({ initial, onToast }: Props) {
     return (r.modelFound ? of.testOkModel : of.testModelMissing).replace('{0}', model)
   }
 
+  if (activeTab === 'monitoring') return null
+
   const inputCls = 'w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50'
 
   const selectProps = {
@@ -237,181 +240,195 @@ export function AiServiceForm({ initial, onToast }: Props) {
   return (
     <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-5">
       <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none" aria-hidden="true">smart_toy</span>
-        <h3 className="font-headline font-semibold text-base text-on-surface">{of.aiTitle}</h3>
-      </div>
-
-      {/* Fournisseur */}
-      <div>
-        <span className="block text-sm text-on-surface mb-1.5">{of.providerLabel}</span>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label={of.providerLabel}>
-          {(['ollama', 'openai'] as const).map(p => (
-            <button
-              key={p}
-              type="button"
-              role="radio"
-              aria-checked={provider === p}
-              onClick={() => changeProvider(p)}
-              className={`text-left rounded-lg border px-4 py-3 transition-colors ${
-                provider === p
-                  ? 'border-primary bg-primary/5'
-                  : 'border-outline-variant/30 hover:border-outline-variant'
-              }`}
-            >
-              <span className="block text-sm font-semibold text-on-surface">
-                {p === 'ollama' ? of.providerOllama : of.providerOpenai}
-              </span>
-              <span className="block text-xs text-on-surface-variant mt-0.5">
-                {p === 'ollama' ? of.providerOllamaDesc : of.providerOpenaiDesc}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* URL */}
-      <div>
-        <label htmlFor="ai-base-url" className="block text-sm text-on-surface mb-1.5">{of.serverUrlLabel}</label>
-        <input
-          id="ai-base-url"
-          type="url"
-          value={baseUrl}
-          onChange={e => { setBaseUrl(e.target.value); setResult(null) }}
-          className={inputCls}
-          placeholder={provider === 'ollama' ? 'http://192.168.1.39:11434' : 'http://192.168.1.50:8000/v1'}
-        />
-        <p className="mt-1 text-xs text-on-surface-variant">
-          {provider === 'ollama' ? of.urlHintOllama : of.urlHintOpenai}
-        </p>
-      </div>
-
-      {/* Clé API (API OpenAI-compatible) */}
-      {provider === 'openai' && (
-        <div>
-          <label htmlFor="ai-api-key" className="block text-sm text-on-surface mb-1.5">
-            {of.apiKeyLabel} <span className="text-on-surface-variant">{of.apiKeyOptional}</span>
-          </label>
-          <input
-            id="ai-api-key"
-            type="password"
-            autoComplete="off"
-            value={apiKey}
-            onChange={e => { setApiKey(e.target.value); setClearApiKey(false) }}
-            className={inputCls}
-            placeholder={hasApiKey && !clearApiKey ? '••••••••' : 'sk-…'}
-          />
-          {hasApiKey && !clearApiKey && (
-            <p className="mt-1 text-xs text-on-surface-variant flex items-center gap-2">
-              <span>{of.apiKeySaved}</span>
-              <button type="button" onClick={() => { setClearApiKey(true); setApiKey('') }} className="text-button text-xs">
-                {of.apiKeyRemove}
-              </button>
-            </p>
-          )}
-          {clearApiKey && (
-            <p className="mt-1 text-xs text-on-surface-variant">{of.apiKeyWillRemove}</p>
-          )}
-        </div>
-      )}
-
-      {/* Serveurs hors réseau privé */}
-      <label className="flex items-start gap-3 cursor-pointer select-none rounded-lg border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] p-3">
-        <input
-          type="checkbox"
-          checked={allowExternal}
-          onChange={e => setAllowExternal(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-outline-variant/40 text-primary accent-primary"
-        />
-        <span>
-          <span className="block text-sm text-on-surface">{of.externalLabel}</span>
-          <span className="block text-xs text-on-surface-variant mt-0.5">{of.externalDesc}</span>
+        <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none" aria-hidden="true">
+          {activeTab === 'config' ? 'settings_ethernet' : 'smart_toy'}
         </span>
-      </label>
+        <h3 className="font-headline font-semibold text-base text-on-surface">
+          {activeTab === 'config' ? of.tabConfig : of.tabModels}
+        </h3>
+      </div>
 
-      {/* Checkbox même modèle partout */}
-      <label className="flex items-center gap-3 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={data.sameModelForAll}
-          onChange={e => toggleSameModel(e.target.checked)}
-          className="h-4 w-4 rounded border-outline-variant/40 text-primary accent-primary"
-        />
-        <span className="text-sm text-on-surface">{of.sameModelLabel}</span>
-      </label>
-
-      {data.sameModelForAll ? (
-        <OllamaModelSelect
-          label={of.modelAllLabel}
-          value={data.translationModel}
-          onChange={v => setField('translationModel', v)}
-          suggestions={suggestions ? TRANSLATION_SUGGESTIONS : []}
-          {...selectProps}
-        />
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <OllamaModelSelect
-            label={of.modelTranslation}
-            value={data.translationModel}
-            onChange={v => setField('translationModel', v)}
-            suggestions={suggestions ? TRANSLATION_SUGGESTIONS : []}
-            {...selectProps}
-          />
-          <OllamaModelSelect
-            label={of.modelRewrite}
-            value={data.rewriteModel}
-            onChange={v => setField('rewriteModel', v)}
-            suggestions={suggestions ? REWRITE_SUGGESTIONS : []}
-            {...selectProps}
-          />
-          <OllamaModelSelect
-            label={of.modelOcr}
-            value={data.ocrModel}
-            onChange={v => setField('ocrModel', v)}
-            suggestions={suggestions ? OCR_SUGGESTIONS : []}
-            {...selectProps}
-          />
-        </div>
-      )}
-
-      {/* Résultat du test */}
-      {result && (
-        <div className={`flex items-start gap-2.5 p-3 rounded-lg text-sm ${
-          result.ok ? 'bg-primary/5 border border-primary/20 text-on-surface' : 'bg-error/5 border border-error/20 text-error'
-        }`}>
-          <span className="material-symbols-outlined text-base leading-none mt-0.5 shrink-0" aria-hidden="true">
-            {result.ok ? 'check_circle' : 'error'}
-          </span>
-          <div className="space-y-1 min-w-0">
-            <p className="break-words">{testMessage(result)}</p>
-            {result.ok && result.latencyMs !== undefined && (
-              <p className="text-xs text-on-surface-variant">{result.latencyMs}ms</p>
-            )}
-            {result.models && result.models.length > 0 && (
-              <details className="text-xs text-on-surface-variant">
-                <summary className="cursor-pointer hover:text-on-surface">{result.models.length} {of.modelsAvailable}</summary>
-                <ul className="mt-1 space-y-0.5 pl-3">
-                  {result.models.map(m => (
-                    <li key={m} className={m === data.translationModel ? 'text-primary font-medium' : ''}>{m}</li>
-                  ))}
-                </ul>
-              </details>
-            )}
+      {activeTab === 'config' && (
+        <>
+          {/* Fournisseur */}
+          <div>
+            <span className="block text-sm text-on-surface mb-1.5">{of.providerLabel}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label={of.providerLabel}>
+              {(['ollama', 'openai'] as const).map(p => (
+                <button
+                  key={p}
+                  type="button"
+                  role="radio"
+                  aria-checked={provider === p}
+                  onClick={() => changeProvider(p)}
+                  className={`text-left rounded-lg border px-4 py-3 transition-colors ${
+                    provider === p
+                      ? 'border-primary bg-primary/5'
+                      : 'border-outline-variant/30 hover:border-outline-variant'
+                  }`}
+                >
+                  <span className="block text-sm font-semibold text-on-surface">
+                    {p === 'ollama' ? of.providerOllama : of.providerOpenai}
+                  </span>
+                  <span className="block text-xs text-on-surface-variant mt-0.5">
+                    {p === 'ollama' ? of.providerOllamaDesc : of.providerOpenaiDesc}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+
+          {/* URL */}
+          <div>
+            <label htmlFor="ai-base-url" className="block text-sm text-on-surface mb-1.5">{of.serverUrlLabel}</label>
+            <input
+              id="ai-base-url"
+              type="url"
+              value={baseUrl}
+              onChange={e => { setBaseUrl(e.target.value); setResult(null) }}
+              className={inputCls}
+              placeholder={provider === 'ollama' ? 'http://192.168.1.39:11434' : 'http://192.168.1.50:8000/v1'}
+            />
+            <p className="mt-1 text-xs text-on-surface-variant">
+              {provider === 'ollama' ? of.urlHintOllama : of.urlHintOpenai}
+            </p>
+          </div>
+
+          {/* Clé API (API OpenAI-compatible) */}
+          {provider === 'openai' && (
+            <div>
+              <label htmlFor="ai-api-key" className="block text-sm text-on-surface mb-1.5">
+                {of.apiKeyLabel} <span className="text-on-surface-variant">{of.apiKeyOptional}</span>
+              </label>
+              <input
+                id="ai-api-key"
+                type="password"
+                autoComplete="off"
+                value={apiKey}
+                onChange={e => { setApiKey(e.target.value); setClearApiKey(false) }}
+                className={inputCls}
+                placeholder={hasApiKey && !clearApiKey ? '••••••••' : 'sk-…'}
+              />
+              {hasApiKey && !clearApiKey && (
+                <p className="mt-1 text-xs text-on-surface-variant flex items-center gap-2">
+                  <span>{of.apiKeySaved}</span>
+                  <button type="button" onClick={() => { setClearApiKey(true); setApiKey('') }} className="text-button text-xs">
+                    {of.apiKeyRemove}
+                  </button>
+                </p>
+              )}
+              {clearApiKey && (
+                <p className="mt-1 text-xs text-on-surface-variant">{of.apiKeyWillRemove}</p>
+              )}
+            </div>
+          )}
+
+          {/* Serveurs hors réseau privé */}
+          <label className="flex items-start gap-3 cursor-pointer select-none rounded-lg border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] p-3">
+            <input
+              type="checkbox"
+              checked={allowExternal}
+              onChange={e => setAllowExternal(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-outline-variant/40 text-primary accent-primary"
+            />
+            <span>
+              <span className="block text-sm text-on-surface">{of.externalLabel}</span>
+              <span className="block text-xs text-on-surface-variant mt-0.5">{of.externalDesc}</span>
+            </span>
+          </label>
+
+          {/* Résultat du test */}
+          {result && (
+            <div className={`flex items-start gap-2.5 p-3 rounded-lg text-sm ${
+              result.ok ? 'bg-primary/5 border border-primary/20 text-on-surface' : 'bg-error/5 border border-error/20 text-error'
+            }`}>
+              <span className="material-symbols-outlined text-base leading-none mt-0.5 shrink-0" aria-hidden="true">
+                {result.ok ? 'check_circle' : 'error'}
+              </span>
+              <div className="space-y-1 min-w-0">
+                <p className="break-words">{testMessage(result)}</p>
+                {result.ok && result.latencyMs !== undefined && (
+                  <p className="text-xs text-on-surface-variant">{result.latencyMs}ms</p>
+                )}
+                {result.models && result.models.length > 0 && (
+                  <details className="text-xs text-on-surface-variant">
+                    <summary className="cursor-pointer hover:text-on-surface">{result.models.length} {of.modelsAvailable}</summary>
+                    <ul className="mt-1 space-y-0.5 pl-3">
+                      {result.models.map(m => (
+                        <li key={m} className={m === data.translationModel ? 'text-primary font-medium' : ''}>{m}</li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      <div className="flex flex-wrap items-center gap-3 pt-1">
-        <button
-          onClick={handleTest}
-          disabled={testing || warming || !baseUrl}
-          className="text-button disabled:opacity-40"
-        >
-          {testing ? spinner : (
-            <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">network_check</span>
+      {activeTab === 'models' && (
+        <>
+          {/* Checkbox même modèle partout */}
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={data.sameModelForAll}
+              onChange={e => toggleSameModel(e.target.checked)}
+              className="h-4 w-4 rounded border-outline-variant/40 text-primary accent-primary"
+            />
+            <span className="text-sm text-on-surface">{of.sameModelLabel}</span>
+          </label>
+
+          {data.sameModelForAll ? (
+            <OllamaModelSelect
+              label={of.modelAllLabel}
+              value={data.translationModel}
+              onChange={v => setField('translationModel', v)}
+              suggestions={suggestions ? TRANSLATION_SUGGESTIONS : []}
+              {...selectProps}
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <OllamaModelSelect
+                label={of.modelTranslation}
+                value={data.translationModel}
+                onChange={v => setField('translationModel', v)}
+                suggestions={suggestions ? TRANSLATION_SUGGESTIONS : []}
+                {...selectProps}
+              />
+              <OllamaModelSelect
+                label={of.modelRewrite}
+                value={data.rewriteModel}
+                onChange={v => setField('rewriteModel', v)}
+                suggestions={suggestions ? REWRITE_SUGGESTIONS : []}
+                {...selectProps}
+              />
+              <OllamaModelSelect
+                label={of.modelOcr}
+                value={data.ocrModel}
+                onChange={v => setField('ocrModel', v)}
+                suggestions={suggestions ? OCR_SUGGESTIONS : []}
+                {...selectProps}
+              />
+            </div>
           )}
-          {of.testConnection}
-        </button>
-        {canPull && (
+        </>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-outline-variant/10">
+        {activeTab === 'config' && (
+          <button
+            onClick={handleTest}
+            disabled={testing || warming || !baseUrl}
+            className="text-button disabled:opacity-40"
+          >
+            {testing ? spinner : (
+              <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">network_check</span>
+            )}
+            {of.testConnection}
+          </button>
+        )}
+        {activeTab === 'models' && canPull && (
           <button
             onClick={handleWarmup}
             disabled={warming || testing || !baseUrl}

@@ -431,6 +431,10 @@ export const messages = {
     testOkModel:            'Verbindung erfolgreich — Modell „{0}“ verfügbar',
     testModelMissing:       'Verbindung erfolgreich — Modell „{0}“ nicht in der Liste gefunden',
     testFailed:             'Verbindung fehlgeschlagen: {0}',
+    tabsAriaLabel:          'Bereiche des KI-Dienstes',
+    tabConfig:              'Verbindung',
+    tabModels:              'Modelle',
+    tabMonitoring:          'Überwachung',
   },
   dbForm: {
     hostLabel:        'Host',

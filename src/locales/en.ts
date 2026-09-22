@@ -429,6 +429,10 @@ export const messages = {
     testOkModel:            'Connection successful — model “{0}” available',
     testModelMissing:       'Connection successful — model “{0}” not found in the list',
     testFailed:             'Connection failed: {0}',
+    tabsAriaLabel:          'AI service sections',
+    tabConfig:              'Connection',
+    tabModels:              'Models',
+    tabMonitoring:          'Monitoring',
   },
   dbForm: {
     hostLabel:        'Host',

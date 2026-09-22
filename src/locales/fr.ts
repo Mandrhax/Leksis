@@ -431,6 +431,10 @@ export const messages = {
     testOkModel:            'Connexion réussie — modèle « {0} » disponible',
     testModelMissing:       'Connexion réussie — modèle « {0} » introuvable dans la liste',
     testFailed:             'Connexion échouée : {0}',
+    tabsAriaLabel:          'Sections du service IA',
+    tabConfig:              'Connexion',
+    tabModels:              'Modèles',
+    tabMonitoring:          'Monitoring',
   },
   dbForm: {
     hostLabel:        'Hôte',
