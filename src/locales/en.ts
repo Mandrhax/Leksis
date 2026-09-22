@@ -264,8 +264,6 @@ export const messages = {
     primaryColorLabel:  'Primary color',
     darkModeTitle:      'Dark mode',
     darkModeDesc:       'Enable dark theme by default',
-    sectionPreview:     'Preview',
-    primaryButton:      'Primary button',
     save:               'Save',
     toastLogoUpdated:   'Logo updated.',
     toastLogoDeleted:   'Logo deleted.',

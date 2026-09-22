@@ -319,20 +319,6 @@ export function BrandingForm({ initial, onToast }: Props) {
         </div>
       </div>
 
-      {/* Aperçu */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-4">{t.brandingForm.sectionPreview}</h3>
-        <div className="flex items-center gap-3 flex-wrap">
-          <button type="button" style={{ backgroundColor: data.primaryColor }}
-            className="px-4 py-2 rounded-full text-white text-sm font-medium shadow">
-            {t.brandingForm.primaryButton}
-          </button>
-          <span style={{ color: data.primaryColor }} className="text-sm font-semibold">
-            {data.siteName || 'Leksis'}
-          </span>
-        </div>
-      </div>
-
       </div>{/* end right column */}
 
       </div>{/* end grid */}

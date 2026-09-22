@@ -266,8 +266,6 @@ export const messages = {
     primaryColorLabel:  'Colore primario',
     darkModeTitle:      'Modalità scura',
     darkModeDesc:       'Attiva il tema scuro per impostazione predefinita',
-    sectionPreview:     'Anteprima',
-    primaryButton:      'Pulsante primario',
     save:               'Salva',
     toastLogoUpdated:   'Logo aggiornato.',
     toastLogoDeleted:   'Logo eliminato.',
