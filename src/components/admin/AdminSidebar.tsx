@@ -105,7 +105,7 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-2 flex flex-col overflow-y-auto" aria-label={t.adminSidebar.navLabel}>
+      <nav className="flex-1 min-h-0 px-2 py-2 flex flex-col overflow-y-auto" aria-label={t.adminSidebar.navLabel}>
         <NavLink href="/admin/dashboard" icon="home" label={t.adminSidebar.navDashboard} />
 
         <SectionLabel>{t.adminSidebar.navSectionSettings}</SectionLabel>

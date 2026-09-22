@@ -9,7 +9,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row relative" style={{ background: '#f7f9fb' }}>
+    <div className="h-screen overflow-hidden flex flex-col md:flex-row relative" style={{ background: '#f7f9fb' }}>
       {/* Mobile top bar */}
       <header className="flex md:hidden items-center h-14 px-4 bg-surface-container-lowest border-b border-outline-variant/10 shrink-0 z-20">
         <button
@@ -35,7 +35,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 
       <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 min-h-0 overflow-auto">
         {children}
       </main>
 
