@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.0-beta.5/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.0/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -320,24 +320,20 @@ Users switch the UI language instantly with the language selector — the prefer
 
 ## 🎉 What's new
 
-### v1.4.0-beta.5 (beta)
-- **Admin dashboard redesigned**: 5th health card for backup status (`leksis backup` now records the last successful backup so the dashboard can flag a stale one), a 7-day AI call trend chart, a breakdown by feature (translate/document/OCR/rewrite), and wider KPI tiles instead of the narrow stats list
-- Fix: the recent-activity icon for "General" settings was still the old lock icon, and a few dashboard strings ("Connected", "just now"…) were hardcoded in English instead of going through the translation system
+### v1.4.0
+A reorganized Settings page, a couple of new settings, and a more useful admin dashboard.
 
-### v1.4.0-beta.4 (beta)
-- *Admin → Settings → Identity*: the site background is now either a color or an image, picked with a toggle instead of showing both fields at once — switching to color removes any previously uploaded background image
-
-### v1.4.0-beta.3 (beta)
-- Removed the "Preview" block from *Admin → Settings → Identity* (primary color swatch + site name) — not useful in practice
-
-### v1.4.0-beta.2 (beta)
-- Fix: the default tone buttons (Informal/Formal) in *Features & limits → Defaults* used the wrong CSS classes and never visibly showed the selected tone
-
-### v1.4.0-beta.1 (beta)
-- *Admin → Settings* reorganized into tabs (Identity / Appearance / Features & limits / AI tones / General), matching the rest of the admin
+**Admin → Settings**
+- Reorganized into tabs (Identity / Appearance / Features & limits / AI tones / General), matching the rest of the admin
 - "General" replaces the old "Access" tab name (it never held access-control settings — just contact, banner and maintenance)
-- Footer quotes toggle moved next to the other footer settings (Appearance); logo size moved next to the logo upload (Identity)
+- Footer quotes toggle moved next to the other footer settings (Appearance); logo size moved next to the logo upload (Identity); removed the unused "Preview" block from Identity
+- The site background is now either a color or an image, picked with a toggle — switching to color removes any previously uploaded background image
 - New setting: default tone (informal/formal) for English-source translations, in *Features & limits → Defaults*
+
+**Admin dashboard**
+- New backup-status health card — `leksis backup` now records the last successful backup so the dashboard can flag a stale one (older than 8 days, or none at all)
+- 7-day AI call trend chart and a breakdown by feature (translate/document/OCR/rewrite), replacing the single "calls today" number
+- Wider KPI tiles instead of the narrow stats list
 
 ### v1.3.0
 Simpler access setup, and a reorganized admin services UI.
