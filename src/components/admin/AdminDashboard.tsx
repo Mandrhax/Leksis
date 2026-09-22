@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import type { Messages } from '@/locales/en'
+import { timeAgo } from '@/lib/relative-time'
 
 type AdminPagesMessages = Messages['adminPages']
 
@@ -72,16 +73,6 @@ function iconFor(resource: string): string {
     if (resource.toLowerCase().includes(key)) return icon
   }
   return 'history'
-}
-
-function timeAgo(iso: string, at: AdminPagesMessages): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1)  return at.dashboardTimeJustNow
-  if (mins < 60) return at.dashboardTimeMinAgo.replace('{0}', String(mins))
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24)  return at.dashboardTimeHoursAgo.replace('{0}', String(hrs))
-  return at.dashboardTimeDaysAgo.replace('{0}', String(Math.floor(hrs / 24)))
 }
 
 function StatusBadge({ ok, at }: { ok: boolean | null; at: AdminPagesMessages }) {

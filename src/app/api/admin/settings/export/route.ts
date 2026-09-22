@@ -1,8 +1,34 @@
 import { NextResponse }    from 'next/server'
+import { readFile }        from 'node:fs/promises'
+import { join, basename }  from 'node:path'
 import { getAdminSession } from '@/lib/admin-guard'
 import { getAllSettings }  from '@/lib/settings'
 import { logAudit }        from '@/lib/audit'
 import { query }           from '@/lib/db'
+
+const CONTENT_TYPES: Record<string, string> = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', svg: 'image/svg+xml', ico: 'image/x-icon',
+}
+
+function uploadsDir(): string {
+  return process.env.UPLOAD_DIR || '/tmp/uploads'
+}
+
+// Reads an uploaded logo/background referenced by a /api/site-assets/<filename> URL and
+// base64-encodes it, so the exported JSON carries the actual image instead of leaving it behind.
+async function readAsset(url: unknown): Promise<{ filename: string; mime: string; data: string } | null> {
+  if (typeof url !== 'string') return null
+  const match = url.split('?')[0].match(/^\/api\/site-assets\/(.+)$/)
+  if (!match) return null
+  const filename = basename(match[1])
+  try {
+    const buffer = await readFile(join(uploadsDir(), filename))
+    const ext    = filename.split('.').pop()?.toLowerCase() ?? ''
+    return { filename, mime: CONTENT_TYPES[ext] ?? 'application/octet-stream', data: buffer.toString('base64') }
+  } catch {
+    return null
+  }
+}
 
 export async function GET() {
   const session = await getAdminSession()
@@ -27,9 +53,14 @@ export async function GET() {
     settings.ai_config = ai
   }
 
-  // Supprimer logo et image de fond — fichiers locaux non portables
+  // Logo et image de fond : embarqués à part (base64) plutôt que juste référencés —
+  // l'URL locale n'a aucun sens sur une autre instance, le fichier lui n'a rien de secret
+  let logoAsset: Awaited<ReturnType<typeof readAsset>> = null
+  let backgroundAsset: Awaited<ReturnType<typeof readAsset>> = null
   if (settings.branding && typeof settings.branding === 'object') {
     const b = { ...(settings.branding as Record<string, unknown>) }
+    logoAsset       = await readAsset(b.logoUrl)
+    backgroundAsset = await readAsset(b.backgroundImage)
     delete b.logoUrl
     delete b.backgroundImage
     settings.branding = b
@@ -49,9 +80,13 @@ export async function GET() {
 
   const date   = new Date().toISOString().slice(0, 10)
   const backup = {
-    version:    '1.1',
+    version:    '1.2',
     exportedAt: new Date().toISOString(),
     settings,
+    assets: {
+      logo:       logoAsset,
+      background: backgroundAsset,
+    },
     glossaries,
   }
 
@@ -60,7 +95,7 @@ export async function GET() {
     session.user.email!,
     'EXPORT_SETTINGS',
     'settings:all',
-    { keys: Object.keys(settings), glossaryCount: glossaries.length }
+    { keys: Object.keys(settings), glossaryCount: glossaries.length, assets: [logoAsset && 'logo', backgroundAsset && 'background'].filter(Boolean) }
   )
 
   return new NextResponse(JSON.stringify(backup, null, 2), {

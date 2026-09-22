@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { writeFile, unlink, mkdir } from 'node:fs/promises'
+import { join }                     from 'node:path'
 import { getAdminSession }           from '@/lib/admin-guard'
 import { updateSetting, getSetting } from '@/lib/settings'
 import { logAudit }                  from '@/lib/audit'
@@ -21,6 +23,31 @@ function isAllowedKey(k: string): k is AllowedKey {
   return (ALLOWED_KEYS as readonly string[]).includes(k)
 }
 
+const KNOWN_EXTS = ['png', 'jpg', 'jpeg', 'svg', 'webp', 'ico']
+
+function uploadsDir(): string {
+  return process.env.UPLOAD_DIR || '/tmp/uploads'
+}
+
+interface AssetInput { filename?: unknown; data?: unknown }
+
+// Writes a base64-encoded logo/background from an export back to disk under the fixed slug
+// (site-logo / site-bg) used by the normal upload routes, and returns the resulting public URL.
+async function writeAsset(asset: AssetInput | null | undefined, slug: string): Promise<string | null> {
+  if (!asset || typeof asset.data !== 'string') return null
+  const name = typeof asset.filename === 'string' ? asset.filename : ''
+  const ext  = name.split('.').pop()?.toLowerCase()
+  if (!ext || !KNOWN_EXTS.includes(ext)) return null
+
+  const dir = uploadsDir()
+  await mkdir(dir, { recursive: true })
+  // Retire toute ancienne variante (extension différente) avant d'écrire la nouvelle
+  await Promise.all(KNOWN_EXTS.map(e => unlink(join(dir, `${slug}.${e}`)).catch(() => {})))
+
+  await writeFile(join(dir, `${slug}.${ext}`), Buffer.from(asset.data, 'base64'))
+  return `/api/site-assets/${slug}.${ext}?v=${Date.now()}`
+}
+
 export async function POST(req: NextRequest) {
   const session = await getAdminSession()
   if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
@@ -32,6 +59,7 @@ export async function POST(req: NextRequest) {
   }
 
   const incoming = body.settings as Record<string, unknown>
+  const assetsIn = (body.assets && typeof body.assets === 'object' ? body.assets : {}) as { logo?: AssetInput; background?: AssetInput }
   const imported: string[] = []
 
   for (const key of Object.keys(incoming)) {
@@ -45,11 +73,23 @@ export async function POST(req: NextRequest) {
     }
 
     if (key === 'branding') {
-      // Ne jamais importer logo et image de fond — fichiers locaux non portables
       const safe = { ...(value as Record<string, unknown>) }
       delete safe.logoUrl
       delete safe.backgroundImage
-      await updateSetting('branding', safe, session.user.id, session.user.email!)
+
+      // Les images voyagent à part (base64, cf. export) — écrites sur disque puis reliées ici.
+      // Sans image dans l'export (ancien format, ou aucune définie), on garde celle déjà en place.
+      const existing = await getSetting<Record<string, unknown>>('branding')
+      const [logoUrl, backgroundImage] = await Promise.all([
+        writeAsset(assetsIn.logo, 'site-logo'),
+        writeAsset(assetsIn.background, 'site-bg'),
+      ])
+      const merged = {
+        ...safe,
+        logoUrl:         logoUrl ?? existing.logoUrl,
+        backgroundImage: backgroundImage ?? existing.backgroundImage,
+      }
+      await updateSetting('branding', merged, session.user.id, session.user.email!)
       imported.push(key)
       continue
     }
