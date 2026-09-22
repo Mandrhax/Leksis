@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.3.0-beta.8/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.3.0/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -320,28 +320,18 @@ Users switch the UI language instantly with the language selector — the prefer
 
 ## 🎉 What's new
 
-### v1.3.0-beta.8 (beta)
-- Caddy access tab now uses two columns — access settings on the left, generated Caddyfile preview on the right — so the preview no longer pushes the save button out of view
+### v1.3.0
+Simpler access setup, and a reorganized admin services UI.
 
-### v1.3.0-beta.7 (beta)
-- **Applied the tabbed layout to Admin → Services → PostgreSQL and Caddy** as well (Connection/Access + Monitoring), matching the AI page — removes the duplicated status strip on both pages
-
-### v1.3.0-beta.6 (beta)
-- Removed the separate "Pull a model" block on the AI monitoring tab — downloading a model is already available directly from the model pickers on the Models tab
-
-### v1.3.0-beta.5 (beta)
-- **Admin → Services → AI reorganized into tabs** (Connection / Models / Monitoring) to reduce clutter on that page — experimental, feedback welcome
-
-### v1.3.0-beta.4 (beta)
-- Fix: after signing in, users landed on the server's internal address (`http://0.0.0.0:3000/`) when `NEXTAUTH_URL` is empty — the sign-in redirect now keeps only the path and stays on the address the browser uses
-
-### v1.3.0-beta.3 (beta)
-- Fix: an IP-based `NEXTAUTH_URL` left by older installs (e.g. `http://192.168.1.50`) sent users to the IP even through a domain or a reverse proxy — `leksis update` now removes it, `leksis config` offers to remove any pinned value, and the admin Caddy page warns while one is set
-
-### v1.3.0-beta.2 (beta)
-- **Simpler access setup** — one setting decides how users reach Leksis: **HTTP**, **HTTPS with a domain name** (automatic Let's Encrypt certificate, with a live certificate status) or **behind a reverse proxy** (NPM, Traefik…). Choose it at install time, in *Admin → Services → Caddy* or with `leksis config`
-- The public address is now **detected automatically** from the request headers: `NEXTAUTH_URL` and `AUTH_TRUST_HOST` are no longer needed (existing installs keep working; changing the access mode with `leksis config` clears a pinned `NEXTAUTH_URL`)
+**Access & HTTPS**
+- **One setting decides how users reach Leksis** — HTTP, HTTPS with a domain name (automatic Let's Encrypt certificate, with a live certificate status) or behind a reverse proxy (NPM, Traefik…). Choose it at install time, in *Admin → Services → Caddy* or with `leksis config`
+- The public address is now **detected automatically** from the request headers — `NEXTAUTH_URL` and `AUTH_TRUST_HOST` are no longer needed; `leksis update` and `leksis config` clear any pinned address left by older installs
 - Reverse proxies on a private network are trusted automatically; a proxy with a public address can be declared in the admin
+
+**Admin services pages**
+- *Admin → Services → AI, PostgreSQL and Caddy* reorganized into tabs (Connection/Access, Models where relevant, Monitoring) instead of a dense two-column layout, removing duplicated status displays
+- The Caddy access tab uses two columns — settings on the left, generated Caddyfile preview on the right
+- Removed the redundant "Pull a model" form on the AI page — downloading a model not yet installed is already available from each model picker
 
 ### v1.2.0
 A major update of the AI engine and of the installer.
