@@ -75,117 +75,120 @@ export function CaddyServiceForm({ initial, onToast }: Props) {
   ]
 
   return (
-    <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-5">
-      <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none" aria-hidden="true">router</span>
-        <h3 className="font-headline font-semibold text-base text-on-surface">{cf.title}</h3>
-      </div>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      {/* Left — access settings */}
+      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-5">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none" aria-hidden="true">router</span>
+          <h3 className="font-headline font-semibold text-base text-on-surface">{cf.title}</h3>
+        </div>
 
-      {/* Mode d'accès */}
-      <div>
-        <span className="block text-sm text-on-surface mb-1.5">{cf.modeLabel}</span>
-        <div className="grid grid-cols-1 gap-3" role="radiogroup" aria-label={cf.modeLabel}>
-          {modes.map(m => (
-            <button
-              key={m.id}
-              type="button"
-              role="radio"
-              aria-checked={mode === m.id}
-              onClick={() => setMode(m.id)}
-              className={`flex items-start gap-3 text-left rounded-lg border px-4 py-3 transition-colors ${
-                mode === m.id
-                  ? 'border-primary bg-primary/5'
-                  : 'border-outline-variant/30 hover:border-outline-variant'
-              }`}
-            >
-              <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none mt-0.5" aria-hidden="true">{m.icon}</span>
+        {/* Mode d'accès */}
+        <div>
+          <span className="block text-sm text-on-surface mb-1.5">{cf.modeLabel}</span>
+          <div className="grid grid-cols-1 gap-3" role="radiogroup" aria-label={cf.modeLabel}>
+            {modes.map(m => (
+              <button
+                key={m.id}
+                type="button"
+                role="radio"
+                aria-checked={mode === m.id}
+                onClick={() => setMode(m.id)}
+                className={`flex items-start gap-3 text-left rounded-lg border px-4 py-3 transition-colors ${
+                  mode === m.id
+                    ? 'border-primary bg-primary/5'
+                    : 'border-outline-variant/30 hover:border-outline-variant'
+                }`}
+              >
+                <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none mt-0.5" aria-hidden="true">{m.icon}</span>
+                <span>
+                  <span className="block text-sm font-semibold text-on-surface">{m.label}</span>
+                  <span className="block text-xs text-on-surface-variant mt-0.5">{m.desc}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* HTTPS : nom de domaine */}
+        {mode === 'https' && (
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="caddy-domain" className="block text-sm text-on-surface mb-1.5">{cf.domainLabel}</label>
+              <input
+                id="caddy-domain"
+                type="text"
+                value={host}
+                onChange={e => setHost(e.target.value)}
+                className={inputCls}
+                placeholder="leksis.example.com"
+                spellCheck={false}
+                autoComplete="off"
+              />
+              <p className={`text-xs mt-1.5 ${host && !domainOk ? 'text-error' : 'text-on-surface-variant'}`}>
+                {host && !domainOk ? cf.domainInvalid : cf.domainHint}
+              </p>
+            </div>
+
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={keepHttpFallback}
+                onChange={e => setKeepHttpFallback(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-outline-variant/40 text-primary accent-primary"
+              />
               <span>
-                <span className="block text-sm font-semibold text-on-surface">{m.label}</span>
-                <span className="block text-xs text-on-surface-variant mt-0.5">{m.desc}</span>
+                <span className="text-sm text-on-surface">{cf.fallbackLabel}</span>
+                <span className="block text-xs text-on-surface-variant mt-0.5">{cf.fallbackHint}</span>
               </span>
-            </button>
-          ))}
+            </label>
+          </div>
+        )}
+
+        {/* Proxy inverse : rappel des réglages + adresses de confiance */}
+        {mode === 'proxy' && (
+          <div className="space-y-4">
+            <p className="text-xs text-on-surface-variant rounded-lg bg-surface-container px-3 py-2.5 leading-relaxed">
+              {cf.proxyHint}
+            </p>
+            <div>
+              <label htmlFor="caddy-trusted" className="block text-sm text-on-surface mb-1.5">{cf.trustedLabel}</label>
+              <input
+                id="caddy-trusted"
+                type="text"
+                value={trustedProxies}
+                onChange={e => setTrustedProxies(e.target.value)}
+                className={inputCls}
+                placeholder="203.0.113.10"
+                spellCheck={false}
+                autoComplete="off"
+              />
+              <p className={`text-xs mt-1.5 ${trustedProxies && !proxiesOk ? 'text-error' : 'text-on-surface-variant'}`}>
+                {cf.trustedHint}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex justify-end pt-1">
+          <button onClick={handleSave} disabled={saving || !domainOk || !proxiesOk} className="action-btn disabled:opacity-40">
+            {saving ? (
+              <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
+            ) : (
+              <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>
+            )}
+            {cf.save}
+          </button>
         </div>
       </div>
 
-      {/* HTTPS : nom de domaine */}
-      {mode === 'https' && (
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="caddy-domain" className="block text-sm text-on-surface mb-1.5">{cf.domainLabel}</label>
-            <input
-              id="caddy-domain"
-              type="text"
-              value={host}
-              onChange={e => setHost(e.target.value)}
-              className={inputCls}
-              placeholder="leksis.example.com"
-              spellCheck={false}
-              autoComplete="off"
-            />
-            <p className={`text-xs mt-1.5 ${host && !domainOk ? 'text-error' : 'text-on-surface-variant'}`}>
-              {host && !domainOk ? cf.domainInvalid : cf.domainHint}
-            </p>
-          </div>
-
-          <label className="flex items-start gap-3 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={keepHttpFallback}
-              onChange={e => setKeepHttpFallback(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-outline-variant/40 text-primary accent-primary"
-            />
-            <span>
-              <span className="text-sm text-on-surface">{cf.fallbackLabel}</span>
-              <span className="block text-xs text-on-surface-variant mt-0.5">{cf.fallbackHint}</span>
-            </span>
-          </label>
-        </div>
-      )}
-
-      {/* Proxy inverse : rappel des réglages + adresses de confiance */}
-      {mode === 'proxy' && (
-        <div className="space-y-4">
-          <p className="text-xs text-on-surface-variant rounded-lg bg-surface-container px-3 py-2.5 leading-relaxed">
-            {cf.proxyHint}
-          </p>
-          <div>
-            <label htmlFor="caddy-trusted" className="block text-sm text-on-surface mb-1.5">{cf.trustedLabel}</label>
-            <input
-              id="caddy-trusted"
-              type="text"
-              value={trustedProxies}
-              onChange={e => setTrustedProxies(e.target.value)}
-              className={inputCls}
-              placeholder="203.0.113.10"
-              spellCheck={false}
-              autoComplete="off"
-            />
-            <p className={`text-xs mt-1.5 ${trustedProxies && !proxiesOk ? 'text-error' : 'text-on-surface-variant'}`}>
-              {cf.trustedHint}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Caddyfile preview */}
-      <div>
+      {/* Right — generated Caddyfile preview */}
+      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 lg:sticky lg:top-6">
         <p className="text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">{cf.caddyfilePreview}</p>
         <pre className="bg-surface-container rounded-lg border border-outline-variant/20 px-4 py-3 text-xs text-on-surface-variant font-mono leading-relaxed overflow-x-auto whitespace-pre">
           {preview}
         </pre>
-      </div>
-
-      {/* Actions */}
-      <div className="flex justify-end pt-1">
-        <button onClick={handleSave} disabled={saving || !domainOk || !proxiesOk} className="action-btn disabled:opacity-40">
-          {saving ? (
-            <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
-          ) : (
-            <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>
-          )}
-          {cf.save}
-        </button>
       </div>
     </div>
   )

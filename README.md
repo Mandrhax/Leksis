@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.3.0-beta.7/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.3.0-beta.8/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,9 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.3.0-beta.8 (beta)
+- Caddy access tab now uses two columns — access settings on the left, generated Caddyfile preview on the right — so the preview no longer pushes the save button out of view
 
 ### v1.3.0-beta.7 (beta)
 - **Applied the tabbed layout to Admin → Services → PostgreSQL and Caddy** as well (Connection/Access + Monitoring), matching the AI page — removes the duplicated status strip on both pages
