@@ -462,6 +462,9 @@ export const messages = {
     blockTables:               'Anwendungstabellen',
     blockTablesRows:           'Zeilen',
     blockTablesSize:           'Größe',
+    tabsAriaLabel:             'Bereiche des Datenbankdienstes',
+    tabConnection:             'Verbindung',
+    tabMonitoring:             'Überwachung',
   },
   caddyForm: {
     title:                  'Zugriff & HTTPS',
@@ -503,6 +506,9 @@ export const messages = {
     blockUpstreamHealthy:   'Gesund',
     blockUpstreamUnhealthy: 'Fehlerhaft',
     blockUpstreamRequests:  'Aktive Anfragen',
+    tabsAriaLabel:          'Bereiche des Caddy-Dienstes',
+    tabAccess:              'Zugriff',
+    tabMonitoring:          'Überwachung',
   },
   userList: {
     colUser:            'Benutzer',
