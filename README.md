@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.2-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,17 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.4.2-beta.1
+Workspace UI pass: mobile usability, accessibility, and small polish across the four tabs.
+- Language swap is now reachable on mobile (Text tab); workspace panels are shorter on small screens so the mode/tone toolbar needs less scrolling to reach
+- Upload zones (Document, Image) are keyboard-accessible; language and account dropdowns close on Escape and stay correctly positioned when the page scrolls or resizes
+- A "Retry" action appears next to errors on all four tabs instead of requiring a re-click elsewhere; character counters warn before the hard limit, not just at it
+- Image Extraction: click to zoom the source image full-screen, with a "click to change" hint on the thumbnail
+- Rewrite tab: hovering a tone now shows what it actually does; the "Rewrite/Correct applied" indicator is more visible
+- Streaming output (Text, Rewrite) shows a blinking cursor while generating; empty output panels get an icon instead of plain text
+- Removed the random footer quote feature (and its admin toggle) — was FR-only and inconsistent across locales
+- Fix: a defensive HTML-escaping gap in Document Studio's (currently unused) raw-HTML block type
 
 ### v1.4.1
 - *Admin → Backup* now clearly distinguishes the two backup mechanisms: a new "Full server backup" status card explains `leksis backup` is the only one usable with `leksis restore` (database, accounts, history, files, secrets) and shows when it last ran; "Export configuration" is relabeled and its description clarified as a settings/glossary snapshot, not a full backup
