@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.2-beta.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.2/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -320,11 +320,9 @@ Users switch the UI language instantly with the language selector — the prefer
 
 ## 🎉 What's new
 
-### v1.4.2-beta.2
-- Fix: the mobile header (tabs, help, language switcher, account menu) could overlap into an unreadable jumble on narrow screens — it's now two stacked rows on mobile instead of one overcrowded row
-
-### v1.4.2-beta.1
+### v1.4.2
 Workspace UI pass: mobile usability, accessibility, and small polish across the four tabs.
+- Fix: the mobile header (tabs, help, language switcher, account menu) could overlap into an unreadable jumble on narrow screens — it's now two stacked rows on mobile instead of one overcrowded row
 - Language swap is now reachable on mobile (Text tab); workspace panels are shorter on small screens so the mode/tone toolbar needs less scrolling to reach
 - Upload zones (Document, Image) are keyboard-accessible; language and account dropdowns close on Escape and stay correctly positioned when the page scrolls or resizes
 - A "Retry" action appears next to errors on all four tabs instead of requiring a re-click elsewhere; character counters warn before the hard limit, not just at it
