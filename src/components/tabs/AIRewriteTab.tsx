@@ -127,7 +127,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-surface-container overflow-hidden rounded-xl border border-outline-variant/10">
 
         {/* Left — Input */}
-        <div className="bg-surface-container-lowest p-8 flex flex-col h-[600px]">
+        <div className="bg-surface-container-lowest p-8 flex flex-col h-[420px] md:h-[600px]">
           <div className="flex justify-between items-center mb-6">
             <LanguageDropdown value={sourceLang} onChange={setSourceLang} includeAutoDetect variant="source" />
             <button onClick={handleClearInput} className="text-button">
@@ -139,6 +139,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
             value={inputText}
             onChange={e => setInputText(e.target.value)}
             placeholder={t.rewriteTab.inputPlaceholder}
+            maxLength={maxTextChars}
             className="w-full flex-grow bg-transparent border-none focus:ring-0 translation-text placeholder:text-on-surface-variant resize-none outline-none"
             spellCheck={false}
           />
@@ -154,15 +155,17 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
               }
               <span id="rewriteBtnLabel">{mode === 'correct' ? t.rewriteTab.correct : t.rewriteTab.rewrite}</span>
             </button>
-            <span className={`text-xs font-medium ${inputText.length >= maxTextChars ? 'text-error' : 'text-outline'}`}>{inputText.length} / {maxTextChars}</span>
+            <span className={`text-xs font-medium ${
+              inputText.length >= maxTextChars ? 'text-error' : inputText.length >= maxTextChars * 0.9 ? 'text-amber-600' : 'text-outline'
+            }`}>{inputText.length} / {maxTextChars}</span>
           </div>
         </div>
 
         {/* Right — Output */}
-        <div className="bg-surface-container-low p-8 flex flex-col h-[600px]">
+        <div className="bg-surface-container-low p-8 flex flex-col h-[420px] md:h-[600px]">
           <div className="flex justify-between items-center mb-6">
             {appliedMode ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-primary/10 rounded-full pl-2.5 pr-3 py-1">
                 <span className="material-symbols-outlined text-sm text-primary">tips_and_updates</span>
                 <span className="text-xs text-on-surface-variant">
                   <span className="font-semibold text-primary">
@@ -186,16 +189,30 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
           </div>
           <div ref={outputRef} className="flex-grow translation-text text-on-surface/90 overflow-y-auto">
             {error ? (
-              <span className="text-error text-sm">{error}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-error text-sm">{error}</span>
+                <button onClick={() => run(inputText, mode, tone, length)} className="text-button text-xs shrink-0">
+                  <span className="material-symbols-outlined text-sm" aria-hidden="true">refresh</span>
+                  <span>{t.rewriteTab.retry}</span>
+                </button>
+              </div>
             ) : outputText ? (
-              <span className="whitespace-pre-wrap">{outputText}</span>
+              <span className="whitespace-pre-wrap">
+                {outputText}
+                {isLoading && <span className="inline-block w-[2px] h-[1em] bg-primary align-text-bottom ml-0.5 animate-pulse" aria-hidden="true" />}
+              </span>
+            ) : isLoading ? (
+              <span className="inline-block w-[2px] h-[1em] bg-primary align-text-bottom animate-pulse" aria-hidden="true" />
             ) : (
-              <span className="text-on-surface-variant italic font-light">{t.rewriteTab.outputPlaceholder}</span>
+              <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+                <span className="material-symbols-outlined text-4xl text-outline-variant/40" aria-hidden="true">auto_fix_high</span>
+                <span className="text-on-surface-variant italic font-light">{t.rewriteTab.outputPlaceholder}</span>
+              </div>
             )}
           </div>
           <div className="mt-4 flex items-center justify-end">
             <div className="flex items-center gap-2">
-              {copied && <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">{t.rewriteTab.copied}</span>}
+              {copied && <span role="status" aria-live="polite" className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">{t.rewriteTab.copied}</span>}
               <button
                 onClick={handleCopy}
                 disabled={!outputText}
@@ -232,6 +249,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
                   <button
                     key={tn.id}
                     onClick={() => setTone(tn.id)}
+                    title={tn.instruction}
                     className={`tone-btn ${tone === tn.id ? 'active' : ''}`}
                   >
                     {toneLabel(tn)}

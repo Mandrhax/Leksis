@@ -202,11 +202,15 @@ h1, h2, h3 {
   align-items: center;
   gap: 0.5rem;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
-  transition: background-color 150ms ease;
+  transition: background-color 150ms ease, transform 100ms ease;
 }
 
 .action-btn:hover:not(:disabled) {
   background-color: var(--c-primary-hover);
+}
+
+.action-btn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .action-btn:disabled {

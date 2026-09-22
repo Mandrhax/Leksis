@@ -7,7 +7,7 @@ import { DEFAULT_TONES } from '@/lib/tones'
 
 const DEFAULTS = {
   branding:      { siteName: 'Leksis', primaryColor: '#565e74', secondaryColor: '#506076', darkMode: false, headerLogoSize: '32' },
-  design:        { buttonRadius: '0.75rem', footerText: '© Leksis', footerLinks: [], showFooterQuotes: true },
+  design:        { buttonRadius: '0.75rem', footerText: '© Leksis', footerLinks: [] },
   general:       { contactEmail: '', globalBanner: '', maintenanceMode: false, maintenanceMessage: '' },
   seo:           { title: 'Leksis', description: '' },
   rewrite_tones: DEFAULT_TONES,

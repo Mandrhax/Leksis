@@ -52,11 +52,39 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  const handleOpen = () => {
-    if (!open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect()
-      setDropPos({ top: rect.bottom + 6, left: rect.left })
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); setSearch('') } }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [open])
+
+  const reposition = useCallback(() => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const dropdownHeight = 280 // approx max-h of the panel + search bar
+    const dropdownWidth  = 224 // w-56
+    const overflowsBottom = rect.bottom + 6 + dropdownHeight > window.innerHeight
+    const top  = overflowsBottom ? Math.max(8, rect.top - dropdownHeight - 6) : rect.bottom + 6
+    const left = Math.min(rect.left, window.innerWidth - dropdownWidth - 8)
+    setDropPos({ top, left: Math.max(8, left) })
+  }, [])
+
+  // Recalculate position on resize/scroll while open (page may scroll under a fixed dropdown)
+  useEffect(() => {
+    if (!open) return
+    reposition()
+    window.addEventListener('resize', reposition)
+    window.addEventListener('scroll', reposition, true)
+    return () => {
+      window.removeEventListener('resize', reposition)
+      window.removeEventListener('scroll', reposition, true)
     }
+  }, [open, reposition])
+
+  const handleOpen = () => {
+    if (!open) reposition()
     setOpen(o => !o)
     if (open) setSearch('')
   }

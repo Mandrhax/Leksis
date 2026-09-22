@@ -22,8 +22,9 @@ function blocksToHtml(blocks: Block[]): string {
       return '<hr class="border-outline-variant/20 my-4" />'
     }
     if (block.type === 'html') {
-      // Raw HTML from vision OCR model — render as-is
-      return block.content
+      // Defensive: no current server path produces this block type — escape rather than
+      // trust raw markup, so a future producer can't accidentally open an XSS hole here.
+      return `<p class="text-sm text-on-surface/90 leading-relaxed mb-2">${escapeHtml(block.content)}</p>`
     }
     if (block.type === 'heading') {
       const tag = block.level === 1 ? 'h2' : 'h3'
@@ -253,7 +254,7 @@ export function DocumentStudioTab({ defaultTargetLang }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-surface-container overflow-hidden rounded-xl border border-outline-variant/10 relative">
 
         {/* Left — Upload */}
-        <div className="bg-surface-container-lowest p-8 flex flex-col h-[600px]">
+        <div className="bg-surface-container-lowest p-8 flex flex-col h-[420px] md:h-[600px]">
           <div className="flex justify-between items-center mb-6">
             <LanguageDropdown
               value={sourceLang ?? { code: 'auto', name: t.langDropdown.autoDetect }}
@@ -273,7 +274,10 @@ export function DocumentStudioTab({ defaultTargetLang }: Props) {
               onDrop={handleDrop}
               onDragOver={e => e.preventDefault()}
               onClick={() => fileRef.current?.click()}
-              className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-outline-variant/30 rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group mb-4"
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileRef.current?.click() } }}
+              role="button"
+              tabIndex={0}
+              className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-outline-variant/30 rounded-lg hover:border-primary/50 hover:bg-primary/5 focus-visible:border-primary/50 focus-visible:bg-primary/5 focus-visible:outline-none transition-all cursor-pointer group mb-4"
             >
               <span className="material-symbols-outlined text-4xl text-outline-variant/50 group-hover:text-primary/50 transition-colors mb-3">cloud_upload</span>
               <p className="text-sm font-medium text-on-surface-variant text-center mb-1">{t.docTab.dropHere}</p>
@@ -286,8 +290,11 @@ export function DocumentStudioTab({ defaultTargetLang }: Props) {
           {file && (
             <div
               onClick={() => fileRef.current?.click()}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileRef.current?.click() } }}
+              role="button"
+              tabIndex={0}
               title={t.docTab.clickToChange}
-              className="flex-grow flex flex-col items-center justify-center border-2 border-primary/30 bg-primary/5 rounded-lg mb-4 cursor-pointer hover:border-primary/60 transition-all"
+              className="flex-grow flex flex-col items-center justify-center border-2 border-primary/30 bg-primary/5 rounded-lg mb-4 cursor-pointer hover:border-primary/60 focus-visible:border-primary/60 focus-visible:outline-none transition-all"
             >
               <i className={`bi ${biIcon} text-6xl text-primary/60 mb-3`} />
               <p className="text-sm font-semibold text-on-surface text-center px-4 truncate max-w-full">{file.name}</p>
@@ -320,7 +327,7 @@ export function DocumentStudioTab({ defaultTargetLang }: Props) {
         </div>
 
         {/* Right — Output */}
-        <div className="bg-surface-container-low p-8 flex flex-col h-[600px]">
+        <div className="bg-surface-container-low p-8 flex flex-col h-[420px] md:h-[600px]">
           <div className="flex justify-between items-center mb-6">
             {mode === 'translate' && (
               <LanguageDropdown
@@ -340,7 +347,13 @@ export function DocumentStudioTab({ defaultTargetLang }: Props) {
 
           <div ref={outputRef} className="flex-grow translation-text text-on-surface/90 overflow-y-auto">
             {error ? (
-              <span className="text-error text-sm">{error}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-error text-sm">{error}</span>
+                <button onClick={handleAction} className="text-button text-xs shrink-0">
+                  <span className="material-symbols-outlined text-sm" aria-hidden="true">refresh</span>
+                  <span>{t.docTab.retry}</span>
+                </button>
+              </div>
             ) : isLoading ? (
               /* Progress toaster */
               <div className="flex items-center justify-center h-full min-h-[300px]">
@@ -371,7 +384,7 @@ export function DocumentStudioTab({ defaultTargetLang }: Props) {
 
           <div className="mt-4 flex items-center justify-end">
             <div className="flex items-center gap-2">
-              {copied && <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">{t.docTab.copied}</span>}
+              {copied && <span role="status" aria-live="polite" className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">{t.docTab.copied}</span>}
               <button
                 onClick={handleDownloadTxt}
                 disabled={!outputBlocks}

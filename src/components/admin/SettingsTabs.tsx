@@ -44,12 +44,11 @@ export function SettingsTabs({ settings }: Props) {
 
   const branding = (settings.branding as Record<string, unknown>) ?? {}
   const design   = (settings.design   as Record<string, unknown>) ?? {}
-  const features = (settings.features as Record<string, unknown>) ?? {}
 
-  // headerLogoSize moved from `design` to `branding`; showFooterQuotes moved from `features` to `design` —
-  // fall back to the old key so installs that haven't re-saved these forms yet keep their value.
+  // headerLogoSize moved from `design` to `branding` —
+  // fall back to the old key so installs that haven't re-saved this form yet keep their value.
   const brandingInitial = { ...branding, headerLogoSize: branding.headerLogoSize ?? design.headerLogoSize }
-  const designInitial   = { ...design, showFooterQuotes: design.showFooterQuotes ?? features.showFooterQuotes }
+  const designInitial   = design
 
   return (
     <>

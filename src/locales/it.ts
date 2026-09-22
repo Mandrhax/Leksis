@@ -26,6 +26,7 @@ export const messages = {
     formality:          'FORMALITÀ',
     informal:           'Informale',
     formal:             'Formale',
+    retry:              'Riprova',
   },
   docTab: {
     clear:                  'Cancella',
@@ -48,6 +49,7 @@ export const messages = {
     mode:                   'MODALITÀ',
     extractOnly:            'Solo estrazione',
     extractAndTranslate:    'Estrai e traduci',
+    retry:                  'Riprova',
   },
   imgTab: {
     sourceImage:          'Immagine sorgente',
@@ -66,6 +68,8 @@ export const messages = {
     mode:                 'MODALITÀ',
     extractOnly:          'Solo estrazione',
     extractAndTranslate:  'Estrai e traduci',
+    clickToChange:        'Clicca per cambiare immagine',
+    retry:                'Riprova',
   },
   rewriteTab: {
     autoDetect:         'Rilevamento auto',
@@ -75,6 +79,7 @@ export const messages = {
     rewrite:            'Riscrivi',
     outputPlaceholder:  'Il testo riscritto apparirà qui...',
     copied:             'Copiato!',
+    retry:              'Riprova',
     mode:               'MODALITÀ',
     rewriteMode:        'Riscrittura',
     correctOnly:        'Solo correzione',
@@ -304,8 +309,6 @@ export const messages = {
     footerLinksLabel:     'Link del footer',
     addLink:              'Aggiungi',
     linkLabelPlaceholder: 'Etichetta',
-    showFooterQuotesLabel:'Mostra citazioni nel footer',
-    showFooterQuotesDesc: 'Visualizza una citazione casuale nel footer del workspace.',
     save:                 'Salva',
     toastSaved:           'Impostazioni salvate',
     toastError:           'Errore durante il salvataggio',

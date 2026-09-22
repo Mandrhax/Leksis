@@ -9,7 +9,6 @@ interface DesignData {
   footerText: string
   footerTextColor: string
   footerLinks: { label: string; url: string }[]
-  showFooterQuotes: boolean
 }
 
 interface Props {
@@ -24,7 +23,6 @@ export function DesignForm({ initial, onToast }: Props) {
     footerText: initial.footerText ?? '',
     footerTextColor: initial.footerTextColor ?? '',
     footerLinks: initial.footerLinks ?? [],
-    showFooterQuotes: initial.showFooterQuotes !== false,
   })
   const [saving, setSaving] = useState(false)
 
@@ -180,30 +178,6 @@ export function DesignForm({ initial, onToast }: Props) {
             ))}
           </div>
         </div>
-        <label className="flex items-center justify-between gap-4 bg-surface-container border border-outline-variant/20 rounded-lg px-4 py-3 cursor-pointer hover:bg-surface-container/60 transition-colors">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-on-surface-variant text-base leading-none" aria-hidden="true">format_quote</span>
-            <div>
-              <span className="text-sm font-medium text-on-surface">{t.designForm.showFooterQuotesLabel}</span>
-              <span className="text-xs text-on-surface-variant ml-2">{t.designForm.showFooterQuotesDesc}</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={data.showFooterQuotes}
-            onClick={() => setData(prev => ({ ...prev, showFooterQuotes: !prev.showFooterQuotes }))}
-            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
-              data.showFooterQuotes ? 'bg-primary' : 'bg-outline-variant/40'
-            }`}
-          >
-            <span
-              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                data.showFooterQuotes ? 'translate-x-4' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </label>
       </div>
 
       </div>{/* end right column */}

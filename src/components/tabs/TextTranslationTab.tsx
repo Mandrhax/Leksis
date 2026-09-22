@@ -204,7 +204,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
       <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-surface-container overflow-hidden rounded-xl border border-outline-variant/10 relative">
 
         {/* Left — Source */}
-        <div className="bg-surface-container-lowest p-8 flex flex-col h-[600px]">
+        <div className="bg-surface-container-lowest p-8 flex flex-col h-[420px] md:h-[600px]">
           <div className="flex justify-between items-center mb-6">
             <LanguageDropdown
               value={sourceLangValue}
@@ -221,6 +221,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
             value={sourceText}
             onChange={e => handleTextChange(e.target.value)}
             placeholder={t.textTab.inputPlaceholder}
+            maxLength={maxTextChars}
             className="w-full flex-grow bg-transparent border-none focus:ring-0 translation-text placeholder:text-on-surface-variant resize-none outline-none"
             spellCheck={false}
           />
@@ -236,12 +237,25 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
               }
               <span>{t.textTab.translate}</span>
             </button>
-            <span className={`text-xs font-medium ${sourceText.length >= maxTextChars ? 'text-error' : 'text-outline'}`}>{sourceText.length} / {maxTextChars}</span>
+            <span className={`text-xs font-medium ${
+              sourceText.length >= maxTextChars ? 'text-error' : sourceText.length >= maxTextChars * 0.9 ? 'text-amber-600' : 'text-outline'
+            }`}>{sourceText.length} / {maxTextChars}</span>
           </div>
         </div>
 
+        {/* Mobile-only swap button — in-flow between the two panels */}
+        <div className="flex md:hidden items-center justify-center py-1">
+          <button
+            onClick={handleSwap}
+            className="bg-surface-container-lowest p-2 rounded-full border border-outline-variant/20 shadow-sm hover:bg-surface-container transition-colors flex items-center justify-center"
+            aria-label={t.textTab.swapLanguages}
+          >
+            <span className="material-symbols-outlined text-outline leading-none">swap_vert</span>
+          </button>
+        </div>
+
         {/* Right — Output */}
-        <div className="bg-surface-container-low p-8 flex flex-col h-[600px]">
+        <div className="bg-surface-container-low p-8 flex flex-col h-[420px] md:h-[600px]">
           <div className="flex justify-between items-center mb-6">
             <LanguageDropdown
               value={targetLang}
@@ -255,16 +269,33 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
           </div>
           <div ref={outputRef} className="flex-grow translation-text text-on-surface/90 overflow-y-auto">
             {error ? (
-              <span className="text-error text-sm">{error}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-error text-sm">{error}</span>
+                <button
+                  onClick={() => runTranslation(sourceText, sourceLang, detectedLang, targetLang, formality)}
+                  className="text-button text-xs shrink-0"
+                >
+                  <span className="material-symbols-outlined text-sm" aria-hidden="true">refresh</span>
+                  <span>{t.textTab.retry}</span>
+                </button>
+              </div>
             ) : outputText ? (
-              <span className="whitespace-pre-wrap">{outputText}</span>
+              <span className="whitespace-pre-wrap">
+                {outputText}
+                {isLoading && <span className="inline-block w-[2px] h-[1em] bg-primary align-text-bottom ml-0.5 animate-pulse" aria-hidden="true" />}
+              </span>
+            ) : isLoading ? (
+              <span className="inline-block w-[2px] h-[1em] bg-primary align-text-bottom animate-pulse" aria-hidden="true" />
             ) : (
-              <span className="text-on-surface-variant italic font-light">{t.textTab.outputPlaceholder}</span>
+              <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+                <span className="material-symbols-outlined text-4xl text-outline-variant/40" aria-hidden="true">translate</span>
+                <span className="text-on-surface-variant italic font-light">{t.textTab.outputPlaceholder}</span>
+              </div>
             )}
           </div>
           <div className="mt-4 flex items-center justify-end">
             <div className="flex items-center gap-2">
-              {copied && <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">{t.textTab.copied}</span>}
+              {copied && <span role="status" aria-live="polite" className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">{t.textTab.copied}</span>}
               <button
                 onClick={handleCopy}
                 disabled={!outputText}
@@ -277,7 +308,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
           </div>
         </div>
 
-        {/* Swap button — centered between panels */}
+        {/* Swap button — centered between panels (desktop) */}
         <div className="hidden md:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
           <div
             onClick={handleSwap}

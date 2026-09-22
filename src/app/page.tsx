@@ -14,13 +14,11 @@ async function loadPageSettings() {
       footerText?:       string
       footerTextColor?:  string
       footerLinks?:      { label: string; url: string }[]
-      showFooterQuotes?: boolean
     }
     const features  = (settings.features  ?? {}) as {
       tabs?:             { text?: boolean; document?: boolean; image?: boolean; rewrite?: boolean }
       defaults?:         { sourceLang?: string; targetLang?: string; formality?: Formality }
       limits?:           { maxTextChars?: number; maxDocChars?: number; maxImageMB?: number }
-      showFooterQuotes?: boolean
     }
 
     const tabs = {
@@ -54,8 +52,6 @@ async function loadPageSettings() {
       defaultTargetLang: features.defaults?.targetLang ?? 'en',
       defaultFormality:  features.defaults?.formality  ?? 'Informal',
       maxTextChars:      features.limits?.maxTextChars  ?? 5000,
-      // showFooterQuotes moved from `features` to `design` — fall back to the old key for installs that haven't re-saved yet
-      showFooterQuotes:  (design.showFooterQuotes ?? features.showFooterQuotes) !== false,
       configuredTones,
     }
   } catch {
@@ -71,7 +67,6 @@ async function loadPageSettings() {
       defaultTargetLang: 'en',
       defaultFormality:  'Informal' as Formality,
       maxTextChars:      5000,
-      showFooterQuotes:  true,
       configuredTones:   DEFAULT_TONES,
     }
   }

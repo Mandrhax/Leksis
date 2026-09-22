@@ -9,7 +9,6 @@ import { AccountMenu }          from '@/components/ui/AccountMenu'
 import { UILanguageSwitcher }   from '@/components/ui/UILanguageSwitcher'
 import { HelpModal }            from '@/components/ui/HelpModal'
 import { I18nProvider, useI18n } from '@/lib/i18n'
-import { FR_QUOTES } from '@/lib/fr-quotes'
 import type { ToneConfig, Formality } from '@/types/leksis'
 
 type TabId = 'text' | 'document' | 'image' | 'rewrite'
@@ -33,7 +32,6 @@ interface Props {
   defaultTargetLang: string
   defaultFormality:  Formality
   maxTextChars:      number
-  showFooterQuotes:  boolean
   configuredTones:   ToneConfig[]
 }
 
@@ -45,8 +43,8 @@ export function HomeClient(props: Props) {
   )
 }
 
-function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, defaultFormality, maxTextChars, showFooterQuotes, configuredTones }: Props) {
-  const { t, locale } = useI18n()
+function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, defaultFormality, maxTextChars, configuredTones }: Props) {
+  const { t } = useI18n()
 
   const ALL_TABS: { id: TabId; label: string; icon: string }[] = [
     { id: 'text',     label: t.home.tabText,     icon: 'translate'     },
@@ -60,7 +58,6 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
   const [activeTab, setActiveTab] = useState<TabId>(() => visibleTabs[0]?.id ?? 'text')
   const [logoVisible, setLogoVisible] = useState(true)
   const [helpOpen, setHelpOpen] = useState(false)
-  const [randomQuote] = useState(() => FR_QUOTES[Math.floor(Math.random() * FR_QUOTES.length)])
 
   // Si l'onglet actif est désactivé (rechargement dynamique), revenir au premier
   const safeActiveTab = enabledTabs[activeTab] ? activeTab : (visibleTabs[0]?.id ?? 'text')
@@ -96,6 +93,7 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
               aria-selected={safeActiveTab === tab.id}
               aria-controls={`${tab.id}Tab`}
               onClick={() => setActiveTab(tab.id)}
+              title={tab.label}
               className={`tab-btn py-3 px-3 sm:px-1 text-sm font-medium border-b-2 transition-all ${
                 safeActiveTab === tab.id
                   ? 'text-on-surface border-primary'
@@ -135,14 +133,9 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} activeTab={safeActiveTab} />
 
       {/* ── Footer ── */}
-      {(footerText || footerLinks.length > 0 || (showFooterQuotes && locale === 'fr')) && (
+      {(footerText || footerLinks.length > 0) && (
         <footer className="border-t border-outline-variant/10 px-6 md:px-8 py-4">
           <div className="flex flex-wrap items-center gap-3">
-            {showFooterQuotes && locale === 'fr' && (
-              <p className="w-full text-center text-xs italic text-on-surface-variant/60">
-                {randomQuote}
-              </p>
-            )}
             {footerText && (
               <span
                 className="text-xs text-on-surface-variant"

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import { LANGUAGES, detectLanguage } from '@/lib/languages'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
@@ -118,6 +119,7 @@ export function ImageExtractionTab({ defaultTargetLang }: Props) {
   const [step, setStep]                 = useState<'extracting' | 'translating' | null>(null)
   const [error, setError]               = useState<string | null>(null)
   const [fileName, setFileName]         = useState<string | null>(null)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
 
   const abortRef  = useRef<AbortController | null>(null)
   const fileRef   = useRef<HTMLInputElement>(null)
@@ -127,6 +129,13 @@ export function ImageExtractionTab({ defaultTargetLang }: Props) {
     const el = outputRef.current
     if (el && isLoading) el.scrollTop = el.scrollHeight
   }, [outputText, isLoading])
+
+  useEffect(() => {
+    if (!lightboxOpen) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightboxOpen(false) }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [lightboxOpen])
 
   const handleFile = (f: File) => {
     if (!f.type.startsWith('image/')) return
@@ -263,7 +272,7 @@ export function ImageExtractionTab({ defaultTargetLang }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-surface-container overflow-hidden rounded-xl border border-outline-variant/10 relative">
 
         {/* Left — Image upload */}
-        <div className="bg-surface-container-lowest p-8 flex flex-col h-[600px]">
+        <div className="bg-surface-container-lowest p-8 flex flex-col h-[420px] md:h-[600px]">
           <div className="flex justify-between items-center mb-6">
             <span className="text-xs font-bold text-on-surface-variant tracking-wider uppercase">{t.imgTab.sourceImage}</span>
             <button onClick={handleClearInput} className="text-button">
@@ -278,10 +287,29 @@ export function ImageExtractionTab({ defaultTargetLang }: Props) {
             onDrop={handleDrop}
             onDragOver={e => e.preventDefault()}
             onClick={() => fileRef.current?.click()}
-            className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-outline-variant/30 rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group mb-4 relative overflow-hidden"
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileRef.current?.click() } }}
+            role="button"
+            tabIndex={0}
+            title={preview ? t.imgTab.clickToChange : undefined}
+            className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-outline-variant/30 rounded-lg hover:border-primary/50 hover:bg-primary/5 focus-visible:border-primary/50 focus-visible:bg-primary/5 focus-visible:outline-none transition-all cursor-pointer group mb-4 relative overflow-hidden"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {preview && <img src={preview} alt="Preview" className="absolute inset-0 w-full h-full object-contain p-2" />}
+            {preview && (
+              <>
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); setLightboxOpen(true) }}
+                  aria-label={t.imgTab.clickToChange}
+                  className="absolute top-2 right-2 p-1.5 rounded-md bg-surface-container-lowest/90 border border-outline-variant/20 hover:bg-surface-container transition-colors"
+                >
+                  <span className="material-symbols-outlined text-base leading-none text-on-surface-variant">zoom_in</span>
+                </button>
+                <span className="absolute bottom-2 inset-x-0 text-center text-xs text-on-surface-variant/0 group-hover:text-on-surface-variant transition-colors pointer-events-none">
+                  {t.imgTab.clickToChange}
+                </span>
+              </>
+            )}
             {!preview && (
               <div className="flex flex-col items-center">
                 <span className="material-symbols-outlined text-4xl text-outline-variant/50 group-hover:text-primary/50 transition-colors mb-3">add_photo_alternate</span>
@@ -291,6 +319,28 @@ export function ImageExtractionTab({ defaultTargetLang }: Props) {
               </div>
             )}
           </div>
+
+          {preview && lightboxOpen && createPortal(
+            <div
+              className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-8 cursor-zoom-out"
+              onClick={() => setLightboxOpen(false)}
+              role="dialog"
+              aria-modal="true"
+              aria-label={t.imgTab.sourceImage}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={preview} alt="Preview" className="max-w-full max-h-full object-contain" />
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(false)}
+                aria-label="Close"
+                className="absolute top-4 right-4 icon-btn bg-surface-container-lowest/90"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>,
+            document.body,
+          )}
 
           <input
             ref={fileRef}
@@ -318,7 +368,7 @@ export function ImageExtractionTab({ defaultTargetLang }: Props) {
         </div>
 
         {/* Right — Extracted text */}
-        <div className="bg-surface-container-low p-8 flex flex-col h-[600px]">
+        <div className="bg-surface-container-low p-8 flex flex-col h-[420px] md:h-[600px]">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3 flex-wrap min-w-0">
               <span className="text-xs font-bold text-on-surface tracking-wider uppercase shrink-0">{t.imgTab.extractedText}</span>
@@ -353,7 +403,13 @@ export function ImageExtractionTab({ defaultTargetLang }: Props) {
 
           <div ref={outputRef} className="flex-grow translation-text text-on-surface/90 overflow-y-auto">
             {error ? (
-              <span className="text-error text-sm">{error}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-error text-sm">{error}</span>
+                <button onClick={handleExtract} className="text-button text-xs shrink-0">
+                  <span className="material-symbols-outlined text-sm" aria-hidden="true">refresh</span>
+                  <span>{t.imgTab.retry}</span>
+                </button>
+              </div>
             ) : isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="flex flex-col gap-3 p-5 rounded-xl border border-outline-variant/20 bg-surface-container-lowest">
@@ -383,7 +439,7 @@ export function ImageExtractionTab({ defaultTargetLang }: Props) {
 
           <div className="mt-4 flex items-center justify-end">
             <div className="flex items-center gap-2">
-              {copied && <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">{t.imgTab.copied}</span>}
+              {copied && <span role="status" aria-live="polite" className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">{t.imgTab.copied}</span>}
               <button
                 onClick={handleCopy}
                 disabled={!outputText}

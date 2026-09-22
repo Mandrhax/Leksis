@@ -52,6 +52,14 @@ export function AccountMenu() {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
+  // Fermer sur Échap
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [open])
+
   if (status === 'loading') {
     return (
       <div className="w-8 h-8 flex items-center justify-center">
