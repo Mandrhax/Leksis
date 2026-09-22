@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.0-beta.4/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.0-beta.5/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,10 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.4.0-beta.5 (beta)
+- **Admin dashboard redesigned**: 5th health card for backup status (`leksis backup` now records the last successful backup so the dashboard can flag a stale one), a 7-day AI call trend chart, a breakdown by feature (translate/document/OCR/rewrite), and wider KPI tiles instead of the narrow stats list
+- Fix: the recent-activity icon for "General" settings was still the old lock icon, and a few dashboard strings ("Connected", "just now"…) were hardcoded in English instead of going through the translation system
 
 ### v1.4.0-beta.4 (beta)
 - *Admin → Settings → Identity*: the site background is now either a color or an image, picked with a toggle instead of showing both fields at once — switching to color removes any previously uploaded background image

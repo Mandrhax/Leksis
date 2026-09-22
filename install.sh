@@ -16,12 +16,12 @@
 # Options: -y/--yes  --answers FILE  --dir DIR  --no-tui  -h/--help
 #
 # Run from a server via curl (stdin-safe):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.0-beta.4/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.0-beta.5/install.sh)
 # ============================================================
 set -eEuo pipefail
 
 # ── VERSION (bumped at release; package.json wins when present) ──
-VERSION="1.4.0-beta.4"
+VERSION="1.4.0-beta.5"
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "$0")"
 _pkg="$(dirname "$SCRIPT_PATH")/package.json"
 if [[ -f "$_pkg" ]]; then
@@ -1378,6 +1378,20 @@ SQL
 
 # ── Backup / restore ──────────────────────────────────────────
 # Archive layout: postgres.sql, uploads.tar (logo/background), .env, VERSION
+record_backup_timestamp() {
+  # Records the last successful backup time in site_settings so the admin dashboard can show
+  # it (the backups/ directory lives on the host, not in the app container). Best-effort: a
+  # failure here must never fail the backup itself.
+  docker compose exec -T postgres psql -U leksis_user -d leksis -q -v ON_ERROR_STOP=1 \
+      -v ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)" >/dev/null 2>&1 <<'SQL' || true
+INSERT INTO site_settings (key, value, updated_at)
+VALUES ('system_status', jsonb_build_object('lastBackupAt', :'ts'), NOW())
+ON CONFLICT (key) DO UPDATE
+  SET value      = site_settings.value || jsonb_build_object('lastBackupAt', :'ts'),
+      updated_at = NOW();
+SQL
+}
+
 create_backup() {
   local ts out work dir="${INSTALL_DIR}/backups"
   ts=$(date +%Y%m%d-%H%M%S)
@@ -1408,6 +1422,7 @@ create_backup() {
   ls -1t "${dir}"/leksis-backup-*.tar.gz 2>/dev/null | tail -n +"$((BACKUP_KEEP + 1))" | xargs -r rm -f
   p_ok "Backup saved: ${out} ($(du -h "$out" | cut -f1))"
   p_info "The archive contains your .env (secrets) — keep it private."
+  record_backup_timestamp
   LAST_BACKUP="$out"
   return 0
 }
