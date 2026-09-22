@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, createContext, useContext } from 'react'
 import { useI18n } from '@/lib/i18n'
-import { useOllamaPull } from '@/hooks/useOllamaPull'
 import type { AiMetricsResult } from '@/lib/llm/types'
 
 export function formatBytes(bytes: number): string {
@@ -216,93 +215,6 @@ export function OllamaInstalledBlock() {
             )
           })}
         </div>
-      )}
-    </div>
-  )
-}
-
-export function OllamaPullBlock() {
-  const { t } = useI18n()
-  const { data: metrics, load } = useOllamaMetrics()
-  const of = t.ollamaForm
-  const { pull, pulling, progress, status } = useOllamaPull()
-
-  const [modelName, setModelName] = useState('')
-  const [error,     setError]     = useState<string | null>(null)
-  const [success,   setSuccess]   = useState(false)
-
-  async function handlePull(e: React.FormEvent) {
-    e.preventDefault()
-    const name = modelName.trim()
-    if (!name || pulling) return
-
-    setError(null)
-    setSuccess(false)
-    const result = await pull(name)
-    if (result.ok) {
-      setSuccess(true)
-      setModelName('')
-      await load()
-    } else {
-      setError(result.error ? `${of.pullError}: ${result.error}` : of.pullError)
-    }
-  }
-
-  // Un serveur OpenAI-compatible ne sait pas télécharger de modèles
-  if (metrics && !metrics.capabilities.pull) return null
-
-  return (
-    <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-4">
-      <h3 className="text-sm font-semibold text-on-surface">{of.pullTitle}</h3>
-
-      <form onSubmit={handlePull} className="flex gap-2">
-        <input
-          type="text"
-          value={modelName}
-          onChange={e => { setModelName(e.target.value); setError(null); setSuccess(false) }}
-          placeholder={of.pullPlaceholder}
-          disabled={pulling}
-          className="flex-1 text-sm bg-surface-container-low border border-outline-variant/30 rounded-lg px-3 py-2 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary disabled:opacity-50"
-        />
-        <button
-          type="submit"
-          disabled={pulling || !modelName.trim()}
-          className="action-btn shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {pulling ? of.pullPulling : of.pullButton}
-        </button>
-      </form>
-
-      {pulling && (
-        <div className="flex flex-col gap-2">
-          <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden">
-            {progress !== null ? (
-              <div
-                className="h-full bg-primary rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            ) : (
-              <div className="h-full bg-primary/40 rounded-full animate-pulse w-full" />
-            )}
-          </div>
-          {status && (
-            <p className="text-xs text-on-surface-variant truncate">{progress !== null ? `${progress}% — ` : ''}{status}</p>
-          )}
-        </div>
-      )}
-
-      {success && !pulling && (
-        <p className="text-xs text-green-600 flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]">check_circle</span>
-          {of.pullSuccess}
-        </p>
-      )}
-
-      {error && !pulling && (
-        <p className="text-xs text-error flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]">error</span>
-          {error}
-        </p>
       )}
     </div>
   )

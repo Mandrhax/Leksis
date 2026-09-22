@@ -6,7 +6,7 @@ import { AdminToast }           from './AdminToast'
 import type { ToastState }      from './AdminToast'
 import type { AiPublicConfig }  from '@/lib/llm/types'
 import { useI18n } from '@/lib/i18n'
-import { OllamaMetricsProvider, OllamaStatusBlock, OllamaInstalledBlock, OllamaRunningBlock, OllamaPullBlock } from './OllamaMetrics'
+import { OllamaMetricsProvider, OllamaStatusBlock, OllamaInstalledBlock, OllamaRunningBlock } from './OllamaMetrics'
 
 interface Props {
   initial: AiPublicConfig
@@ -57,7 +57,6 @@ export function OllamaServicesLayout({ initial }: Props) {
             <OllamaInstalledBlock />
             <OllamaRunningBlock />
           </div>
-          <OllamaPullBlock />
         </div>
       )}
 
