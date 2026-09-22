@@ -62,61 +62,82 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
   // Si l'onglet actif est désactivé (rechargement dynamique), revenir au premier
   const safeActiveTab = enabledTabs[activeTab] ? activeTab : (visibleTabs[0]?.id ?? 'text')
 
+  const tabsRow = (
+    <div className="flex justify-center gap-2 sm:gap-8 px-4 sm:px-6 md:px-8" role="tablist" aria-label={t.home.tabsAriaLabel}>
+      {visibleTabs.map(tab => (
+        <button
+          key={tab.id}
+          role="tab"
+          type="button"
+          aria-selected={safeActiveTab === tab.id}
+          aria-controls={`${tab.id}Tab`}
+          onClick={() => setActiveTab(tab.id)}
+          title={tab.label}
+          className={`tab-btn py-3 px-3 sm:px-1 text-sm font-medium border-b-2 transition-all ${
+            safeActiveTab === tab.id
+              ? 'text-on-surface border-primary'
+              : 'text-on-surface-variant border-transparent hover:text-on-surface'
+          }`}
+        >
+          <span className="material-symbols-outlined align-middle sm:mr-1.5 text-lg" aria-hidden="true">{tab.icon}</span>
+          <span className="hidden sm:inline">{tab.label}</span>
+        </button>
+      ))}
+    </div>
+  )
+
+  const controlsRow = (
+    <div className="flex items-center gap-1">
+      <button
+        className="icon-btn flex items-center justify-center"
+        onClick={() => setHelpOpen(true)}
+        aria-label={t.helpModal.title}
+      >
+        <span className="material-symbols-outlined">help</span>
+      </button>
+      <UILanguageSwitcher />
+      <AccountMenu />
+    </div>
+  )
+
+  const logoImg = logoUrl && logoVisible ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={logoUrl}
+      alt={siteName}
+      height={logoSize}
+      style={{ height: `${logoSize}px`, width: 'auto', maxWidth: '160px' }}
+      onError={() => setLogoVisible(false)}
+    />
+  ) : null
+
   return (
     <div className="min-h-screen flex flex-col">
 
       {/* ── Tab bar ── */}
-      <div className="relative border-b border-outline-variant/10">
+      <div className="border-b border-outline-variant/10">
 
-        {/* Logo — absolute left */}
-        {logoUrl && logoVisible && (
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={logoUrl}
-              alt={siteName}
-              height={logoSize}
-              style={{ height: `${logoSize}px`, width: 'auto', maxWidth: '160px' }}
-              onError={() => setLogoVisible(false)}
-            />
-          </div>
-        )}
-
-        {/* Tabs — centred */}
-        <div className="flex justify-center gap-2 sm:gap-8 px-6 md:px-8" role="tablist" aria-label={t.home.tabsAriaLabel}>
-          {visibleTabs.map(tab => (
-            <button
-              key={tab.id}
-              id={`${tab.id}TabBtn`}
-              role="tab"
-              type="button"
-              aria-selected={safeActiveTab === tab.id}
-              aria-controls={`${tab.id}Tab`}
-              onClick={() => setActiveTab(tab.id)}
-              title={tab.label}
-              className={`tab-btn py-3 px-3 sm:px-1 text-sm font-medium border-b-2 transition-all ${
-                safeActiveTab === tab.id
-                  ? 'text-on-surface border-primary'
-                  : 'text-on-surface-variant border-transparent hover:text-on-surface'
-              }`}
-            >
-              <span className="material-symbols-outlined align-middle sm:mr-1.5 text-lg" aria-hidden="true">{tab.icon}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
-            </button>
-          ))}
+        {/* Mobile (< sm): logo + controls on one row, tabs on their own row below —
+            avoids the overlap you get from cramming everything into a single row */}
+        <div className={`flex sm:hidden items-center px-4 py-2 ${logoImg ? 'justify-between' : 'justify-end'}`}>
+          {logoImg}
+          {controlsRow}
+        </div>
+        <div className="sm:hidden pb-2">
+          {tabsRow}
         </div>
 
-        {/* Right controls: help + UI language switcher + account menu */}
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          <button
-            className="icon-btn flex items-center justify-center"
-            onClick={() => setHelpOpen(true)}
-            aria-label={t.helpModal.title}
-          >
-            <span className="material-symbols-outlined">help</span>
-          </button>
-          <UILanguageSwitcher />
-          <AccountMenu />
+        {/* Desktop (sm+): single row — logo/controls absolute, tabs centred */}
+        <div className="hidden sm:block relative">
+          {logoImg && (
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center">
+              {logoImg}
+            </div>
+          )}
+          {tabsRow}
+          <div className="absolute right-4 top-1/2 -translate-y-1/2">
+            {controlsRow}
+          </div>
         </div>
       </div>
 
