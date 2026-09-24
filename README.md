@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.4.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,14 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.5.0-beta.1
+vLLM support, with dedicated TranslateGemma routing.
+- New AI engine option: **vLLM** (renamed from the generic "OpenAI-compatible" provider for clarity — existing installs migrate automatically, no action needed)
+- When the configured model is TranslateGemma served by vLLM, translation, rewrite and OCR now use its dedicated prompt format instead of a generic instruction prompt — quality and reliability should improve noticeably for that specific setup
+- Document translation with a TranslateGemma/vLLM setup now translates the whole document in one pass; structure (tables, headings) is not reconstructed yet in this mode — a deeper rework is planned
+- Admin → Services → AI: "use the same model for everything" now also applies to the OCR model (previously translation + rewrite only)
+- `install.sh`: model selection asks once for "same model for all 3 features" across all AI engine modes (local Ollama, remote Ollama, vLLM)
 
 ### v1.4.2
 Workspace UI pass: mobile usability, accessibility, and small polish across the four tabs.
