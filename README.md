@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0-beta.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0-beta.2/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,10 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.5.0-beta.2
+- Fix: OCR (image) and document translation could return a 502 error when vLLM was the selected AI engine — TranslateGemma's vision support isn't usable through vLLM's standard OpenAI-compatible API (proprietary image format, no image handling in its packaged chat template)
+- Document translation and Image extraction are now automatically disabled — routes and tabs — whenever the vLLM provider is active, instead of failing; the admin toggle for them shows as unavailable with an explanation, and the stored preference is kept for when a vision-capable setup is used
 
 ### v1.5.0-beta.1
 vLLM support, with dedicated TranslateGemma routing.
