@@ -8,7 +8,7 @@ import { getAiConfig, getAiPublicConfig, isExternalUrl } from '@/lib/llm'
 
 const AiSchema = z.object({
   service:          z.literal('ai'),
-  provider:         z.enum(['ollama', 'openai']),
+  provider:         z.enum(['ollama', 'vllm']),
   baseUrl:          z.string().url().refine(u => /^https?:\/\//i.test(u)),
   apiKey:           z.string().optional(),      // vide = ne pas modifier
   clearApiKey:      z.boolean().optional(),
@@ -89,7 +89,7 @@ export async function PATCH(req: NextRequest) {
       baseUrl:          data.baseUrl,
       apiKeyEnc,
       translationModel: data.translationModel,
-      ocrModel:         data.ocrModel,
+      ocrModel:         data.sameModelForAll ? data.translationModel : data.ocrModel,
       rewriteModel:     data.sameModelForAll ? data.translationModel : data.rewriteModel,
       sameModelForAll:  data.sameModelForAll ?? false,
       allowExternal,

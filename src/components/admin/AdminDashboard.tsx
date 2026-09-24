@@ -175,7 +175,7 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
         if (key === 'ollama') {
           setServices(s => s.map(svc => svc.key !== 'ollama' ? svc : {
             ...svc,
-            name:    data.provider ? (data.provider === 'openai' ? 'OpenAI API' : 'Ollama') : svc.name,
+            name:    data.provider ? (data.provider === 'vllm' ? 'vLLM' : 'Ollama') : svc.name,
             ok:      res.ok,
             version: data.version || null,
             latency: data.latencyMs != null ? `${data.latencyMs} ms` : null,

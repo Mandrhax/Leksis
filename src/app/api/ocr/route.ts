@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAiOrError } from '@/lib/llm'
-import { buildOcrPrompt } from '@/lib/prompts'
+import { buildOcrPrompt, buildCustomPrompt, isDelimitedModel } from '@/lib/prompts'
 
 export const maxDuration = 300
 import { validateImageSize } from '@/lib/validators'
@@ -48,7 +48,8 @@ export async function POST(req: NextRequest) {
     charCount: Math.round(image.size / 1024), // Ko
   })
 
-  const prompt = buildOcrPrompt()
+  const basePrompt = buildOcrPrompt()
+  const prompt = isDelimitedModel(cfg.provider, cfg.ocrModel) ? buildCustomPrompt(basePrompt) : basePrompt
   const stream = provider.stream({ prompt, images: [base64], signal: req.signal, model: cfg.ocrModel })
 
   return new Response(stream, {

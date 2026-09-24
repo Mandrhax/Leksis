@@ -153,7 +153,11 @@ export function DocumentStudioTab({ defaultTargetLang }: Props) {
         setOutputHtml(blocksToHtml(data.blocks))
       } else {
         formData.append('targetLang', targetLang.name)
-        if (sourceLang) formData.append('sourceLang', sourceLang.name)
+        formData.append('targetCode', targetLang.code)
+        if (sourceLang) {
+          formData.append('sourceLang', sourceLang.name)
+          formData.append('sourceCode', sourceLang.code)
+        }
 
         setStep('translating')
         const res = await fetch('/api/translate/document', {

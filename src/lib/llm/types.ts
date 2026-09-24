@@ -1,7 +1,7 @@
 // Types partagés de la couche LLM. Aucun import serveur ici : ce fichier est
 // importable (type-only) depuis les composants client.
 
-export type AiProviderId = 'ollama' | 'openai'
+export type AiProviderId = 'ollama' | 'vllm'
 
 export interface LlmRequest {
   prompt:  string

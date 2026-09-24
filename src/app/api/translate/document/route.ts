@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAiOrError } from '@/lib/llm'
-import { buildDocumentTranslationPrompt } from '@/lib/prompts'
+import { buildDocumentTranslationPrompt, buildDelimitedTranslationPrompt, isDelimitedModel } from '@/lib/prompts'
 
 export const maxDuration = 300
-import { parseFile, parsePdf, isProbablyScanned, flattenBlocks, applyTranslatedSegments, countBlockChars } from '@/lib/file-parser'
+import {
+  parseFile, parsePdf, isProbablyScanned, flattenBlocks, flattenBlocksPlain,
+  applyTranslatedSegments, textToBlocks, countBlockChars,
+} from '@/lib/file-parser'
 import { parsePdfWithVision } from '@/lib/pdf-vision'
 import { getDynamicLimits } from '@/lib/limits'
 import { logUsage } from '@/lib/usage'
 import { isFeatureEnabled } from '@/lib/features-guard'
 import { validateFileExtension } from '@/lib/validators'
+import { detectLanguage } from '@/lib/languages'
 import { auth } from '@/auth'
 
 export async function POST(req: NextRequest) {
@@ -25,6 +29,8 @@ export async function POST(req: NextRequest) {
   const file = formData.get('file') as File | null
   const targetLang = formData.get('targetLang') as string | null
   const sourceLang = formData.get('sourceLang') as string | null
+  const targetCode = formData.get('targetCode') as string | null
+  const sourceCode = formData.get('sourceCode') as string | null
 
   if (!file) return NextResponse.json({ error: 'No file provided.' }, { status: 400 })
   if (!targetLang) return NextResponse.json({ error: 'Target language is required.' }, { status: 400 })
@@ -61,21 +67,49 @@ export async function POST(req: NextRequest) {
     }, { status: 400 })
   }
 
-  const segments = flattenBlocks(blocks)
-
-  const prompt = buildDocumentTranslationPrompt({
-    segments,
-    sourceLang: sourceLang || 'Auto',
-    targetLang,
-  })
-
   const session = await auth()
 
   let translated: string
-  try {
-    translated = await provider.complete({ prompt, signal: req.signal, model: cfg.translationModel })
-  } catch (err) {
-    return NextResponse.json({ error: `Translation failed: ${(err as Error).message}` }, { status: 502 })
+  let translatedBlocks
+
+  if (isDelimitedModel(cfg.provider, cfg.translationModel)) {
+    // Un seul bloc de texte, sans séparateurs |||: pas de reconstruction de
+    // structure pour l'instant (tableaux/titres) — à retravailler plus tard.
+    const flatText = flattenBlocksPlain(blocks)
+    const effectiveSourceCode = sourceCode || detectLanguage(flatText)?.code
+    if (!effectiveSourceCode) {
+      return NextResponse.json({ error: 'Could not determine the source language.' }, { status: 400 })
+    }
+    if (!targetCode) {
+      return NextResponse.json({ error: 'Target language code is required.' }, { status: 400 })
+    }
+
+    try {
+      translated = await provider.complete({
+        prompt: buildDelimitedTranslationPrompt({ sourceCode: effectiveSourceCode, targetCode, text: flatText }),
+        signal: req.signal,
+        model: cfg.translationModel,
+      })
+    } catch (err) {
+      return NextResponse.json({ error: `Translation failed: ${(err as Error).message}` }, { status: 502 })
+    }
+
+    translatedBlocks = textToBlocks(translated)
+  } else {
+    const segments = flattenBlocks(blocks)
+    const prompt = buildDocumentTranslationPrompt({
+      segments,
+      sourceLang: sourceLang || 'Auto',
+      targetLang,
+    })
+
+    try {
+      translated = await provider.complete({ prompt, signal: req.signal, model: cfg.translationModel })
+    } catch (err) {
+      return NextResponse.json({ error: `Translation failed: ${(err as Error).message}` }, { status: 502 })
+    }
+
+    translatedBlocks = applyTranslatedSegments(blocks, translated)
   }
 
   logUsage({
@@ -87,8 +121,6 @@ export async function POST(req: NextRequest) {
     model:     cfg.translationModel,
     charCount,
   })
-
-  const translatedBlocks = applyTranslatedSegments(blocks, translated)
 
   return NextResponse.json({ blocks: translatedBlocks })
 }
