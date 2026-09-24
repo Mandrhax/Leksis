@@ -324,6 +324,7 @@ export const messages = {
     moduleImageDesc:  'OCR über Ollama Vision',
     moduleRewrite:    'KI-Umschreibung',
     moduleRewriteDesc:'Umformulierung und Korrektur',
+    disabledVllm:     'Mit vLLM nicht verfügbar — dieses Modell unterstützt keine Bilderkennung über die Standard-API',
     sectionDefaults:  'Standardwerte',
     defaultsDesc:     'Anfangsvorbelegung für Sprache und Ton. Die Benutzerauswahl (lokal gespeichert) hat Vorrang.',
     sourceLangLabel:  'Quellsprache',

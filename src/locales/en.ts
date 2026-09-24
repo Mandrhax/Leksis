@@ -322,6 +322,7 @@ export const messages = {
     moduleImageDesc:  'OCR via Ollama vision',
     moduleRewrite:    'AI rewriting',
     moduleRewriteDesc:'Reformulation and correction',
+    disabledVllm:     'Unavailable with vLLM — this model doesn\'t support vision through the standard API',
     sectionDefaults:  'Defaults',
     defaultsDesc:     "Initial prefill for language and tone. The user's choice (stored locally) takes precedence.",
     sourceLangLabel:  'Source language',
