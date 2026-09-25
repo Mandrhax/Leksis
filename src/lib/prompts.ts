@@ -114,11 +114,12 @@ export function buildRewritePrompt({
       `You are an expert editor and writing coach. ` +
       `Your task is to rewrite text to match a specific tone while preserving the original meaning completely. ` +
       `Do not add new information. Do not remove key information. ` +
-      `Return only the rewritten text, nothing else.`,
+      `Return only the rewritten text, nothing else — no preamble, no explanation, no restatement of these instructions, no introductory sentence before or after it.`,
     prompt:
       `Rewrite the following text ${instruction}. ${lengthInstruction}\n` +
       `IMPORTANT: ${langClause}\n` +
       glossaryClause +
+      `Output ONLY the rewritten text. Do not add any preamble, explanation, or introductory sentence — start your reply directly with the rewritten text.\n` +
       `\n${text}`,
   }
 }
@@ -136,11 +137,12 @@ export function buildCorrectPrompt({ langClause, glossaryClause = '', text }: Co
       `Your task is to correct spelling, grammar, and punctuation errors only. ` +
       `Do not rephrase, restructure, or change the style. ` +
       `Make the minimum number of changes necessary. ` +
-      `Return only the corrected text, nothing else.`,
+      `Return only the corrected text, nothing else — no preamble, no explanation, no restatement of these instructions, no introductory sentence before or after it.`,
     prompt:
       `Correct all spelling, grammar, and punctuation errors in the following text.\n` +
       `IMPORTANT: ${langClause}\n` +
       glossaryClause +
+      `Output ONLY the corrected text. Do not add any preamble, explanation, or introductory sentence — start your reply directly with the corrected text.\n` +
       `\n${text}`,
   }
 }
