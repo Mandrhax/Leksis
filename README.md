@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.3/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.4/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,10 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.5.1-beta.4
+- Fix: entering the sign-in code failed with "Invalid URL" in beta.3 (a side effect of the sign-out fix). Sign-in works again; signing out still returns to the sign-in page at the address you use, never `0.0.0.0`
+- The sign-in → workspace → sign-out flow is now verified in a real browser, with no console errors
 
 ### v1.5.1-beta.3
 Sign-in/sign-out fixes and internal cleanup, on top of beta.2.
