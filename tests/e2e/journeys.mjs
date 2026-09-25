@@ -276,6 +276,22 @@ try {
   const retentionFields = await adminPage.evaluate(() => [...document.querySelectorAll('input[type=number]')].map(i => i.value))
   check('the settings page shows the default retention (365 / 730 days)', retentionFields.includes('365') && retentionFields.includes('730'), retentionFields.join(','))
 
+  // ── Upload refused: the server sends a code, not text to display ──
+  const badLogo = await adminPage.evaluate(async () => {
+    const form = new FormData()
+    form.append('logo', new File(['<svg xmlns="http://www.w3.org/2000/svg"></svg>'], 'logo.svg', { type: 'image/svg+xml' }))
+    const r = await fetch('/api/admin/logo', { method: 'POST', body: form })
+    return { status: r.status, json: await r.json() }
+  })
+  check('an SVG logo is refused with a translatable error code', badLogo.status === 400 && badLogo.json.code === 'unsupported_format' && badLogo.json.formats?.includes('PNG'), JSON.stringify(badLogo))
+
+  // ── Reset to defaults ──────────────────────────────────────────
+  const reset = await adminPage.evaluate(() => fetch('/api/admin/settings/reset', { method: 'POST' }).then(r => r.status))
+  check('an admin can reset the settings to their defaults', reset === 200, String(reset))
+  const stored = Object.fromEntries((await db.query('SELECT key, value FROM site_settings')).rows.map(r => [r.key, r.value]))
+  check('every setting was written with its default', stored.branding?.siteName === 'Leksis' && stored.general?.usageRetentionDays === 365
+    && stored.features?.limits?.maxDocChars === 12000 && stored.features?.limits?.maxImageMB === 10 && stored.rewrite_tones?.length === 6, JSON.stringify(Object.keys(stored)))
+
   check('no browser console errors on the admin pages', adminProblems.length === 0, adminProblems.join(' | '))
 
   check('no browser console errors or uncaught exceptions (e.g. hydration #418)', problems.length === 0, problems.join(' | '))

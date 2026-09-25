@@ -64,3 +64,14 @@ export function assetPathFromUrl(url: string): string | null {
   const match = url.split('?')[0].match(/^\/api\/site-assets\/(.+)$/)
   return match ? join(/*turbopackIgnore: true*/ uploadsDir(), basename(match[1])) : null
 }
+
+// Réponses d'erreur des routes d'upload : `code` stable + valeurs, le formulaire compose le message traduit
+export function tooLarge(kind: AssetKind) {
+  const maxMB = kind.maxBytes / (1024 * 1024)
+  return { error: `File too large (max ${maxMB} MB).`, code: 'too_large', maxMB }
+}
+
+export function unsupportedFormat(kind: AssetKind) {
+  const formats = kind.formats.map(f => f.toUpperCase())
+  return { error: `Unsupported format. Use ${formats.join(', ')}.`, code: 'unsupported_format', formats }
+}

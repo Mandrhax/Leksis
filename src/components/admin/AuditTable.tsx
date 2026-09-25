@@ -26,21 +26,32 @@ export function AuditTable() {
     UPDATE_SETTINGS: t.auditTable.actionUpdateSettings,
     UPDATE_ROLE:     t.auditTable.actionUpdateRole,
     TEST_SERVICE:    t.auditTable.actionTestService,
+    DISABLE_USER:    t.auditTable.actionDisableUser,
+    ENABLE_USER:     t.auditTable.actionEnableUser,
+    DELETE_USER:     t.auditTable.actionDeleteUser,
+    AUTO_PURGE_USAGE: t.auditTable.actionAutoPurge,
+    AUTO_PURGE_AUDIT: t.auditTable.actionAutoPurge,
   }
 
   const [rows, setRows]       = useState<AuditEntry[]>([])
   const [page, setPage]       = useState(1)
   const [total, setTotal]     = useState(0)
   const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState(false)
 
   const load = useCallback(async (p: number) => {
     setLoading(true)
+    setError(false)
     try {
-      const res  = await fetch(`/api/admin/audit?page=${p}`)
+      const res = await fetch(`/api/admin/audit?page=${p}`)
+      // Session expirée (403), erreur serveur ou requête interrompue : pas de tableau cassé ni d'exception non gérée
+      if (!res.ok) throw new Error()
       const json = await res.json()
       setRows(json.rows)
       setTotal(json.total)
       setPage(p)
+    } catch {
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -66,6 +77,8 @@ export function AuditTable() {
               progress_activity
             </span>
           </div>
+        ) : error ? (
+          <p className="py-12 text-center text-sm text-error">{t.auditTable.loadError}</p>
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-on-surface-variant gap-2">
             <span className="material-symbols-outlined text-3xl" aria-hidden="true">manage_history</span>

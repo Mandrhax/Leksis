@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { DOCUMENT_MAX_CHARS, IMAGE_MAX_BYTES, RATE_LIMIT_PER_MIN, TEXT_MAX_CHARS } from '@/lib/validators'
 
 // Schémas des réglages du site (site_settings), utilisés à l'enregistrement ET à l'import d'une configuration.
 // Ces valeurs finissent dans du CSS (<style>, url('…')), dans des attributs href ou dans des prompts :
@@ -93,6 +94,27 @@ export const AiConfigImportSchema = z.object({
 })
 
 export const TonesSchema = z.array(ToneSchema).min(1).max(6)
+
+/**
+ * Valeurs par défaut de chaque réglage (« Reset to defaults »). Les limites viennent des constantes de validators.ts,
+ * seules valeurs de repli quand la base est injoignable : une seule source. `rewrite_tones` est dans lib/tones.ts
+ * (DEFAULT_TONES, réservé au serveur).
+ */
+export const SETTING_DEFAULTS = {
+  branding: { siteName: 'Leksis', primaryColor: '#565e74', secondaryColor: '#506076', headerLogoSize: '32' },
+  design:   { buttonRadius: '0.75rem', footerText: '© Leksis', footerLinks: [] },
+  general:  { contactEmail: '', globalBanner: '', maintenanceMode: false, maintenanceMessage: '', ...RETENTION_DEFAULTS },
+  features: {
+    tabs:     { text: true, document: true, image: true, rewrite: true },
+    defaults: { sourceLang: 'auto', targetLang: 'en', formality: 'Informal' },
+    limits:   {
+      maxTextChars:    TEXT_MAX_CHARS,
+      maxDocChars:     DOCUMENT_MAX_CHARS,
+      maxImageMB:      IMAGE_MAX_BYTES / (1024 * 1024),
+      rateLimitPerMin: RATE_LIMIT_PER_MIN,
+    },
+  },
+} as const
 
 /** Schéma de chaque clé modifiable depuis l'admin (PATCH) ou importable. */
 export const SETTING_SCHEMAS = {

@@ -289,6 +289,8 @@ export const messages = {
     toastSaved:         'Settings saved',
     toastError:         'Error saving',
     toastUploadError:   'Upload error.',
+    errTooLarge:        'File too large (max {0} MB).',
+    errUnsupportedFormat: 'Unsupported format. Use {0}.',
     toastDeleteError:   'Error deleting.',
   },
   designForm: {
@@ -575,6 +577,11 @@ export const messages = {
     actionUpdateSettings: 'Settings updated',
     actionUpdateRole:     'Role updated',
     actionTestService:    'Connection test',
+    actionDisableUser: 'Account disabled',
+    actionEnableUser: 'Account enabled',
+    actionDeleteUser: 'Account deleted',
+    actionAutoPurge: 'Automatic purge',
+    loadError: 'Could not load the audit log.',
   },
   purgeButton: {
     purge:                'Purge',

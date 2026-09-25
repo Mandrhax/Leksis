@@ -46,6 +46,13 @@ export function BrandingForm({ initial, onToast }: Props) {
     setData(prev => ({ ...prev, [k]: v }))
   }, [])
 
+  // Messages d'erreur d'upload : le serveur envoie un code et des valeurs, le texte est traduit ici
+  function uploadErrorMessage(json: { code?: string; maxMB?: number; formats?: string[] }): string {
+    if (json.code === 'too_large')          return t.brandingForm.errTooLarge.replace('{0}', String(json.maxMB ?? ''))
+    if (json.code === 'unsupported_format') return t.brandingForm.errUnsupportedFormat.replace('{0}', (json.formats ?? []).join(', '))
+    return t.brandingForm.toastUploadError
+  }
+
   // ── Logo ──────────────────────────────────────────────────────────────────────
   async function handleLogoUpload(file: File) {
     setLogoUploading(true)
@@ -54,7 +61,7 @@ export function BrandingForm({ initial, onToast }: Props) {
       form.append('logo', file)
       const res  = await fetch('/api/admin/logo', { method: 'POST', body: form })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? t.brandingForm.toastUploadError)
+      if (!res.ok) throw new Error(uploadErrorMessage(json))
       setLogoPreview(json.logoUrl)
       set('logoUrl', json.logoUrl)
       onToast({ message: t.brandingForm.toastLogoUpdated, type: 'success' })
@@ -89,7 +96,7 @@ export function BrandingForm({ initial, onToast }: Props) {
       form.append('background', file)
       const res  = await fetch('/api/admin/background', { method: 'POST', body: form })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? t.brandingForm.toastUploadError)
+      if (!res.ok) throw new Error(uploadErrorMessage(json))
       setBgPreview(json.backgroundImage)
       set('backgroundImage', json.backgroundImage)
       onToast({ message: t.brandingForm.toastBgUpdated, type: 'success' })

@@ -4,19 +4,9 @@ import { getAdminSession } from '@/lib/admin-guard'
 import { getSetting, updateSetting } from '@/lib/settings'
 import { DEFAULT_TONES } from '@/lib/tones'
 import { assetPathFromUrl } from '@/lib/site-assets'
-import { RETENTION_DEFAULTS } from '@/lib/settings-schema'
+import { SETTING_DEFAULTS } from '@/lib/settings-schema'
 
-const DEFAULTS = {
-  branding:      { siteName: 'Leksis', primaryColor: '#565e74', secondaryColor: '#506076', headerLogoSize: '32' },
-  design:        { buttonRadius: '0.75rem', footerText: '© Leksis', footerLinks: [] },
-  general:       { contactEmail: '', globalBanner: '', maintenanceMode: false, maintenanceMessage: '', ...RETENTION_DEFAULTS },
-  features: {
-    tabs:     { text: true, document: true, image: true, rewrite: true },
-    defaults: { sourceLang: 'auto', targetLang: 'en', formality: 'Informal' },
-    limits:   { maxTextChars: 5000, maxDocChars: 12000, maxImageMB: 10, rateLimitPerMin: 30 },
-  },
-  rewrite_tones: DEFAULT_TONES,
-}
+const DEFAULTS = { ...SETTING_DEFAULTS, rewrite_tones: DEFAULT_TONES }
 
 export async function POST() {
   const session = await getAdminSession()

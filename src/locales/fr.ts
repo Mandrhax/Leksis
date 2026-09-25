@@ -291,6 +291,8 @@ export const messages = {
     toastSaved:         'Réglages sauvegardés',
     toastError:         'Erreur lors de la sauvegarde',
     toastUploadError:   'Erreur lors de l\'upload.',
+    errTooLarge:        'Fichier trop volumineux (max {0} Mo).',
+    errUnsupportedFormat: 'Format non pris en charge. Utilisez {0}.',
     toastDeleteError:   'Erreur lors de la suppression.',
   },
   designForm: {
@@ -577,6 +579,11 @@ export const messages = {
     actionUpdateSettings: 'Réglages modifiés',
     actionUpdateRole:     'Rôle modifié',
     actionTestService:    'Test de connexion',
+    actionDisableUser: 'Compte désactivé',
+    actionEnableUser: 'Compte activé',
+    actionDeleteUser: 'Compte supprimé',
+    actionAutoPurge: 'Purge automatique',
+    loadError: 'Impossible de charger le journal d’audit.',
   },
   purgeButton: {
     purge:                'Purger',

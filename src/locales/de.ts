@@ -291,6 +291,8 @@ export const messages = {
     toastSaved:         'Einstellungen gespeichert',
     toastError:         'Fehler beim Speichern',
     toastUploadError:   'Upload-Fehler.',
+    errTooLarge:        'Datei zu groß (max. {0} MB).',
+    errUnsupportedFormat: 'Nicht unterstütztes Format. Verwenden Sie {0}.',
     toastDeleteError:   'Fehler beim Löschen.',
   },
   designForm: {
@@ -577,6 +579,11 @@ export const messages = {
     actionUpdateSettings: 'Einstellungen geändert',
     actionUpdateRole:     'Rolle geändert',
     actionTestService:    'Verbindungstest',
+    actionDisableUser: 'Konto deaktiviert',
+    actionEnableUser: 'Konto aktiviert',
+    actionDeleteUser: 'Konto gelöscht',
+    actionAutoPurge: 'Automatische Bereinigung',
+    loadError: 'Das Audit-Protokoll konnte nicht geladen werden.',
   },
   purgeButton: {
     purge:                'Bereinigen',

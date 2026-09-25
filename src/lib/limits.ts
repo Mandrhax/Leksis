@@ -23,7 +23,7 @@ export async function getDynamicLimits(): Promise<DynamicLimits> {
     return {
       maxTextChars:    limits.maxTextChars ?? TEXT_MAX_CHARS,
       maxDocChars:     limits.maxDocChars  ?? DOCUMENT_MAX_CHARS,
-      maxImageBytes:   (limits.maxImageMB ?? 10) * 1024 * 1024,
+      maxImageBytes:   limits.maxImageMB ? limits.maxImageMB * 1024 * 1024 : IMAGE_MAX_BYTES,
       rateLimitPerMin: typeof limits.rateLimitPerMin === 'number' ? limits.rateLimitPerMin : RATE_LIMIT_PER_MIN,
     }
   } catch {

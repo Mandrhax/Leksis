@@ -3,7 +3,7 @@ import { unlink }                       from 'node:fs/promises'
 import { getAdminSession }              from '@/lib/admin-guard'
 import { getSetting, updateSetting }    from '@/lib/settings'
 import { requestTooLarge }              from '@/lib/validators'
-import { LOGO, checkAsset, saveAsset, assetPathFromUrl } from '@/lib/site-assets'
+import { LOGO, checkAsset, saveAsset, assetPathFromUrl, tooLarge, unsupportedFormat } from '@/lib/site-assets'
 
 async function removeCurrentLogoFile() {
   try {
@@ -19,20 +19,19 @@ export async function POST(req: NextRequest) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
     if (requestTooLarge(req, LOGO.maxBytes)) {
-      return NextResponse.json({ error: 'File too large (max 2 MB).' }, { status: 413 })
+      return NextResponse.json(tooLarge(LOGO), { status: 413 })
     }
 
     const formData = await req.formData()
     const file = formData.get('logo') as File | null
-    if (!file) return NextResponse.json({ error: 'No file.' }, { status: 400 })
+    if (!file) return NextResponse.json({ error: 'No file.', code: 'no_file' }, { status: 400 })
 
     const buffer = Buffer.from(await file.arrayBuffer())
     const check = checkAsset(LOGO, buffer)
     if (!check.ok) {
-      return NextResponse.json(
-        { error: check.error === 'too_large' ? 'File too large (max 2 MB).' : 'Unsupported format. Use PNG, JPG, WebP or ICO.' },
-        { status: check.error === 'too_large' ? 413 : 400 },
-      )
+      return check.error === 'too_large'
+        ? NextResponse.json(tooLarge(LOGO), { status: 413 })
+        : NextResponse.json(unsupportedFormat(LOGO), { status: 400 })
     }
 
     const logoUrl = await saveAsset(LOGO, buffer, check.format)

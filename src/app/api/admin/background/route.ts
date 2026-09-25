@@ -3,7 +3,7 @@ import { unlink }                       from 'node:fs/promises'
 import { getAdminSession }              from '@/lib/admin-guard'
 import { getSetting, updateSetting }    from '@/lib/settings'
 import { requestTooLarge }              from '@/lib/validators'
-import { BACKGROUND, checkAsset, saveAsset, assetPathFromUrl } from '@/lib/site-assets'
+import { BACKGROUND, checkAsset, saveAsset, assetPathFromUrl, tooLarge, unsupportedFormat } from '@/lib/site-assets'
 
 async function removeCurrentBackgroundFile() {
   try {
@@ -19,20 +19,19 @@ export async function POST(req: NextRequest) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
     if (requestTooLarge(req, BACKGROUND.maxBytes)) {
-      return NextResponse.json({ error: 'File too large (max 5 MB).' }, { status: 413 })
+      return NextResponse.json(tooLarge(BACKGROUND), { status: 413 })
     }
 
     const formData = await req.formData()
     const file = formData.get('background') as File | null
-    if (!file) return NextResponse.json({ error: 'No file.' }, { status: 400 })
+    if (!file) return NextResponse.json({ error: 'No file.', code: 'no_file' }, { status: 400 })
 
     const buffer = Buffer.from(await file.arrayBuffer())
     const check = checkAsset(BACKGROUND, buffer)
     if (!check.ok) {
-      return NextResponse.json(
-        { error: check.error === 'too_large' ? 'File too large (max 5 MB).' : 'Unsupported format. Use PNG, JPG or WebP.' },
-        { status: check.error === 'too_large' ? 413 : 400 },
-      )
+      return check.error === 'too_large'
+        ? NextResponse.json(tooLarge(BACKGROUND), { status: 413 })
+        : NextResponse.json(unsupportedFormat(BACKGROUND), { status: 400 })
     }
 
     const backgroundImage = await saveAsset(BACKGROUND, buffer, check.format)

@@ -291,6 +291,8 @@ export const messages = {
     toastSaved:         'Impostazioni salvate',
     toastError:         'Errore durante il salvataggio',
     toastUploadError:   'Errore di caricamento.',
+    errTooLarge:        'File troppo grande (max {0} MB).',
+    errUnsupportedFormat: 'Formato non supportato. Usa {0}.',
     toastDeleteError:   'Errore durante l\'eliminazione.',
   },
   designForm: {
@@ -577,6 +579,11 @@ export const messages = {
     actionUpdateSettings: 'Impostazioni aggiornate',
     actionUpdateRole:     'Ruolo aggiornato',
     actionTestService:    'Test di connessione',
+    actionDisableUser: 'Account disattivato',
+    actionEnableUser: 'Account attivato',
+    actionDeleteUser: 'Account eliminato',
+    actionAutoPurge: 'Pulizia automatica',
+    loadError: 'Impossibile caricare il registro di audit.',
   },
   purgeButton: {
     purge:                'Elimina',
