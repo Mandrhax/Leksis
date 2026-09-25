@@ -55,6 +55,12 @@ if (existsSync(join(root, 'public'))) cpSync(join(root, 'public'), join(root, '.
 const db = new PGlite()
 // PGlite has no pgcrypto; gen_random_uuid() is built in since PostgreSQL 13
 await db.exec(readFileSync(join(root, 'docker', 'init-schema.sql'), 'utf8').replace(/CREATE EXTENSION[^\n]*\n/g, ''))
+// Log entries older than the default retention (365 days usage / 730 days audit), plus recent ones that must stay
+await db.exec(`
+  INSERT INTO usage_log (user_id, user_email, feature, created_at) SELECT 'old', 'old@x.ch', 'translate', NOW() - INTERVAL '400 days' FROM generate_series(1, 5);
+  INSERT INTO usage_log (user_id, user_email, feature, created_at) VALUES ('new', 'new@x.ch', 'translate', NOW() - INTERVAL '1 day');
+  INSERT INTO audit_log (user_id, user_email, action, resource, created_at) SELECT 'old', 'old@x.ch', 'OLD', 'x', NOW() - INTERVAL '800 days' FROM generate_series(1, 4);
+`)
 const dbServer = new PGLiteSocketServer({ db, port: DB_PORT, host: '127.0.0.1', maxConnections: 10 })
 await dbServer.start()
 
@@ -89,6 +95,7 @@ const env = {
   AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret-0123',
   ENCRYPTION_KEY: '0'.repeat(64),
   NEXTAUTH_URL: '',
+  LEKSIS_RETENTION_DELAY_SEC: '2', // the real default is 120 s
   AUTH_URL: '',
   AI_PROVIDER: 'ollama',
   OLLAMA_BASE_URL: `http://127.0.0.1:${AI_PORT}`,
@@ -252,6 +259,22 @@ try {
   check('a long document is translated in several calls, in order',
     long.status === 200 && JSON.stringify(texts(long)) === JSON.stringify(longLines.map(l => l.toUpperCase())), String(long.status))
   check('each call stays within the batch size', aiCalls.length >= 2 && aiCalls.every(c => c.chars <= 3200), JSON.stringify(aiCalls))
+
+  // ── Log retention ──────────────────────────────────────────────
+  check('the retention job is scheduled when the server starts', appLog.includes('[retention] scheduled'))
+  let purged = false
+  for (let i = 0; i < 20 && !purged; i++) {
+    purged = Number((await db.query("SELECT count(*) AS n FROM usage_log WHERE user_id = 'old'")).rows[0].n) === 0
+    if (!purged) await new Promise(r => setTimeout(r, 500))
+  }
+  check('usage entries older than the retention are deleted automatically', purged)
+  check('recent usage entries are kept', Number((await db.query("SELECT count(*) AS n FROM usage_log WHERE user_id = 'new'")).rows[0].n) === 1)
+  check('audit entries older than the retention are deleted', Number((await db.query("SELECT count(*) AS n FROM audit_log WHERE action = 'OLD'")).rows[0].n) === 0)
+  check('the automatic purge is recorded in the audit log', Number((await db.query("SELECT count(*) AS n FROM audit_log WHERE action = 'AUTO_PURGE_USAGE' AND user_email = 'system'")).rows[0].n) === 1)
+
+  await adminPage.goto(BASE + '/admin/settings', { waitUntil: 'networkidle0' })
+  const retentionFields = await adminPage.evaluate(() => [...document.querySelectorAll('input[type=number]')].map(i => i.value))
+  check('the settings page shows the default retention (365 / 730 days)', retentionFields.includes('365') && retentionFields.includes('730'), retentionFields.join(','))
 
   check('no browser console errors on the admin pages', adminProblems.length === 0, adminProblems.join(' | '))
 

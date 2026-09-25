@@ -36,11 +36,17 @@ export const DesignSchema = z.object({
   headerLogoSize:  z.string().regex(/^\d{1,3}$/).optional(), // ancien emplacement, lu en repli
 })
 
+/** Conservation des journaux, en jours (0 = indéfiniment) : appliquée automatiquement par lib/retention.ts */
+export const RETENTION_DEFAULTS = { usageRetentionDays: 365, auditRetentionDays: 730 } as const
+export const RETENTION_MAX_DAYS = 3650
+
 export const GeneralSchema = z.object({
   contactEmail:       z.string().max(254),
   globalBanner:       z.string().max(500),
   maintenanceMode:    z.boolean(),
   maintenanceMessage: z.string().max(1000),
+  usageRetentionDays: z.number().int().min(0).max(RETENTION_MAX_DAYS),
+  auditRetentionDays: z.number().int().min(0).max(RETENTION_MAX_DAYS),
 }).partial()
 
 const langCode = z.string().regex(/^(auto|[A-Za-z0-9-]{1,20})$/, 'Invalid language code')
