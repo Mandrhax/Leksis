@@ -114,7 +114,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
     } finally {
       setIsLoading(false)
     }
-  }, [abort])
+  }, [abort, sourceLang])
 
   const handleClearInput  = () => { abort(); setInputText(''); setOutputText(''); setError(null); setAppliedMode(null) }
   const handleClearOutput = () => { setOutputText(''); setAppliedMode(null) }
