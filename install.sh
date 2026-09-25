@@ -1384,26 +1384,56 @@ SQL
 }
 
 # ── Database migrations ───────────────────────────────────────
-# migrate_db — applies docker/migrations/*.sql to an existing database (fresh installs get the current
-# schema from docker/init-schema.sql). Every file is idempotent and never destroys non-empty data, so this
-# runs on every update. Best-effort: a failure is reported but never fails the update (the app does not
+# migrate_db — applies the docker/migrations/*.sql files that have not been applied yet (fresh installs get the
+# current schema from docker/init-schema.sql). Applied files are recorded in the schema_migrations table, so a
+# migration runs once; each file is also idempotent and never destroys non-empty data. A backup is taken first
+# when something is pending. Best-effort: a failure is reported but never fails the caller (the app does not
 # depend on these cleanups). Always returns 0 (set -e).
 migrate_db() {
-  local f out applied=0
+  local f name out line
+  local -a psql=(docker compose exec -T postgres psql -U leksis_user -d leksis -q -v ON_ERROR_STOP=1)
+  local -a pending=()
   [[ -d docker/migrations ]] || return 0
+
+  # Bookkeeping table (also the first thing to fail when the database is not running)
+  if ! out=$("${psql[@]}" 2>&1 <<'SQL'
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  name       TEXT PRIMARY KEY,
+  applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+SQL
+  ); then
+    p_warn "Database migrations skipped (is the database running?): ${out##*$'\n'}"
+    return 0
+  fi
+
   for f in docker/migrations/*.sql; do
     [[ -f "$f" ]] || continue
-    if out=$(docker compose exec -T postgres psql -U leksis_user -d leksis -q -v ON_ERROR_STOP=1 <"$f" 2>&1); then
-      applied=$((applied + 1))
+    name=$(basename "$f")
+    out=$("${psql[@]}" -tA -v name="$name" 2>/dev/null <<<"SELECT 1 FROM schema_migrations WHERE name = :'name'" || true)
+    [[ -n "$out" ]] || pending+=("$f")
+  done
+  (( ${#pending[@]} > 0 )) || return 0
+
+  p_info "Database migration(s) to apply: ${#pending[@]}"
+  if [[ -z "$LAST_BACKUP" ]]; then
+    create_backup || { p_warn "Backup failed - the database migrations were NOT applied."; return 0; }
+  fi
+
+  for f in "${pending[@]}"; do
+    name=$(basename "$f")
+    # The file, then its record — same psql session
+    if out=$({ cat "$f"; printf "INSERT INTO schema_migrations (name) VALUES ('%s') ON CONFLICT DO NOTHING;\n" "$name"; } \
+             | "${psql[@]}" 2>&1); then
+      p_ok "Migration applied: ${name}"
       # NOTICE lines report what was dropped / kept
       while IFS= read -r line; do
-        [[ "$line" == *NOTICE:* ]] && p_info "  ${line#*NOTICE:  }"
+        [[ "$line" == *NOTICE:* ]] && p_info "  ${line#*NOTICE:}"
       done <<<"$out"
     else
-      p_warn "Database cleanup $(basename "$f") skipped (the database may not be running): ${out##*$'\n'}"
+      p_warn "Migration ${name} failed (nothing was changed by it): ${out##*$'\n'}"
     fi
   done
-  (( applied > 0 )) && p_ok "Database cleanup applied (${applied})"
   return 0
 }
 
@@ -2248,6 +2278,8 @@ cmd_update() {
       p_spin "Restarting the app (public address detection)" docker compose up -d app || true
       wait_healthy app 180 || true
     fi
+    # Migrations of the release that was just checked out may be pending even when no component was selected
+    migrate_db
     p_info "Nothing selected. Update cancelled."
     return 0
   fi
@@ -2309,14 +2341,30 @@ cmd_update() {
     wait_healthy app 180 || true
   fi
 
-  # One-time removal of objects the new version no longer uses (after the app is healthy on the new code)
-  migrate_db
+  # Database migrations shipped with the release we just switched to. This shell still runs the PREVIOUS version of
+  # the script (already loaded in memory), so the new one on disk is asked to apply them.
+  local -a migrate_cmd=(bash "${INSTALL_DIR}/install.sh" --dir "$INSTALL_DIR")
+  $NONINTERACTIVE && migrate_cmd+=(--yes)
+  if [[ -f "${INSTALL_DIR}/install.sh" ]]; then
+    "${migrate_cmd[@]}" migrate || p_warn "Database migrations could not be applied - run: leksis migrate"
+  else
+    migrate_db
+  fi
 
   check_app_http || true
   install_launcher
   p_header "Update Complete"
   p_ok "Now on $(current_ref). Volumes (database, models, uploads) preserved."
   if [[ ${#FAILED_MODELS[@]} -gt 0 ]]; then p_warn "Models not pulled: ${FAILED_MODELS[*]}"; fi
+}
+
+# ── Mode: migrate ─────────────────────────────────────────────
+# Applies pending database migrations (normally done by "update"; run it by hand if that step reported a problem)
+cmd_migrate() {
+  require_install
+  p_header "Leksis v${VERSION} - Database migrations"
+  migrate_db
+  p_ok "Database is up to date."
 }
 
 # ── Mode: uninstall ───────────────────────────────────────────
@@ -2643,6 +2691,7 @@ Usage: $0 [options] [command]
 Commands:
   install            Full guided installation on a fresh server
   update             Update components (backup first, automatic rollback)
+  migrate            Apply pending database migrations (done by "update" too)
   backup             Backup database, uploads and .env  (keeps the last ${BACKUP_KEEP})
   restore [file]     Restore a backup created by "backup"
   uninstall          Clean removal of all Leksis components
@@ -2731,6 +2780,7 @@ main() {
   case "$cmd" in
     install)   cmd_install ;;
     update)    cmd_update ;;
+    migrate)   cmd_migrate ;;
     uninstall) cmd_uninstall ;;
     status)    cmd_status ;;
     config)    cmd_config ;;
