@@ -76,6 +76,7 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 - [x] **Mode sombre supprimé** (demande de l'utilisateur) : bascule du menu compte, réglage admin, CSS `.dark`, script anti-flash, clés i18n
 - [x] `GET /api/admin/settings` ne renvoie plus `apiKeyEnc` (clé API chiffrée) au navigateur
 - [x] Les 9 warnings de build « Dynamic filesystem access » sont résolus (helper `site-assets.ts` + `turbopackIgnore`)
+- [x] Erreur React #418 à l'ouverture de la page de connexion (signalée en test beta.2, présente depuis v1.5.0) : `Suspense` retiré de la page de connexion — corrigé sur `dev`, sera dans la beta.3
 - [ ] HSTS : à ajouter côté Caddy en mode HTTPS seulement (après validation que le retour en HTTP n'est plus prévu) — non fait volontairement
 
 ## Phase 5 : Code mort et doublons
