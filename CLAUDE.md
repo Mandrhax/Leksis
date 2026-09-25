@@ -74,22 +74,14 @@ Cette fonctionnalité **n'est pas une traduction**, mais une transformation du t
 
 ## 🧱 Stack technique
 
-- Next.js 16 (App Router)
-- TypeScript
-- React 19
-- API server-side intégrée (Backend-for-Frontend)
+- Next.js 16 (App Router), TypeScript, React 19 — API server-side intégrée (Backend-for-Frontend)
 - Moteur IA : Ollama (`/api/generate`) **ou** API compatible OpenAI (`/v1/chat/completions` — vLLM, LM Studio, llama.cpp, OpenAI…), local ou distant
-- Tailwind CSS v4 (configuration CSS-first avec `@theme`)
-- Fonts : Manrope (headlines) + Inter (body) via `next/font/google`
-- Material Symbols Outlined (icons) : **self-hébergé** — woff2 dans `public/fonts/material-symbols/`, `@font-face` + classe `.material-symbols-outlined` définis dans `globals.css`
-- Bootstrap Icons (icônes fichiers dans Document Studio) : **self-hébergé** via package npm `bootstrap-icons`, importé directement dans `layout.tsx`
-- **next-auth v5** (authentification OTP par email — `src/auth.ts`, `src/auth.config.ts`, `src/middleware.ts`)
-- **pg** + **@auth/pg-adapter** (PostgreSQL — pool, sessions, utilisateurs)
-- **zod** (validation des entrées dans les routes API admin)
-- **@napi-rs/canvas** (conversion PDF → PNG pour l'OCR vision)
-- **server-only** (protection des modules serveur)
-- **Caddy v2** (reverse proxy — container `caddy:2-alpine`, ports 80/443, admin API interne sur `0.0.0.0:2019`)
-- Docker / Docker Compose (appliance on-premise)
+- Tailwind CSS v4 (configuration CSS-first avec `@theme`) ; fonts Manrope (headlines) + Inter (body) via `next/font/google`
+- Material Symbols Outlined : **self-hébergé** — woff2 dans `public/fonts/material-symbols/`, `@font-face` + classe `.material-symbols-outlined` dans `globals.css`. Bootstrap Icons (icônes fichiers du Document Studio) : **self-hébergé** via le paquet npm `bootstrap-icons`, importé dans `layout.tsx`
+- **next-auth v5** — authentification OTP par email, sessions **JWT sans adaptateur** (`src/auth.ts`, `src/auth.config.ts`, `src/proxy.ts` — le « middleware » de Next 16)
+- **pg** (PostgreSQL, `src/lib/db.ts`), **zod** (validation), **@napi-rs/canvas** (PDF → PNG pour l'OCR), **server-only**
+- **Caddy v2** (reverse proxy, container `caddy:2-alpine`, ports 80/443, admin API interne sur `0.0.0.0:2019`) ; Docker / Docker Compose (appliance on-premise)
+- Qualité : **ESLint** (`eslint-config-next`), **Vitest** (tests unitaires), **puppeteer-core** + **PGlite** (test de bout en bout), **GitHub Actions** — voir « Développement, qualité et tests »
 
 ---
 
@@ -118,156 +110,59 @@ Internet / NPM (SSL)
 
 ```
 src/
-├── auth.ts                              (NextAuth config principale — OTP credentials provider)
-├── auth.config.ts                       (Config NextAuth partagée — callbacks, pages)
-├── middleware.ts                        (Protection des routes — redirect vers signin)
+├── auth.ts / auth.config.ts   NextAuth : provider Credentials (OTP), JWT, rôle relu en base (voir « Comptes et sessions »)
+├── proxy.ts                   Protection des routes (redirige vers /auth/signin) — remplace middleware.ts (Next 16)
+├── instrumentation.ts         Démarre le nettoyage des journaux au lancement du serveur
 │
 ├── app/
+│   ├── page.tsx, layout.tsx, globals.css, settings/page.tsx, auth/signin/page.tsx
 │   ├── api/
-│   │   ├── translate/route.ts           (Traduction texte — streaming)
-│   │   ├── translate/document/route.ts  (Traduction documents — JSON blocks)
-│   │   ├── rewrite/route.ts             (Réécriture IA — streaming)
-│   │   ├── ocr/route.ts                 (OCR image via Ollama vision — streaming)
-│   │   ├── extract/document/route.ts    (Extraction document sans traduction)
-│   │   ├── export/docx/route.ts         (Export du résultat en fichier DOCX)
-│   │   ├── site-assets/[filename]/route.ts (Sert logo et bg image depuis /tmp/uploads)
-│   │   ├── auth/otp/route.ts            (Génère et retourne le code OTP)
-│   │   ├── auth/[...nextauth]/route.ts  (Handler NextAuth)
-│   │   ├── user/
-│   │   │   └── glossary-prefs/route.ts  (GET préférences glossaires user + PATCH toggle)
-│   │   └── admin/
-│   │       ├── audit/route.ts           (Journal d'audit paginé)
-│   │       ├── audit/purge/route.ts     (Suppression entrées avant date)
-│   │       ├── background/route.ts      (Mise à jour image de fond)
-│   │       ├── glossary/route.ts        (Liste glossaires GET + création POST)
-│   │       ├── glossary/[id]/route.ts   (Suppression glossaire DELETE)
-│   │       ├── glossary/[id]/entries/route.ts        (Liste + ajout entrées GET/POST)
-│   │       ├── glossary/[id]/entries/[eid]/route.ts  (Suppression entrée DELETE)
-│   │       ├── glossary/[id]/import/route.ts         (Import CSV POST)
-│   │       ├── logo/route.ts            (Upload/suppression du logo)
-│   │       ├── services/route.ts        (Config Ollama + PostgreSQL + Caddy GET/PATCH — discriminatedUnion sur service=)
-│   │       ├── services/ai/test/route.ts        (Test de la config IA en cours d'édition : liste les modèles, latence, présence du modèle)
-│   │       ├── services/ai/metrics/route.ts     (Métriques du moteur IA : fournisseur, capacités, version, latence, modèles, modèles en mémoire)
-│   │       ├── services/ollama/unload/route.ts  (Décharge un modèle — keep_alive: 0)
-│   │       ├── services/ollama/warmup/route.ts  (Charge les modèles configurés en VRAM — keep_alive: -1, dédupliqués)
-│   │       ├── services/ollama/pull/route.ts    (Télécharge un modèle — stream ndjson de progression depuis /api/pull)
-│   │       ├── services/ollama/delete/route.ts  (Supprime un modèle installé — DELETE /api/delete)
-│   │       ├── services/db/test/route.ts        (Test connexion PostgreSQL)
-│   │       ├── services/db/metrics/route.ts     (Métriques PostgreSQL : version, taille, connexions, tables)
-│   │       ├── services/caddy/metrics/route.ts  (Métriques Caddy : reachable via GET /config/, version via HEAD http://caddy:80/ header Server, upstreams via GET /reverse_proxy/upstreams)
-│   │       ├── settings/route.ts        (Réglages site GET/PATCH)
-│   │       ├── settings/export/route.ts (Export config JSON)
-│   │       ├── settings/import/route.ts (Import config JSON)
-│   │       ├── settings/reset/route.ts  (Réinitialisation aux défauts)
-│   │       ├── usage/route.ts           (Stats d'utilisation IA — param `limit` 1–500, défaut 100)
-│   │       ├── usage/purge/route.ts     (Suppression stats avant date)
-│   │       ├── users/route.ts           (Liste utilisateurs)
-│   │       └── users/[id]/route.ts      (Mise à jour rôle utilisateur)
-│   ├── admin/
-│   │   ├── layout.tsx                   (requireAdmin + AdminClientLayout + AdminSidebar)
-│   │   ├── page.tsx                     (redirect → /admin/dashboard)
-│   │   ├── dashboard/page.tsx           (Server component — users/usage today/glossary/audit + tendance 7j et répartition par feature depuis usage_log + lastBackupAt depuis site_settings.system_status → AdminDashboard client)
-│   │   ├── settings/page.tsx            (AdminPageHeader + SettingsTabs — max-w-[1400px])
-│   │   ├── services/page.tsx            (redirect → /admin/services/ai)
-│   │   ├── services/ai/page.tsx         (AdminPageHeader "servicesAi" + OllamaServicesLayout — onglets Connection/Models/Monitoring)
-│   │   ├── services/db/page.tsx         (AdminPageHeader "servicesDb" + DbServicesLayout — onglets Connection/Monitoring)
-│   │   ├── services/caddy/page.tsx      (AdminPageHeader "servicesCaddy" + CaddyServicesLayout — onglets Access/Monitoring)
-│   │   ├── glossary/page.tsx            (AdminPageHeader "glossary" + GlossaryAdmin — max-w-[1400px])
-│   │   ├── users/page.tsx               (AdminPageHeader + UserList — max-w-[1400px])
-│   │   ├── usage/page.tsx               (AdminPageHeader + UsagePanel — max-w-[1400px])
-│   │   ├── audit/page.tsx               (AdminPageHeader + AuditTable — max-w-[1400px])
-│   │   └── backup/page.tsx              (AdminPageHeader + ExportImportForm — max-w-[1400px])
-│   ├── auth/
-│   │   └── signin/page.tsx              (Server component async — charge siteName depuis settings, passe en prop à SignInForm)
-│   ├── maintenance/
-│   │   └── page.tsx                     (Page maintenance — affichée si maintenanceMode actif)
-│   ├── settings/
-│   │   └── page.tsx                     (I18nProvider + profil + toggles glossaires + session)
-│   ├── globals.css                      (Tailwind v4 @theme + @font-face Material Symbols + classes CSS custom)
-│   ├── layout.tsx                       (Fonts next/font, import bootstrap-icons/font/bootstrap-icons.css)
-│   └── page.tsx                         (Workspace — tabs centrés)
+│   │   ├── translate/route.ts            Traduction texte (streaming)
+│   │   ├── translate/document/route.ts   Traduction document (JSON blocks, par lots — voir « Documents »)
+│   │   ├── rewrite/route.ts              Réécriture (streaming)
+│   │   ├── ocr/route.ts                  OCR image (streaming)
+│   │   ├── extract/document/route.ts     Extraction sans traduction
+│   │   ├── export/docx/route.ts          Export du résultat en DOCX
+│   │   ├── site-assets/[filename]/       Sert logo et fond (CSP sandbox + nosniff)
+│   │   ├── auth/otp/route.ts, auth/[...nextauth]/route.ts
+│   │   ├── user/glossary-prefs/route.ts  Préférences glossaires de l'utilisateur
+│   │   └── admin/                        audit(+purge), background, logo, glossary/**, usage(+purge), users(+[id]),
+│   │                                     settings(+export/import/reset), services (+ai/test|metrics, ollama/pull|delete|warmup|unload,
+│   │                                     db/metrics, caddy/metrics)
+│   ├── admin/                            layout (requireAdmin) + dashboard, settings, services/{ai,db,caddy}, glossary, users, usage, audit, backup
 │
 ├── components/
-│   ├── GlobalBanner.tsx                 (Bannière globale — affichée si globalBanner configuré)
-│   ├── tabs/
-│   │   ├── TextTranslationTab.tsx       (Debounce 400ms detect + 800ms translate, swap, formality, auto-scroll output)
-│   │   ├── DocumentStudioTab.tsx        (Upload → extract → translate → blocks HTML)
-│   │   ├── ImageExtractionTab.tsx       (OCR + traduction optionnelle, stats, auto-scroll output)
-│   │   └── AIRewriteTab.tsx             (Modes rewrite/correct, tons configurables, length, auto-scroll output)
-│   ├── ui/
-│   │   ├── HomeClient.tsx               (I18nProvider wrapper + HomeWorkspace interne)
-│   │   ├── AccountMenu.tsx              (Menu utilisateur — positionné par HomeClient)
-│   │   ├── SignInForm.tsx               (Client component — formulaire OTP signin, reçoit siteName en prop)
-│   │   ├── UILanguageSwitcher.tsx       (Switcher EN/DE/FR/IT avec drapeaux SVG inline)
-│   │   └── LanguageDropdown.tsx         (Liste alphabétique unifiée, favoris, portal fixe)
-│   └── admin/
-│       ├── AdminClientLayout.tsx        (Fournit I18nProvider aux composants admin)
-│       ├── AdminPageHeader.tsx          (Titre + description traduits, section= : settings|servicesAi|servicesDb|servicesCaddy|glossary|users|usage|audit|backup)
-│       ├── AdminSidebar.tsx             (Navigation admin — flat nav, section labels SETTINGS/INFRASTRUCTURE/MANAGEMENT, status dots live par service, lien Dashboard)
-│       ├── AdminToast.tsx               (Composant toast + type ToastState — types : 'success' | 'warning' | 'error')
-│       ├── AdminToastWrapper.tsx        (Wrapper de positionnement du toast)
-│       ├── SettingsTabs.tsx             (Onglets réglages via ServiceTabBar — 5 : Identity/Appearance/Features/Tones/General, tous montés en permanence (visibilité via `hidden`) pour ne pas perdre les saisies en changeant d'onglet, Reset to defaults en tête)
-│       ├── ServiceTabBar.tsx            (Barre d'onglets soulignés partagée par AI/DB/Caddy/Settings — générique sur `T extends string`)
-│       ├── AdminDashboard.tsx           (Dashboard admin client — santé services (Ollama/DB/Caddy/Leksis/Backup, 5 cartes cliquables), tuiles KPI (users/calls/glossary/models), tendance 7 jours des appels IA + répartition par feature, activité récente (5 entrées audit))
-│       ├── BrandingForm.tsx             (Nom du site, logo + taille header, fond couleur/image (toggle mutuellement exclusif), couleur primaire, mode sombre — sous-blocs en grille)
-│       ├── DesignForm.tsx               (Radius boutons, footer (texte/couleur/liens/toggle citations) — sous-blocs en grille)
-│       ├── FeaturesForm.tsx             (Modules actifs, langues par défaut + tonalité par défaut (Formal/Informal), limites API — sous-blocs en grille)
-│       ├── TonesForm.tsx                (CRUD tonalités : label EN/FR/DE/IT, instruction prompt, on/off, min 1 / max 6)
-│       ├── GeneralForm.tsx              (Email contact, bannière, mode maintenance — sous-blocs en grille)
-│       ├── ExportImportForm.tsx         (Carte statut sauvegarde complète (`lastBackupAt`, prop serveur) + Export/Import configuration JSON — logo/fond embarqués en base64 dans l'export)
-│       ├── AiServiceForm.tsx            (Config du moteur IA : choix Ollama / API OpenAI-compatible, URL, clé API, case « serveurs hors réseau privé », 3 sélecteurs `OllamaModelSelect`, test connexion ; « Load into VRAM » seulement pour Ollama — rendu en 2 panneaux Connection/Models selon le prop `activeTab` reçu d'`OllamaServicesLayout`, formulaire toujours monté pour préserver les saisies)
-│       ├── OllamaModelSelect.tsx        (Sélecteur de modèle : installés / suggérés non installés / « Autre… » ; modèle absent du serveur → « Télécharger et utiliser » = pull avec barre de progression puis sauvegarde de la config. Repli en input + datalist si le serveur est injoignable)
-│       ├── DbServiceForm.tsx            (Config PostgreSQL, test connexion)
-│       ├── CaddyServiceForm.tsx         (Accès & HTTPS : 3 modes http / https (domaine) / proxy, secours HTTP, adresses de proxy — 2 colonnes : réglages à gauche, aperçu du Caddyfile à droite (sticky) — PATCH /api/admin/services)
-│       ├── OllamaServicesLayout.tsx     (Layout page Ollama : ServiceTabBar 3 onglets Connection/Models/Monitoring — `AiServiceForm` toujours rendu (monitoring caché via prop), blocs Monitoring affichés seulement sur cet onglet — wraps OllamaMetricsProvider)
-│       ├── DbServicesLayout.tsx         (Layout page PostgreSQL : ServiceTabBar 2 onglets Connection/Monitoring — `DbServiceForm` et `DbMetrics` tous deux montés en permanence, visibilité via `hidden`)
-│       ├── CaddyServicesLayout.tsx      (Layout page Caddy : ServiceTabBar 2 onglets Access/Monitoring — `CaddyServiceForm` et `CaddyMetrics` tous deux montés en permanence, visibilité via `hidden`)
-│       ├── OllamaMetrics.tsx            (Métriques Ollama : OllamaMetricsProvider (contexte fetch+delete, `useOllamaMetrics` + `formatBytes` exportés), OllamaStatusBlock, OllamaInstalledBlock (corbeille par modèle), OllamaRunningBlock)
-│       ├── DbMetrics.tsx                (Métriques PostgreSQL live : statut serveur, connexions, tables application)
-│       ├── CaddyMetrics.tsx             (Métriques Caddy live : reachable, version, upstream app:3000 health)
-│       ├── GlossaryAdmin.tsx            (CRUD glossaires nommés + entrées avec paires de langues + import CSV + export CSV client-side)
-│       ├── UserList.tsx                 (Tableau utilisateurs, toggle rôle admin)
-│       ├── UsagePanel.tsx               (Stats IA filtrées par date, export CSV, sélecteur lignes/page 25–500)
-│       ├── AuditTable.tsx               (Journal d'audit paginé)
-│       └── PurgeButton.tsx              (Purge avec confirmation et date)
+│   ├── GlobalBanner.tsx, MaintenanceScreen.tsx
+│   ├── tabs/    TextTranslationTab, DocumentStudioTab, ImageExtractionTab, AIRewriteTab
+│   ├── ui/      HomeClient, AccountMenu, SignInForm, UILanguageSwitcher, LanguageDropdown, HelpModal
+│   └── admin/   AdminClientLayout, AdminSidebar, AdminPageHeader, AdminToast, ServiceTabBar, SettingsTabs, AdminDashboard,
+│                *Form (Branding, Design, Features, Tones, General, AiService, CaddyService, ExportImport), OllamaModelSelect,
+│                *ServicesLayout (Ollama, Caddy), *Metrics (Ollama, Db, Caddy), GlossaryAdmin, UserList, UsagePanel, AuditTable, PurgeButton, PinnedUrlNotice
 │
-├── hooks/
-│   ├── useCopyToClipboard.ts            (Hook partagé copie presse-papiers + feedback 2s)
-│   └── useOllamaPull.ts                 (Hook client : pull d’un modèle via /api/admin/services/ollama/pull, progression agrégée par couche — utilisé par OllamaModelSelect)
-│
-├── locales/
-│   ├── en.ts                            (Source canonique — définit le type Messages)
-│   ├── de.ts                            (Traduction allemande — satisfies Messages)
-│   ├── fr.ts                            (Traduction française — satisfies Messages)
-│   └── it.ts                            (Traduction italienne — satisfies Messages)
+├── hooks/       useCopyToClipboard, useOllamaPull
+├── locales/     en.ts (source du type Messages), de.ts, fr.ts, it.ts (`satisfies Messages`)
 │
 ├── lib/
-│   ├── i18n.tsx                         (I18nProvider, useI18n, UILocale — zero-dep)
-│   ├── caddy-config.ts                  (CLIENT-SAFE : AccessMode, CaddyConfig, resolveCaddyConfig, normalizeCaddyConfig, generateCaddyfile — partagé serveur/formulaire)
-│   ├── caddy.ts                         (SERVER-ONLY: reloadCaddy() — POST http://caddy:2019/load — + ré-exports de caddy-config)
-│   ├── caddy-tls.ts                     (SERVER-ONLY: checkCertificate() — état du certificat HTTPS via TLS vers caddy:443)
-│   ├── llm/                             (SERVER-ONLY sauf types.ts : types, ollama-provider, openai-provider, config, service, network, index — voir « Moteur IA »)
-│   ├── prompts.ts                       (Factory prompts: translate, document, ocr, rewrite, correct)
-│   ├── tones.ts                         (SERVER-ONLY: DEFAULT_TONES, getConfiguredTones — fallback + migration DB)
-│   ├── file-parser.ts                   (SERVER-ONLY: parsePdf, parseDocx, parseTxt, Block model)
-│   ├── pdf-vision.ts                    (SERVER-ONLY: parsePdfWithVision — OCR via Ollama vision)
-│   ├── validators.ts                    (Limites: text=5000, doc=12000, image=10MB + validateFileExtension)
-│   ├── languages.ts                     (LANGUAGES[] triés BCP47 + detectLanguage())
-│   ├── glossary.ts                      (SERVER-ONLY: fetchGlossaryEntries, buildTranslationGlossaryClause, buildRewriteGlossaryClause, parseGlossaryCSV)
-│   ├── settings.ts                      (SERVER-ONLY: getSetting, updateSetting, getAllSettings)
-│   ├── db.ts                            (SERVER-ONLY: pool PostgreSQL + query() helper)
-│   ├── admin-guard.ts                   (SERVER-ONLY: requireAdmin, getAdminSession)
-│   ├── features-guard.ts                (SERVER-ONLY: isFeatureEnabled — vérifie site_settings.features)
-│   ├── limits.ts                        (SERVER-ONLY: getDynamicLimits — lit limites depuis DB avec fallback)
-│   ├── audit.ts                         (SERVER-ONLY: logAudit — fire-and-forget)
-│   ├── usage.ts                         (SERVER-ONLY: logUsage — fire-and-forget)
-│   ├── otp.ts                           (SERVER-ONLY: generateOtp, verifyOtp, getOrCreateUser)
-│   ├── crypto.ts                        (SERVER-ONLY: encrypt/decrypt AES-256-GCM)
-│   └── color-utils.ts                   (buildColorVars — génère variables CSS couleur depuis settings)
+│   ├── llm/                 SERVER-ONLY (sauf types.ts) : providers Ollama / OpenAI, config, service, network — point d'entrée `@/lib/llm`
+│   ├── prompts.ts           Tous les prompts
+│   ├── file-parser.ts       PDF / DOCX / TXT / CSV → blocs ; blocksToSegments / applySegments
+│   ├── doc-translate.ts     Lots de segments + contrôle des `|||` (pur, testable)
+│   ├── pdf-vision.ts        PDF scanné → OCR par le modèle vision
+│   ├── settings.ts          getSetting (cache 5 s) / updateSetting / getAllSettings
+│   ├── settings-schema.ts   Schémas zod des réglages + SETTING_DEFAULTS (partagé PATCH / import / reset / formulaires)
+│   ├── users.ts             Rôle relu en base, liste paginée, changeUser / removeUser (garde-fous)
+│   ├── user-guard.ts        requireUser() : 401, mode maintenance, limite de débit
+│   ├── admin-guard.ts       requireAdmin() / getAdminSession()
+│   ├── rate-limit.ts, otp.ts, audit.ts, usage.ts, retention.ts
+│   ├── site-assets.ts       Upload logo / fond : magic bytes, taille, erreurs à code
+│   ├── caddy-config.ts (client-safe), caddy.ts, caddy-tls.ts
+│   ├── glossary.ts, tones.ts, limits.ts, features-guard.ts, validators.ts, languages.ts, i18n.tsx, sign-out.ts, crypto.ts, db.ts, color-utils.ts, relative-time.ts
 │
-└── types/
-    ├── leksis.ts                        (Language, Block, Formality, RewriteTone, RewriteLength, ToneConfig, Glossary, GlossaryEntry, etc.)
-    └── next-auth.d.ts                   (Extension Session + JWT pour next-auth)
+└── types/       leksis.ts, next-auth.d.ts
+
+docker/          init-schema.sql (installation neuve), migrations/NNN-*.sql (installations existantes), caddy/Caddyfile
+tests/           unit/*.test.ts (Vitest), e2e/journeys.mjs (navigateur réel), stubs/server-only.ts
+.github/workflows/ci.yml
 ```
 
 ---
@@ -304,9 +199,9 @@ Les composants appelant `useI18n()` doivent être enfants d'un `I18nProvider`.
 | Page settings | `SettingsPage` wraps `I18nProvider` → `SettingsContent` |
 | Page signin | `SignInPage` (server) wraps `I18nProvider` → `SignInForm` (client, reçoit `siteName` prop) |
 
-### Espaces de noms définis
+### Espaces de noms
 
-`home`, `account`, `textTab`, `docTab`, `imgTab`, `rewriteTab`, `langDropdown`, `langSwitcher`, `settingsPage`, `adminSidebar`, `adminPages`, `settingsTabs`, `brandingForm`, `designForm`, `featuresForm`, `tonesForm`, `generalForm`, `ollamaForm`, `dbForm`, `caddyForm`, `glossaryAdmin`, `userList`, `usagePanel`, `auditTable`, `purgeButton`, `backupForm`, `signIn`
+Un namespace par composant ou page (`home`, `textTab`, `docTab`, `imgTab`, `rewriteTab`, `signIn`, `maintenance`, `adminSidebar`, `settingsTabs`, `generalForm`, `userList`, `auditTable`…) : la liste exacte est dans `en.ts`, source du type `Messages`.
 
 ---
 
@@ -321,7 +216,7 @@ Les composants appelant `useI18n()` doivent être enfants d'un `I18nProvider`.
 ### Pages admin — conventions de mise en page
 
 - Wrapper page : `p-8 max-w-[1400px]`
-- **Pages Services (Ollama/PostgreSQL/Caddy) et Réglages** : toutes les 4 utilisent le même pattern d'onglets soulignés via le composant partagé `ServiceTabBar` (générique `<T extends string>`, style `.tab-btn` du workspace principal) — plus de grille 2 colonnes ni d'accordéon. Ollama : Connection/Models/Monitoring. PostgreSQL : Connection/Monitoring. Caddy : Access/Monitoring. Réglages (`SettingsTabs`) : Identity/Appearance/Features & limits/AI tones/General
+- **Pages Services (Ollama/Caddy) et Réglages** utilisent le même pattern d'onglets soulignés via le composant partagé `ServiceTabBar` (générique `<T extends string>`, style `.tab-btn` du workspace principal) — plus de grille 2 colonnes ni d'accordéon. Ollama : Connection/Models/Monitoring. Caddy : Access/Monitoring. **PostgreSQL : Monitoring seul** (le formulaire de connexion a été supprimé, la connexion vient de `DATABASE_URL`). Réglages (`SettingsTabs`) : Identity/Appearance/Features & limits/AI tones/General
 - **Formulaires + panneaux d'un onglet restent montés en permanence**, visibilité pilotée par `hidden` (CSS) ou par un prop `activeTab` lu en interne (cas d'`AiServiceForm`, dont Connection et Models partagent le même state et la même barre d'actions Save) — jamais de démontage/remontage au changement d'onglet, pour ne pas perdre une saisie non sauvegardée
 - **Page Réglages** (`SettingsTabs`) : bouton "Reset to defaults" au-dessus de la barre d'onglets (reset global, pas par onglet)
 - **Onglet Access/Caddy** : 2 colonnes (`grid-cols-1 lg:grid-cols-2`) — réglages d'accès à gauche, aperçu du Caddyfile généré à droite (`lg:sticky lg:top-6`)
@@ -421,14 +316,17 @@ Tous les prompts sont dans `src/lib/prompts.ts` :
 
 ## 🔐 Sécurité & bonnes pratiques
 
-- Séparation stricte client / serveur
-- Aucun secret exposé côté client
-- Aucune logique IA dans les composants React
-- Validation des entrées dans `src/lib/validators.ts` (+ zod dans les routes admin)
-- Authentification OTP : code généré et retourné au client pour affichage immédiat (on-premise, pas d'envoi email)
-- Mots de passe DB chiffrés AES-256-GCM via `src/lib/crypto.ts` avant stockage en base
-- Admin protégé par `requireAdmin()` dans chaque page et route admin
-- Logs d'audit fire-and-forget via `src/lib/audit.ts`
+- Séparation stricte client / serveur ; aucun secret ni logique IA côté client
+- **Toute route API réservée aux utilisateurs** commence par `requireUser({ rateLimit: true })` (`user-guard.ts`) : 401 JSON sans session, 503 `maintenance` pour les non-admins en mode maintenance, limite de débit par utilisateur (Admin → Réglages → Features & limits, 0 = illimité). Le proxy (`proxy.ts`) filtre déjà les anonymes : le garde est la défense en profondeur. `/api/auth/otp` a sa propre limite (par IP et par email)
+- **Toute page et route admin** commence par `requireAdmin()` / `getAdminSession()`
+- Entrées : `validators.ts` (tailles, extensions, noms de langue avant les prompts) + zod. Plafonds de taille **avant** de lire le corps (`requestTooLarge`) ; Caddy limite aussi le corps (`max_size 50MB`)
+- **Erreurs d'API** : messages en anglais, jamais `err.message` renvoyé au client (journalisé côté serveur). Quand l'interface doit afficher un texte, la route renvoie un `code` stable (+ valeurs utiles) que le composant traduit : `UserList` (`self`, `last_admin`, `not_found`), `SignInForm` (`account_disabled`, `rate_limited`), `BrandingForm` (`too_large`, `unsupported_format`)
+- Authentification OTP : le code est renvoyé au client pour affichage immédiat (choix assumé : démo + comptes simples, pas d'envoi d'email, aucune mitigation supplémentaire pour l'admin)
+- Secrets en base chiffrés AES-256-GCM (`crypto.ts`) : clé API du moteur IA, jamais renvoyée au navigateur, ni exportée, ni journalisée
+- Uploads d'images (logo, fond, import) : **magic bytes** + taille ; **SVG refusé** (c'est du code) ; servis avec `Content-Security-Policy: sandbox` et `nosniff`
+- En-têtes (`next.config.mjs`, CSP seulement en production) : CSP avec `unsafe-inline` (choix assumé) mais `frame-ancestors 'none'`, `object-src 'none'`, X-Frame-Options, Referrer-Policy, Permissions-Policy. **HSTS non posé** (à ajouter côté Caddy en mode HTTPS seulement)
+- Conteneur `app` : `no-new-privileges`, `cap_drop: [ALL]` (pas postgres/caddy/ollama : entrypoints qui changent d'utilisateur, ports bas, GPU)
+- Journal d'audit fire-and-forget (`audit.ts`, une erreur est journalisée dans la console) ; les purges manuelles et automatiques s'y inscrivent **après** la suppression
 
 ---
 
@@ -511,59 +409,92 @@ Sans argument : menu interactif (`show_menu`, chaque commande dans un sous-shell
 
 ---
 
-## 🧪 Développement local
+## 🧪 Développement, qualité et tests
 
 ```bash
-npm run dev   # → http://localhost:3000
-npm run build # vérification build production
+npm run dev        # → http://localhost:3000  (ne pas le lancer depuis Claude Code : il ajoute un bloc à CLAUDE.md)
+npm run build      # build de production (à faire avant le e2e)
+npm run typecheck  # tsc --noEmit
+npm run lint       # ESLint (eslint.config.mjs) — doit rester à 0 erreur, 0 avertissement
+npm test           # Vitest : tests/unit/**/*.test.ts
+npm run test:e2e   # tests/e2e/journeys.mjs : navigateur réel, base PGlite en mémoire, faux serveur Ollama
 ```
 
-Flux local :
-- Le frontend appelle les routes `/api/*`
-- Le Gateway appelle Ollama via `${OLLAMA_BASE_URL}/api/generate`
+- **Avant chaque commit** : `typecheck`, `lint`, `test`, `build`. La CI (`.github/workflows/ci.yml`, push sur `main`/`dev` + PR, Node 22, `ubuntu-24.04`) enchaîne typecheck, lint, tests, `npm audit --omit=dev --audit-level=high`, build et e2e
+- **Tests unitaires** : les modules qui touchent la base sont testés avec un vrai PostgreSQL en mémoire (**PGlite** chargé avec `docker/init-schema.sql`, `@/lib/db` remplacé par un adaptateur — voir `tests/unit/users.test.ts`). `server-only` est remplacé par un stub (`vitest.config.mts`). Piège : `beforeEach(() => mock.mockReset())` renvoie le mock, que Vitest prend pour une fonction de nettoyage → toujours des accolades
+- **Test e2e** : serveur Next `standalone` sur `0.0.0.0` **sans** `NEXTAUTH_URL` (comme Docker — c'est ce qui a causé deux régressions de connexion/déconnexion). Couvre connexion → espace de travail → déconnexion, désactivation d'un utilisateur par un admin, traduction de documents face à un modèle qui fusionne les `|||`, nettoyage des journaux, réinitialisation des réglages, refus d'un logo SVG. Chaque nouvelle fonctionnalité qui touche l'authentification, les pages admin ou la chaîne IA doit y ajouter un scénario
+- **Navigateur** : `CHROME_PATH`, sinon Chrome / Chromium / Edge sont cherchés aux emplacements usuels. Sous Windows, Edge ne se lance **pas** depuis le shell Bash de Claude Code (bac à sable) : lancer le e2e depuis PowerShell
+- **Vérifier pour de vrai** : un test qui n'a jamais échoué ne prouve rien — casser volontairement le code pour voir le test échouer, puis restaurer
+- Flux local : le frontend appelle `/api/*` ; le serveur appelle le moteur IA (`${OLLAMA_BASE_URL}/api/generate` ou `/v1/chat/completions`)
 
 ---
 
 ## 🧠 Instructions spécifiques à Claude Code
 
-- Respecter strictement les **4 fonctionnalités définies**
-- Ne jamais appeler Ollama depuis le client
-- Conserver la structure exacte des panneaux (`gap-px bg-surface-container rounded-xl`)
-- La liste des langues doit toujours être **triée alphabétiquement** (base + régionales mélangées)
-- Tous les strings UI doivent passer par `useI18n()` → `t.*` — ne jamais hardcoder de libellés
-- Le titre affiché sur la page signin vient de `branding.siteName` (settings DB), chargé server-side dans `signin/page.tsx` — ne pas le hardcoder
-- `getAllSettings()` retourne `Record<string, unknown>` — caster en `Record<string, Record<string, unknown>>` pour accéder aux propriétés imbriquées (ex. `branding.siteName`)
-- Tout nouveau namespace i18n doit être ajouté dans les **4 fichiers** (`en.ts`, `de.ts`, `fr.ts`, `it.ts`) simultanément
-- Les valeurs envoyées à l'API (id de ton, longueurs, features) restent des slugs stables — seul l'affichage est traduit via `labels[locale]`
-- Les tons de réécriture sont dans `site_settings` (clé `rewrite_tones`, JSONB array). `src/lib/tones.ts` gère les défauts et la migration backward compat (`label: string` → `labels: { en }`)
-- `ToneConfig.labels` : `en` requis, `fr`, `de` et `it` optionnels avec fallback sur `en`
-- Le glossaire est **centralisé en base de données** (tables `glossaries`, `glossary_entries`, `user_glossary_prefs`) — plus de localStorage
-- `src/lib/glossary.ts` est **server-only** : `fetchGlossaryEntries()` lit la DB et respecte les préférences utilisateur
-- L'injection du glossaire dans les prompts est **exclusivement server-side** (routes `/api/translate` et `/api/rewrite`) — le client n'envoie jamais de `glossaryClause`
-- Chaque entrée de glossaire a `source_lang` / `target_lang` (code BCP47 ou NULL = toutes les langues). Pour la réécriture (même langue), seules les entrées NULL+NULL sont injectées
-- Convention `user_glossary_prefs` : une ligne n'existe que si `enabled = FALSE` — absence de ligne = glossaire activé par défaut
-- Format CSV d'import glossaire : `source,target,source_lang,target_lang` (cols lang optionnelles, vide = toutes langues)
-- Export CSV glossaire : **100 % client-side** (`exportEntriesToCSV` dans `GlossaryAdmin.tsx`) — pas de route API. Bouton visible uniquement si des entrées existent. Nom de fichier : `{glossary_name}_glossary.csv`
-- L'API usage (`/api/admin/usage`) accepte un paramètre `limit` (1–500, défaut 100) pour contrôler le nombre de lignes retournées. `UsagePanel` expose un sélecteur 25/50/100/200/500
-- Schema DB : `docker/init-schema.sql` — exécuté automatiquement par le container PostgreSQL au premier démarrage
-- **Versions Docker** : `postgres` utilise `${POSTGRES_VERSION:-18}-alpine` (configurable via `.env`). `node:22-slim` est épinglé (LTS actuel, Debian requis pour `@napi-rs/canvas`). `caddy:2-alpine` pour le reverse proxy. `ollama/ollama:latest` sans port binding hôte (interne uniquement). Ne jamais hardcoder `postgres:NN-alpine` — toujours passer par la variable. Changer la version majeure PostgreSQL sur une installation existante nécessite une migration de données (`pg_upgrade` ou dump/restore). Le service `postgres` fixe explicitement `PGDATA=/var/lib/postgresql/data` (identique au point de montage du volume) pour désactiver la réorganisation de répertoire style `pg_ctlcluster` introduite dans les builds récents de `postgres:18-alpine` — sans ça, le conteneur refuse de démarrer si le volume contient déjà des données à l'ancien emplacement (erreur "unused mount/volume"). Ne jamais pointer `PGDATA` vers un sous-répertoire (`.../data/pgdata`) : les données existantes sont à la racine du point de montage, un sous-répertoire vide déclencherait un `initdb` silencieux et une perte de données
-- **Ollama** : conteneur **optionnel** (profil compose `ollama`, voir « Ollama local ou distant »). Quand il est local, le port `11434` n'est **pas** exposé sur l'hôte — accessible uniquement via le réseau Docker interne (`http://ollama:11434`). Il n'y a plus de pré-chauffage automatique dans `install.sh` — le chargement en VRAM se fait depuis le panneau admin via le bouton "Load into VRAM" (`POST /api/admin/services/ollama/warmup`). La route déduplique les modèles (translationModel / rewriteModel / ocrModel) et appelle Ollama avec `keep_alive: -1` pour chacun. Le téléchargement de nouveaux modèles se fait directement depuis les sélecteurs `OllamaModelSelect` de l'onglet Models (« Télécharger et utiliser », `POST /api/admin/services/ollama/pull`) qui stream le JSON de progression d'Ollama ligne par ligne — plus de bloc de téléchargement séparé. La suppression se fait via `DELETE /api/admin/services/ollama/delete` (onglet Monitoring) — les modèles référencés dans la config ont leur corbeille désactivée
-- **Accès / Caddy** (une seule notion : le **mode d'accès**) : `http` (`:80`, HTTP simple sur l'IP), `https` (domaine → Let's Encrypt automatique, + option `keepHttpFallback` = bloc `:80` de secours par IP pendant la mise en place) ou `proxy` (`:80` derrière NPM/Traefik qui gère le HTTPS). Config `site_settings.caddy_config` = `{ mode, host, keepHttpFallback, trustedProxies, behindProxy }` (`behindProxy` = `mode === 'proxy'`, gardé pour l'ancien format). **`src/lib/caddy-config.ts` (client-safe, partagé)** : `resolveCaddyConfig()` (rétrocompatible : ancien `{ host, behindProxy }` → domaine = https, sinon proxy/http ; sans rien en base l'état vient de `CADDY_HOST`, passé à l'app par le compose), `normalizeCaddyConfig()` (valide le domaine — une IP est refusée —, nettoie `trustedProxies`), `generateCaddyfile()` (aussi utilisée par l'aperçu du formulaire). `src/lib/caddy.ts` (server-only) ne garde que `reloadCaddy()` + ré-exports. ⚠️ **`caddyfile_content()` d'`install.sh` génère le même Caddyfile : toute modification de `generateCaddyfile()` doit être répliquée** (et inversement)
-- **Adresse publique détectée, plus de `NEXTAUTH_URL`** : `auth.config.ts` a `trustHost: true` (donc `AUTH_TRUST_HOST` est inutile — supprimé de `.env`) et **Auth.js réécrit l'origine de chaque requête avec `NEXTAUTH_URL`/`AUTH_URL` s'ils sont définis** (`reqWithEnvURL`) : le compose passe `NEXTAUTH_URL: ${NEXTAUTH_URL:-}` (vide par défaut) pour que l'adresse vienne des en-têtes `Host` / `X-Forwarded-*`. Les installs existantes gardent leur valeur ; `leksis config` (changement d'accès) la vide. L'ancien champ `nextauthUrl` de l'admin ne faisait rien (jamais lu) : supprimé **Migration** : `migrate_pinned_url` (appelée par `cmd_update`) vide un `NEXTAUTH_URL` en `http(s)://<IPv4>` (ancien défaut de l'installeur : renvoie vers l'IP même via un domaine/proxy) puis relance `app` ; une valeur en domaine est laissée, `leksis config` propose de la supprimer (`clear_pinned_url`). L'admin Caddy affiche un avertissement (`PinnedUrlNotice`) tant que `process.env.NEXTAUTH_URL` est défini — l'admin ne peut pas la vider (variable d'environnement du conteneur) **Piège** : le serveur Next standalone tourne avec `HOSTNAME=0.0.0.0` (Dockerfile) et `PORT=3000` : sans `NEXTAUTH_URL`, le proxy (middleware) construit `callbackUrl` avec l'adresse INTERNE (`http://0.0.0.0:3000/…`). `SignInForm` n'utilise donc que le **chemin** de `callbackUrl` (`safeCallbackPath`, relatif à `window.location.origin` — protège aussi d'une redirection vers un autre site). Ne jamais rediriger vers un `callbackUrl` absolu
-- **Proxys de confiance** : le Caddyfile déclare `servers { trusted_proxies static private_ranges [+ trustedProxies] }` dans **tous** les modes — Caddy transmet alors les `X-Forwarded-*` d'un proxy du réseau privé (ou listé) à l'app. Plus de `header_up X-Forwarded-*` (un placeholder vide écrasait l'en-tête avec une chaîne vide). Le `docker/caddy/Caddyfile` statique porte le même bloc `servers`
-- **Passage HTTP → HTTPS** : Admin → Services → Caddy (formulaire `CaddyServiceForm` : 3 cartes de mode, domaine, secours HTTP, adresses de proxy, aperçu du Caddyfile) ou `leksis config` → « Change how users reach Leksis ». `PATCH /api/admin/services` (`service: 'caddy'`) enregistre puis recharge Caddy à chaud (`POST http://caddy:2019/load`) ; échec → `{ ok: true, reloadError }` sans faire échouer la requête. `GET /api/admin/services/caddy/metrics` ajoute `mode`, `domain` et `tls` (`checkCertificate()` de `src/lib/caddy-tls.ts` : connexion TLS à `caddy:443` avec le domaine en SNI, émetteur/expiration, `ok` = certificat de confiance) ; `CaddyMetrics` affiche le bloc « Accès » et re-vérifie toutes les 5 s (3 min max) après un enregistrement (événement `leksis:caddy-saved` émis par le formulaire)
-- **`install.sh`** : étape 2 « Access » (`ask_access`) → `http|https|proxy` ; `apply_access_config` (fin d'install et de `config`) écrit `caddy_config` en base (`psql -v` + `:'var'`) **et** recharge Caddy via `docker compose exec -T caddy sh -c 'cat >/tmp/Caddyfile && caddy reload --config /tmp/Caddyfile --adapter caddyfile --address localhost:2019 --force'` (le `.env` `CADDY_HOST` seul ne suffit pas : Caddy démarre avec `--resume` et l'`autosave.json` du volume prime sur le Caddyfile). `current_access` relit l'état (base, sinon déduit de `CADDY_HOST`). Clés de réponse : `ACCESS_MODE`, `APP_HOST` (domaine en https ; un `APP_HOST` domaine sans `ACCESS_MODE` implique https), `ACCESS_FALLBACK`, `ACCESS_TRUSTED`. Caddy conserve la config chargée à chaud au redémarrage, mais les installs existantes gardent leur `autosave.json` jusqu'au prochain enregistrement d'accès
-- Divers Caddy : l'admin API écoute sur `0.0.0.0:2019` (interne Docker uniquement). `GET /` retourne 404 en Caddy v2 — utiliser `GET /config/` pour vérifier la joignabilité. **Version Caddy** : l'API admin ne la retourne pas — l'extraire du header `Server` sur le port proxy (`HEAD http://caddy:80/`) : pattern `Caddy/?([\d.]+)` → numéro si présent, sinon `'Caddy'`. `GET /api/admin/services` retourne `{ ai, db, caddy }`
-- **`headerLogoSize`** : de même déplacé depuis `site_settings.design` vers `site_settings.branding` (repli identique côté lecture), champ dans `BrandingForm` juste sous l'upload du logo
-- **Tonalité par défaut** : `site_settings.features.defaults.formality` (`'Informal' | 'Formal'`, défaut `'Informal'`) — pré-remplit `TextTranslationTab` (prop `defaultFormality`, remonté via `page.tsx` → `HomeClient`). Réglage dans `FeaturesForm` (section Défauts, à côté des langues par défaut)
-- **Fond du site** : `BrandingForm` a un toggle Couleur/Image (state local `bgMode`, non persisté) — un seul des deux champs est affiché à la fois ; passer en mode Couleur alors qu'une image est déjà enregistrée la supprime immédiatement (`handleBgRemove`) pour qu'il n'y ait jamais les deux en même temps
-- **Dashboard admin** : `/admin/dashboard` — server component qui interroge directement la DB via `query()` (même pattern que les autres pages admin). Tables : `users` (count), `usage_log` (count WHERE created_at >= CURRENT_DATE), sous-requête `glossary_entries` GROUP BY glossary_id pour le total, `audit_log ORDER BY created_at DESC LIMIT 5`, tendance 7 jours zero-filled (`generate_series` + LEFT JOIN sur `usage_log`) et répartition par `feature` sur la même fenêtre, `site_settings.system_status.lastBackupAt` (voir plus bas) pour la carte Backup. Les données de santé service (Ollama/DB/Caddy) sont fetchées côté client dans `AdminDashboard.tsx` via les 3 routes `/api/admin/services/*/metrics`. `/admin/page.tsx` redirige vers `/admin/dashboard`
-- **`site_settings.system_status`** : clé JSONB interne (hors schéma Zod de `PATCH /api/admin/settings`, jamais éditable depuis l'UI) écrite uniquement par `install.sh` (`record_backup_timestamp`, appelée à la fin de `create_backup`) via `psql -v` + `:'var'`. Contient `lastBackupAt` (ISO 8601 UTC) — la carte Backup du dashboard **et** la carte « Full server backup » d'`ExportImportForm` la lisent pour afficher « il y a X » et passer au rouge au-delà de 8 jours ou en l'absence de sauvegarde
-- **Deux mécanismes de sauvegarde distincts, volontairement pas fusionnés** : `leksis backup` (console) fait un `pg_dump` complet + `uploads.tar` + `.env` (secrets en clair) — c'est la seule sauvegarde compatible avec `leksis restore`. L'export JSON d'Admin → Backup (`/api/admin/settings/export`) ne contient que `site_settings` (branding/design/features/tons/général, secrets retirés) + glossaires + logo/fond (embarqués en base64, cf. `readAsset`/`writeAsset`) — jamais `users`/`sessions`/`audit_log`/`usage_log`, jamais de secret. **Ne pas faire converger les deux** : répliquer le `.env` (mot de passe PostgreSQL, `AUTH_SECRET`, `ENCRYPTION_KEY`) dans un fichier téléchargeable depuis le navigateur élargirait la surface d'attaque (n'importe quelle session admin navigateur vs accès SSH/console requis pour la CLI). `ExportImportForm.tsx` explicite cette distinction à l'utilisateur plutôt que de la masquer
-- **`AdminSidebar.tsx`** : navigation plate avec `useServiceStatus()` hook — fetch parallèle des 3 endpoints metrics au mount, `reachable` ou `ok` selon le service. `StatusDot` : vert `bg-[#27ae60]` si `true`, rouge `bg-error` si `false`, gris si `null` (chargement). Section labels : `SETTINGS` / `INFRASTRUCTURE` / `MANAGEMENT`. `SettingsAccordion.tsx` supprimé — remplacé par `SettingsTabs.tsx`
-- **Aucun CDN tiers** : Material Symbols et Bootstrap Icons sont self-hébergés. Ne pas réintroduire de `<link>` vers `fonts.googleapis.com` ou `cdn.jsdelivr.net`. Pour mettre à jour Material Symbols, re-télécharger le woff2 depuis `fonts.gstatic.com` (URL versionnée `v{N}`)
-- Priorité : robustesse, lisibilité, maintenabilité
-- Les messages de commit git doivent toujours être **en anglais**
+Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git en anglais.**
+
+### Règles générales
+
+- Respecter strictement les **4 fonctionnalités définies** ; ne jamais appeler le moteur IA depuis le client
+- Conserver la structure exacte des panneaux (`gap-px bg-surface-container rounded-xl`) ; la liste des langues reste **triée alphabétiquement** (base + régionales mélangées)
+- Tous les strings UI passent par `useI18n()` → `t.*`, jamais de libellé en dur. Tout nouveau namespace ou clé va dans les **4 fichiers** (`en.ts`, `de.ts`, `fr.ts`, `it.ts`) en même temps
+- Les valeurs envoyées à l'API (id de ton, longueurs, features) restent des slugs stables — seul l'affichage est traduit
+- Le titre de la page de connexion vient de `branding.siteName`, chargé côté serveur dans `signin/page.tsx`
+- **Aucun CDN tiers** : Material Symbols et Bootstrap Icons sont self-hébergés (ne pas réintroduire de `<link>` vers `fonts.googleapis.com` ou `cdn.jsdelivr.net` ; pour mettre à jour Material Symbols, re-télécharger le woff2 depuis `fonts.gstatic.com`)
+
+### Réglages (`site_settings`)
+
+- Lecture : `getSetting(key)` (cache de 5 s, copie indépendante) ; `getAllSettings()` interroge toujours la base (pages admin). Écriture : `updateSetting()` **uniquement** (invalide le cache, journalise ; `auditValue` pour expurger un secret). Le TTL couvre les écritures hors application (`install.sh` écrit `ai_config`, `caddy_config`, `system_status` par `psql`)
+- `getAllSettings()` retourne `Record<string, unknown>` : caster en `Record<string, Record<string, unknown>>` pour les propriétés imbriquées
+- **`src/lib/settings-schema.ts`** : schémas zod de chaque clé éditable (`branding`, `design`, `general`, `features`, `rewrite_tones`), utilisés par le PATCH **et** l'import ; `SETTING_DEFAULTS` (réinitialisation, formulaires, limites tirées de `validators.ts`). Toute nouvelle clé de réglage s'y déclare (schéma + défaut) ; un test vérifie que chaque défaut passe son schéma. Les clés inconnues sont retirées à l'enregistrement
+- Clés hors de ce mécanisme : `ai_config` (Services → AI), `caddy_config` (Services → Caddy), `system_status` (écrite par `install.sh` seulement)
+- Tons de réécriture : clé `rewrite_tones` (tableau JSONB, 1 à 6 tons) ; `lib/tones.ts` fournit les défauts et migre l'ancien format (`label: string` → `labels: { en }`). `ToneConfig.labels` : `en` requis, `fr`/`de`/`it` en repli sur `en`
+- Tonalité par défaut : `features.defaults.formality` (`Informal` par défaut), pré-remplit `TextTranslationTab`
+- **Conservation des journaux** : `general.usageRetentionDays` (365) et `auditRetentionDays` (730), 0 = garder. `lib/retention.ts` supprime par lots de 10 000, lancé par `instrumentation.ts` 2 min après le démarrage puis toutes les 6 h (`LEKSIS_RETENTION_DELAY_SEC` pour les tests), et s'inscrit à l'audit (`AUTO_PURGE_*`, utilisateur `system`)
+- `headerLogoSize` est dans `branding` (repli de lecture sur `design`) ; le fond du site est une couleur **ou** une image (`BrandingForm` supprime l'image en passant en mode Couleur)
+
+### Comptes et sessions
+
+- Les comptes se créent à la première connexion (OTP). **Supprimer un compte n'empêche donc pas la personne de revenir** : le vrai blocage est la désactivation (`users.disabled`), dite comme telle dans l'interface
+- Le rôle est figé dans le JWT (30 jours) mais **relu en base** à chaque lecture de session (`lib/users.ts`, cache 30 s, invalidé au changement) : un compte supprimé ou désactivé perd sa session, une rétrogradation est immédiate. Base injoignable = on garde le rôle du jeton
+- Modifier un compte passe **uniquement** par `changeUser()` / `removeUser()` : transaction avec verrou consultatif, refus de se rétrograder / désactiver / supprimer soi-même, et il reste toujours au moins un administrateur actif (`self`, `last_admin`, `not_found`)
+- Connexion : `authorize()` et `/api/auth/otp` refusent un compte désactivé (`account_disabled`)
+- `signOutToSignIn()` (`lib/sign-out.ts`) se déconnecte puis navigue **lui-même** vers `/auth/signin` : ne pas redéclarer de callback Auth.js `redirect` (il casse `signIn()`, « Invalid URL »)
+
+### Base de données et migrations
+
+- Installations neuves : `docker/init-schema.sql` (exécuté au premier démarrage du volume seulement). Installations existantes : `docker/migrations/NNN-nom.sql`, **idempotentes et non destructives**, appliquées par `leksis update` / `leksis migrate` (suivi dans la table `schema_migrations`, backup automatique avant). Toute évolution de schéma = les deux
+- Le code qui dépend d'une nouvelle colonne échoue brièvement entre le redémarrage de l'app et l'application de la migration pendant `update` : le signaler dans les notes de version
+- Pas d'adaptateur NextAuth : les tables `accounts`, `sessions`, `verification_token` n'existent plus (supprimées par la migration 001, avec `db_config`, `seo` et l'ancien `ollama_config`)
+
+### Documents
+
+- Traduction par **lots de 3000 caractères** (`lib/doc-translate.ts`) : le nombre de segments renvoyé est vérifié, redemandé une fois, puis le lot est coupé en deux jusqu'à un segment isolé — jamais de décalage silencieux. Le prompt annonce le nombre de segments ; les segments vides ne partent pas au modèle ; un avertissement serveur est journalisé quand le modèle ne respecte pas les `|||`
+- Extraction : `blocksToSegments` / `applySegments` (`file-parser.ts`). Formats : PDF, DOCX, TXT, CSV (pas `.doc`). PDF scanné : OCR par le modèle vision, 20 pages max. Fichiers ≤ 10 Mo, limite de caractères réglable dans l'admin
+
+### Glossaire
+
+- **En base** (`glossaries`, `glossary_entries`, `user_glossary_prefs`), jamais en localStorage. `lib/glossary.ts` (server-only) : `fetchGlossaryEntries()` respecte les préférences de l'utilisateur ; l'injection dans les prompts est **exclusivement côté serveur** (`/api/translate`, `/api/rewrite`) — le client n'envoie jamais de `glossaryClause`
+- Chaque entrée a `source_lang` / `target_lang` (BCP47 ou NULL = toutes). Réécriture (même langue) : seules les entrées NULL+NULL. `user_glossary_prefs` : une ligne n'existe que si `enabled = FALSE`
+- Import CSV `source,target,source_lang,target_lang` (colonnes langue optionnelles, dans une transaction) ; export CSV **100 % client** (`exportEntriesToCSV`)
+- `/api/admin/usage` : paramètre `limit` 1–500 (défaut 100), agrégation en SQL ; `UsagePanel` expose 25/50/100/200/500
+
+### Docker, Ollama, Caddy
+
+- **Versions** : `postgres` = `${POSTGRES_VERSION:-18}-alpine` (jamais `postgres:NN-alpine` en dur ; changer de version majeure demande `pg_upgrade` ou dump/restore) ; `node:22-slim` épinglé (Debian requis pour `@napi-rs/canvas`) ; `caddy:2-alpine` ; `ollama/ollama:latest` sans port hôte. Le service `postgres` fixe `PGDATA=/var/lib/postgresql/data` : **ne jamais** le pointer vers un sous-répertoire (un `initdb` silencieux effacerait les données)
+- **Ollama** : conteneur optionnel (profil compose `ollama`), port `11434` non exposé. Le chargement en VRAM se fait depuis l'admin (« Load into VRAM », `keep_alive: -1`, modèles dédupliqués) ; les requêtes ordinaires ne passent pas `keep_alive` mais **`num_ctx`** (réglage Services → AI → Models, défaut 8192). Téléchargement : `OllamaModelSelect` (« Télécharger et utiliser », `POST …/ollama/pull`, progression en flux) ; suppression : onglet Monitoring (corbeille désactivée pour les modèles configurés)
+- **Accès / Caddy** : un seul concept, le **mode d'accès** — `http` (`:80` sur l'IP), `https` (domaine → Let's Encrypt, option `keepHttpFallback`) ou `proxy` (`:80` derrière NPM/Traefik). `site_settings.caddy_config = { mode, host, keepHttpFallback, trustedProxies, behindProxy }`. `lib/caddy-config.ts` (client-safe) : `resolveCaddyConfig()` (rétrocompatible avec l'ancien `{ host, behindProxy }` ; sans rien en base l'état vient de `CADDY_HOST`), `normalizeCaddyConfig()` (une IP est refusée comme domaine), `generateCaddyfile()`. ⚠️ **`caddyfile_content()` d'`install.sh` génère le même Caddyfile : toute modification de `generateCaddyfile()` doit être répliquée** (et inversement ; aussi `docker/caddy/Caddyfile`)
+- **Proxys de confiance** : le Caddyfile déclare `servers { trusted_proxies static private_ranges [+ trustedProxies] }` dans tous les modes, Caddy transmet alors les `X-Forwarded-*` à l'app (pas de `header_up X-Forwarded-*` : un placeholder vide écrasait l'en-tête)
+- **Adresse publique détectée, pas de `NEXTAUTH_URL`** : `trustHost: true`, et Auth.js réécrit l'origine de chaque requête avec `NEXTAUTH_URL`/`AUTH_URL` s'ils sont définis — le compose passe `NEXTAUTH_URL: ${NEXTAUTH_URL:-}` (vide). `migrate_pinned_url` (`cmd_update`) vide l'ancienne valeur `http(s)://<IPv4>` ; `PinnedUrlNotice` avertit tant que la variable existe. ⚠️ Le serveur standalone tourne avec `HOSTNAME=0.0.0.0` : sans `NEXTAUTH_URL`, le proxy construit `callbackUrl` avec l'adresse INTERNE (`http://0.0.0.0:3000/…`). `SignInForm` n'utilise donc que le **chemin** de `callbackUrl` (`safeCallbackPath`, aussi contre une redirection vers un autre site) — ne jamais rediriger vers un `callbackUrl` absolu
+- **Changer d'accès** : Admin → Services → Caddy ou `leksis config`. `PATCH /api/admin/services` (`service: 'caddy'`) enregistre puis recharge Caddy à chaud (`POST http://caddy:2019/load`) ; échec → `{ ok: true, reloadError }`. `caddy/metrics` ajoute `mode`, `domain`, `tls` (`checkCertificate()`) ; `CaddyMetrics` re-vérifie toutes les 5 s (3 min) après un enregistrement (événement `leksis:caddy-saved`). `install.sh` : `ask_access` puis `apply_access_config` (écrit `caddy_config` **et** recharge Caddy — `CADDY_HOST` seul ne suffit pas : Caddy démarre avec `--resume` et l'`autosave.json` du volume prime)
+- Divers Caddy : `GET /` est 404 en Caddy v2 (utiliser `GET /config/`) ; la version se lit dans l'en-tête `Server` de `HEAD http://caddy:80/` (`Caddy/?([\d.]+)`) ; `GET /api/admin/services` retourne `{ ai, db, caddy }`
+
+### Admin
+
+- **Dashboard** : `/admin/dashboard` (server component, requêtes directes via `query()` : utilisateurs, appels du jour, termes de glossaire, 5 dernières entrées d'audit, tendance 7 jours, répartition par feature, `system_status.lastBackupAt`). La santé Ollama/DB/Caddy est lue côté client sur les 3 routes `metrics`. `AdminSidebar` : `useServiceStatus()` pour les pastilles (vert / rouge / gris en chargement)
+- **`site_settings.system_status`** : écrite uniquement par `install.sh` (`record_backup_timestamp`) ; lue par la carte Backup du dashboard et par `ExportImportForm` (rouge au-delà de 8 jours ou sans sauvegarde)
+- **Deux sauvegardes distinctes, volontairement non fusionnées** : `leksis backup` (`pg_dump` + `uploads.tar` + `.env`, seule compatible avec `leksis restore`) et l'export JSON d'Admin → Backup (`site_settings` sans secret + glossaires + logo/fond en base64, jamais `users`/`audit_log`/`usage_log`). Ne pas les faire converger : mettre le `.env` (mot de passe PostgreSQL, `AUTH_SECRET`, `ENCRYPTION_KEY`) dans un fichier téléchargeable élargirait la surface d'attaque
+- Import de configuration : clés validées par les schémas, invalides ignorées et listées (`skipped`) ; `ai_config` importé sans clé API ni `allowExternal` (ceux de l'instance sont conservés) ; `ollama_config` non importable
 
 ---
 
