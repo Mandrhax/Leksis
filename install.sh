@@ -16,12 +16,12 @@
 # Options: -y/--yes  --answers FILE  --dir DIR  --no-tui  -h/--help
 #
 # Run from a server via curl (stdin-safe):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0-beta.2/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0-beta.3/install.sh)
 # ============================================================
 set -eEuo pipefail
 
 # ── VERSION (bumped at release; package.json wins when present) ──
-VERSION="1.5.0-beta.2"
+VERSION="1.5.0-beta.3"
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "$0")"
 _pkg="$(dirname "$SCRIPT_PATH")/package.json"
 if [[ -f "$_pkg" ]]; then
@@ -1335,7 +1335,7 @@ ensure_models() {
 # sync after `leksis config`. With "yes" the stored (encrypted) API key is cleared so the AI_API_KEY
 # of .env applies. Nothing to do when the admin panel never saved a config.
 sync_ai_config_db() {
-  local wipe="${1:-no}" exists url="$OLLAMA_URL" provider="ollama"
+  local wipe="${1:-no}" exists url="$OLLAMA_URL" provider="ollama" same="${SAME_MODEL_FOR_ALL:-}"
   [[ "$OLLAMA_MODE" == "local" ]] && url="http://ollama:11434"
   [[ "$OLLAMA_MODE" == "openai" ]] && provider="openai"
   exists=$(docker compose exec -T postgres psql -U leksis_user -d leksis -tAc \
@@ -1343,10 +1343,11 @@ sync_ai_config_db() {
   [[ "$exists" == "1" ]] || return 0
   if docker compose exec -T postgres psql -U leksis_user -d leksis -q -v ON_ERROR_STOP=1 \
       -v provider="$provider" -v url="$url" -v tm="$OLLAMA_MODEL" -v om="$OLLAMA_OCR_MODEL" \
-      -v rm="$OLLAMA_REWRITE_MODEL" -v wipe="$wipe" >/dev/null 2>&1 <<'SQL'
+      -v rm="$OLLAMA_REWRITE_MODEL" -v same="$same" -v wipe="$wipe" >/dev/null 2>&1 <<'SQL'
 UPDATE site_settings
    SET value = value || jsonb_build_object('provider', :'provider', 'baseUrl', :'url',
                                            'translationModel', :'tm', 'ocrModel', :'om', 'rewriteModel', :'rm')
+                     || CASE WHEN :'same' = '' THEN '{}'::jsonb ELSE jsonb_build_object('sameModelForAll', (:'same')::boolean) END
                      || CASE WHEN :'wipe' = 'yes' THEN jsonb_build_object('apiKeyEnc', '') ELSE '{}'::jsonb END,
        updated_at = NOW()
  WHERE key = 'ai_config';
@@ -1354,6 +1355,7 @@ INSERT INTO site_settings (key, value, updated_at)
 SELECT 'ai_config',
        value || jsonb_build_object('provider', :'provider', 'baseUrl', :'url',
                                    'translationModel', :'tm', 'ocrModel', :'om', 'rewriteModel', :'rm')
+             || CASE WHEN :'same' = '' THEN '{}'::jsonb ELSE jsonb_build_object('sameModelForAll', (:'same')::boolean) END
              || CASE WHEN :'wipe' = 'yes' THEN jsonb_build_object('apiKeyEnc', '') ELSE '{}'::jsonb END,
        NOW()
   FROM site_settings
@@ -1846,6 +1848,39 @@ ask_translation_model() {
   printf '%s' "$m"
 }
 
+# ask_ai_models DEFAULT_TRANSLATION [DEFAULT_OCR] [DEFAULT_REWRITE] — one model for translation, OCR
+# and rewrite, or 3 models picked independently (OCR / rewrite pre-filled with the translation model).
+# Sets OLLAMA_MODEL / OLLAMA_OCR_MODEL / OLLAMA_REWRITE_MODEL and SAME_MODEL_FOR_ALL (true/false).
+ask_ai_models() {
+  local def_t="$1" def_o="${2:-}" def_r="${3:-}" same_default="y"
+  if [[ -n "$def_o" && "$def_o" != "$def_t" ]] || [[ -n "$def_r" && "$def_r" != "$def_t" ]]; then
+    same_default="n"
+  fi
+  [[ "$OLLAMA_MODE" == "openai" ]] && p_info "Models are the ids served by the API (GET /models)."
+
+  if p_yesno SAME_MODEL_FOR_ALL "Use the same model for translation, OCR and rewrite?" "$same_default"; then
+    SAME_MODEL_FOR_ALL="true"
+    if [[ "$OLLAMA_MODE" == "openai" ]]; then
+      OLLAMA_MODEL=$(ask_openai_model OLLAMA_MODEL "Model (translation + OCR + rewrite, must accept images)" "$def_t")
+    else
+      OLLAMA_MODEL=$(ask_translation_model "$def_t")
+    fi
+    OLLAMA_OCR_MODEL="$OLLAMA_MODEL"
+    OLLAMA_REWRITE_MODEL="$OLLAMA_MODEL"
+  else
+    SAME_MODEL_FOR_ALL="false"
+    if [[ "$OLLAMA_MODE" == "openai" ]]; then
+      OLLAMA_MODEL=$(ask_openai_model OLLAMA_MODEL "Translation model" "$def_t")
+      OLLAMA_OCR_MODEL=$(ask_openai_model OLLAMA_OCR_MODEL "OCR model (must accept images)" "${def_o:-$OLLAMA_MODEL}")
+      OLLAMA_REWRITE_MODEL=$(ask_openai_model OLLAMA_REWRITE_MODEL "Rewrite model" "${def_r:-$OLLAMA_MODEL}")
+    else
+      OLLAMA_MODEL=$(ask_translation_model "$def_t")
+      OLLAMA_OCR_MODEL=$(ask_model OLLAMA_OCR_MODEL "OCR model" "${def_o:-$OLLAMA_MODEL}")
+      OLLAMA_REWRITE_MODEL=$(ask_model OLLAMA_REWRITE_MODEL "Rewrite model" "${def_r:-$OLLAMA_MODEL}")
+    fi
+  fi
+}
+
 # build_env_content — generated .env (globals must be set)
 build_env_content() {
   local profiles="" base_url="http://ollama:11434" provider="ollama"
@@ -1941,16 +1976,8 @@ cmd_install() {
 
   # ── Step 5/5: Models + database password ───────────────────
   p_header "Configuration 5/5 - AI Models & Database"
-  if [[ "$OLLAMA_MODE" == "openai" ]]; then
-    p_info "Models are the ids served by the API (GET /models)."
-    OLLAMA_MODEL=$(ask_openai_model OLLAMA_MODEL "Translation model" "")
-    OLLAMA_OCR_MODEL=$(ask_openai_model OLLAMA_OCR_MODEL "OCR model (must accept images)" "$OLLAMA_MODEL")
-    OLLAMA_REWRITE_MODEL=$(ask_openai_model OLLAMA_REWRITE_MODEL "Rewrite model" "$OLLAMA_MODEL")
-  else
-    OLLAMA_MODEL=$(ask_translation_model "$OLLAMA_MODEL")
-    OLLAMA_OCR_MODEL=$(ask_model OLLAMA_OCR_MODEL "OCR model" "$OLLAMA_MODEL")
-    OLLAMA_REWRITE_MODEL=$(ask_model OLLAMA_REWRITE_MODEL "Rewrite model" "$OLLAMA_MODEL")
-  fi
+  if [[ "$OLLAMA_MODE" == "openai" ]]; then ask_ai_models ""
+  else ask_ai_models "$OLLAMA_MODEL"; fi
   POSTGRES_PASSWORD=$(p_password POSTGRES_PASSWORD "Database password")
 
   # ── Summary ────────────────────────────────────────────────
@@ -2437,17 +2464,9 @@ cmd_config() {
     *) die "Unknown AI mode: ${OLLAMA_MODE} (expected local, remote or openai)" ;;
   esac
 
-  if [[ "$OLLAMA_MODE" == "openai" ]]; then
-    OLLAMA_MODEL=$(ask_openai_model OLLAMA_MODEL "Translation model" "$old_m")
-    OLLAMA_OCR_MODEL=$(ask_openai_model OLLAMA_OCR_MODEL "OCR model (must accept images)" "$old_o")
-    OLLAMA_REWRITE_MODEL=$(ask_openai_model OLLAMA_REWRITE_MODEL "Rewrite model" "$old_r")
-  else
-    # Coming from an API, its model ids mean nothing to Ollama: propose the usual models instead
-    if [[ "$old_mode" == "openai" ]]; then old_m="$DEFAULT_MODEL"; old_o=""; old_r=""; fi
-    OLLAMA_MODEL=$(ask_translation_model "$old_m")
-    OLLAMA_OCR_MODEL=$(ask_model OLLAMA_OCR_MODEL "OCR model" "${old_o:-$OLLAMA_MODEL}")
-    OLLAMA_REWRITE_MODEL=$(ask_model OLLAMA_REWRITE_MODEL "Rewrite model" "${old_r:-$OLLAMA_MODEL}")
-  fi
+  # Coming from an API, its model ids mean nothing to Ollama: propose the usual models instead
+  if [[ "$OLLAMA_MODE" != "openai" && "$old_mode" == "openai" ]]; then old_m="$DEFAULT_MODEL"; old_o=""; old_r=""; fi
+  ask_ai_models "$old_m" "$old_o" "$old_r"
 
   if [[ "$OLLAMA_MODE" == "local" ]]; then
     # Runtime settings: defaults are -1 / true / 3 and are not asked at install time
@@ -2627,7 +2646,7 @@ Unattended install example:
 
 Answer keys: INSTALL_DIR REPO_URL ACCESS_MODE (http|https|proxy) APP_HOST (domain, https) ACCESS_FALLBACK ACCESS_TRUSTED
 ADMIN_EMAIL ADMIN_NAME AI_MODE
-(local|remote|openai) AI_URL AI_API_KEY GPU_VENDOR (nvidia|amd|none) OLLAMA_MODEL OLLAMA_OCR_MODEL
+(local|remote|openai) AI_URL AI_API_KEY GPU_VENDOR (nvidia|amd|none) SAME_MODEL_FOR_ALL (y|n) OLLAMA_MODEL OLLAMA_OCR_MODEL
 OLLAMA_REWRITE_MODEL (the model ids, for any engine) POSTGRES_PASSWORD PULL_REMOTE_MODELS UPDATE_COMPONENTS (e.g. "app caddy")
 CONFIRM_DELETE CONFIRM_RESTORE. Prefix each with LEKSIS_.
 Ollama runtime overrides (not asked at install; editable with "config"):
