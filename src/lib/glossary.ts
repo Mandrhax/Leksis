@@ -25,40 +25,35 @@ export async function fetchGlossaryEntries(
   nullLangOnly = false,
 ): Promise<GlossaryEntry[]> {
   try {
-    // Build query: join glossaries + entries, exclude user-disabled glossaries
-    const langFilter = nullLangOnly
-      ? 'AND ge.source_lang IS NULL AND ge.target_lang IS NULL'
-      : 'AND (ge.source_lang IS NULL OR ge.source_lang = $2) AND (ge.target_lang IS NULL OR ge.target_lang = $3)'
+    const params: unknown[] = []
+    const conditions: string[] = []
 
-    const sql = userId
-      ? `
-        SELECT ge.id, ge.glossary_id, ge.source_term, ge.target_term,
-               ge.source_lang, ge.target_lang
-        FROM glossary_entries ge
-        JOIN glossaries g ON g.id = ge.glossary_id
-        WHERE NOT EXISTS (
-          SELECT 1 FROM user_glossary_prefs ugp
-          WHERE ugp.user_id = $1
-            AND ugp.glossary_id = ge.glossary_id
-            AND ugp.enabled = FALSE
-        )
-          ${langFilter}
-      `
-      : `
-        SELECT ge.id, ge.glossary_id, ge.source_term, ge.target_term,
-               ge.source_lang, ge.target_lang
-        FROM glossary_entries ge
-        JOIN glossaries g ON g.id = ge.glossary_id
-        WHERE TRUE
-          ${nullLangOnly
-            ? 'AND ge.source_lang IS NULL AND ge.target_lang IS NULL'
-            : 'AND (ge.source_lang IS NULL OR ge.source_lang = $1) AND (ge.target_lang IS NULL OR ge.target_lang = $2)'
-          }
-      `
+    // Glossaires que l'utilisateur a désactivés (une ligne user_glossary_prefs n'existe que pour enabled = FALSE)
+    if (userId) {
+      params.push(userId)
+      conditions.push(`NOT EXISTS (
+        SELECT 1 FROM user_glossary_prefs ugp
+        WHERE ugp.user_id = $${params.length}
+          AND ugp.glossary_id = ge.glossary_id
+          AND ugp.enabled = FALSE
+      )`)
+    }
 
-    const params = userId
-      ? nullLangOnly ? [userId] : [userId, sourceLang, targetLang]
-      : nullLangOnly ? [] : [sourceLang, targetLang]
+    if (nullLangOnly) {
+      conditions.push('ge.source_lang IS NULL AND ge.target_lang IS NULL')
+    } else {
+      params.push(sourceLang, targetLang)
+      conditions.push(
+        `(ge.source_lang IS NULL OR ge.source_lang = $${params.length - 1})`,
+        `(ge.target_lang IS NULL OR ge.target_lang = $${params.length})`,
+      )
+    }
+
+    const sql = `
+      SELECT ge.id, ge.glossary_id, ge.source_term, ge.target_term, ge.source_lang, ge.target_lang
+      FROM glossary_entries ge
+      ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+    `
 
     const result = await query(sql, params)
 

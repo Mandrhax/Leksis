@@ -29,11 +29,11 @@ async function readAsset(url: unknown): Promise<{ filename: string; mime: string
 
 export async function GET() {
   const session = await getAdminSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   const settings = await getAllSettings()
 
-  // Supprimer SEO — non utilisé
+  // Ancien réglage « seo » (supprimé, jamais lu) : encore présent en base sur les anciennes installations, jamais exporté
   delete settings.seo
 
   // Ancien réglage « connexion PostgreSQL » (supprimé) : jamais exporté

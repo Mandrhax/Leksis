@@ -25,7 +25,7 @@ function csvField(value: string | number | null | undefined): string {
 
 export async function GET(req: NextRequest) {
   const session = await getAdminSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   const { searchParams } = new URL(req.url)
   const from   = searchParams.get('from')   // YYYY-MM-DD

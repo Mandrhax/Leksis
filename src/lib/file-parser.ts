@@ -1,6 +1,6 @@
-// Server-only — extraction texte côté serveur
-// Port de la logique de Leksis_old/assets/js/doc-studio.js
+// Extraction texte côté serveur (PDF, DOCX, TXT/CSV) et conversion vers le modèle de blocs
 
+import 'server-only'
 import type { Block } from '@/types/leksis'
 
 export const BLOCK_SEP = '|||'
@@ -81,10 +81,6 @@ export function flattenBlocks(blocks: Block[]): string {
     } else if (block.type === 'table') {
       segments.push(...block.headers)
       for (const row of block.rows) segments.push(...row)
-    } else if (block.type === 'html') {
-      // Strip HTML tags to expose plain text for translation
-      const text = block.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-      if (text) segments.push(text)
     }
   }
   return segments.join(` ${BLOCK_SEP} `)
@@ -103,10 +99,6 @@ export function applyTranslatedSegments(blocks: Block[], translated: string): Bl
       const newHeaders = block.headers.map(() => parts[idx++] ?? '')
       const newRows    = block.rows.map(row => row.map(() => parts[idx++] ?? ''))
       return { ...block, headers: newHeaders, rows: newRows }
-    }
-    if (block.type === 'html') {
-      // Convert html block to paragraph with translated plain text
-      return { type: 'paragraph' as const, text: parts[idx++] ?? '' }
     }
     return block
   })
@@ -130,12 +122,35 @@ export async function parsePdf(buffer: Buffer): Promise<Block[]> {
 
 // ── DOCX ───────────────────────────────────────────────────────
 
-function stripInlineTags(html: string): string {
+/** Texte brut d'un fragment HTML : <br> → espace, balises retirées, entités courantes décodées. */
+export function stripInlineHtml(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, ' ')
     .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
     .trim()
+}
+
+/** Bloc tableau d'un <table> HTML (mammoth pour les DOCX, sortie du modèle OCR pour les PDF scannés), ou null s'il est vide. */
+export function parseHtmlTable(html: string): Extract<Block, { type: 'table' }> | null {
+  const headers: string[] = []
+  const rows: string[][] = []
+
+  const theadMatch = html.match(/<thead[\s\S]*?<\/thead>/i)
+  const tbodyMatch = html.match(/<tbody[\s\S]*?<\/tbody>/i)
+
+  if (theadMatch) {
+    for (const m of theadMatch[0].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/gi)) headers.push(stripInlineHtml(m[1]))
+  }
+
+  const rowSource = tbodyMatch ? tbodyMatch[0] : html
+  for (const tr of rowSource.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const cells = [...tr[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)]
+    if (cells.length) rows.push(cells.map(c => stripInlineHtml(c[1])))
+  }
+
+  if (!headers.length && !rows.length) return null
+  return { type: 'table', headers, rows }
 }
 
 function htmlToBlocks(html: string): Block[] {
@@ -144,29 +159,10 @@ function htmlToBlocks(html: string): Block[] {
   // Extract tables first, replacing them with placeholders to avoid conflicts
   const tables: Block[] = []
   const noTables = html.replace(/<table[\s\S]*?<\/table>/gi, match => {
-    const headers: string[] = []
-    const rows: string[][] = []
-
-    const theadMatch = match.match(/<thead[\s\S]*?<\/thead>/i)
-    const tbodyMatch = match.match(/<tbody[\s\S]*?<\/tbody>/i)
-
-    if (theadMatch) {
-      const thMatches = [...theadMatch[0].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/gi)]
-      thMatches.forEach(m => headers.push(stripInlineTags(m[1])))
-    }
-
-    const rowSource = tbodyMatch ? tbodyMatch[0] : match
-    const trMatches = [...rowSource.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)]
-    trMatches.forEach(tr => {
-      const cells = [...tr[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)]
-      if (cells.length) rows.push(cells.map(c => stripInlineTags(c[1])))
-    })
-
-    if (headers.length || rows.length) {
-      tables.push({ type: 'table', headers, rows })
-      return `__TABLE_${tables.length - 1}__`
-    }
-    return ''
+    const table = parseHtmlTable(match)
+    if (!table) return ''
+    tables.push(table)
+    return `__TABLE_${tables.length - 1}__`
   })
 
   // One token per block-level element. Lists are split at every <ul>/<ol>/<li>, so each
@@ -192,21 +188,21 @@ function htmlToBlocks(html: string): Block[] {
     // Heading levels 3–6 are folded into level 2 (the Block model only has two levels)
     const heading = token.match(/^<h([1-6])[^>]*>([\s\S]*?)(?:<\/h[1-6]>|$)/i)
     if (heading) {
-      const t = stripInlineTags(heading[2])
+      const t = stripInlineHtml(heading[2])
       if (t) blocks.push({ type: 'heading', level: heading[1] === '1' ? 1 : 2, text: t })
       continue
     }
 
     const item = token.match(/^<li[^>]*>([\s\S]*)$/i)
     if (item) {
-      const t = stripInlineTags(item[1])
+      const t = stripInlineHtml(item[1])
       if (t) blocks.push({ type: 'paragraph', text: `${ordered ? `${++counter}.` : '•'} ${t}` })
       continue
     }
 
     const p = token.match(/^<p[^>]*>([\s\S]*?)(?:<\/p>|$)/i)
     if (p) {
-      const t = stripInlineTags(p[1])
+      const t = stripInlineHtml(p[1])
       if (t) blocks.push({ type: 'paragraph', text: t })
     }
   }
@@ -257,9 +253,6 @@ export function countBlockChars(blocks: Block[]): number {
     if (block.type === 'paragraph' || block.type === 'heading') return total + block.text.length
     if (block.type === 'table') {
       return total + [...block.headers, ...block.rows.flat()].join('').length
-    }
-    if (block.type === 'html') {
-      return total + block.content.replace(/<[^>]+>/g, '').length
     }
     return total
   }, 0)

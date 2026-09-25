@@ -5,7 +5,7 @@ import { logAudit } from '@/lib/audit'
 
 export async function POST(req: NextRequest) {
   const session = await getAdminSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   const body = await req.json().catch(() => null)
   const model: string | undefined = body?.model

@@ -32,7 +32,7 @@ const Schema = z.discriminatedUnion('service', [AiSchema, CaddySchema])
 
 export async function GET() {
   const session = await getAdminSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   const ai     = await getAiPublicConfig()
   const caddy  = await getSetting<Record<string, unknown>>('caddy_config')
@@ -42,7 +42,7 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   const session = await getAdminSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   const body = await req.json().catch(() => null)
   const parsed = Schema.safeParse(body)

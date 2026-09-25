@@ -4,40 +4,9 @@
 
 import type { LlmProvider } from '@/lib/llm/types'
 import { buildOcrPrompt } from '@/lib/prompts'
-import { textToBlocks } from '@/lib/file-parser'
+import { textToBlocks, parseHtmlTable } from '@/lib/file-parser'
 import { OCR_MAX_PDF_PAGES } from '@/lib/validators'
 import type { Block } from '@/types/leksis'
-
-function stripInlineHtml(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-    .trim()
-}
-
-function parseHtmlTable(html: string): Extract<Block, { type: 'table' }> | null {
-  const headers: string[] = []
-  const rows: string[][] = []
-
-  const theadMatch = html.match(/<thead[\s\S]*?<\/thead>/i)
-  const tbodyMatch = html.match(/<tbody[\s\S]*?<\/tbody>/i)
-
-  if (theadMatch) {
-    const thMatches = [...theadMatch[0].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/gi)]
-    thMatches.forEach(m => headers.push(stripInlineHtml(m[1])))
-  }
-
-  const rowSource = tbodyMatch ? tbodyMatch[0] : html
-  const trMatches = [...rowSource.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)]
-  trMatches.forEach(tr => {
-    const cells = [...tr[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)]
-    if (cells.length) rows.push(cells.map(c => stripInlineHtml(c[1])))
-  })
-
-  if (!headers.length && !rows.length) return null
-  return { type: 'table', headers, rows }
-}
 
 /**
  * Parse le texte brut retourné par LightOnOCR-2.

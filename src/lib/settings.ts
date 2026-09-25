@@ -15,7 +15,7 @@ export async function getSetting<T = Record<string, unknown>>(key: string): Prom
 }
 
 /**
- * Met à jour une clé de réglage (merge partiel) et journalise.
+ * Remplace la valeur d'une clé de réglage (pas de fusion : l'appelant fournit la valeur complète) et journalise.
  * `auditValue` : version expurgée de la valeur pour le journal (secrets, même chiffrés).
  */
 export async function updateSetting(

@@ -46,7 +46,11 @@ async function readRaw(): Promise<{ raw: Record<string, unknown>; fromLegacy: bo
  * → variables d'environnement. À appeler côté serveur uniquement.
  */
 export async function getAiConfig(): Promise<AiConfig> {
-  const { raw, fromLegacy } = await readRaw()
+  return resolveAiConfig(await readRaw())
+}
+
+/** Applique la précédence (base → ancienne clé → variables d'environnement) à ce qui a été lu en base. */
+function resolveAiConfig({ raw, fromLegacy }: { raw: Record<string, unknown>; fromLegacy: boolean }): AiConfig {
   // Sans provider explicite en base (ou avec l'ancienne clé ollama_config), la variable d'environnement décide
   // "vllm" : identifiant utilisé par les versions 1.5.0-beta.*, ramené au fournisseur générique
   const normalize = (p: string) => (p === 'vllm' ? 'openai' : p)
@@ -83,8 +87,9 @@ export async function getAiConfig(): Promise<AiConfig> {
 
 /** Configuration renvoyée à l'admin (page Services → AI) — sans la clé API. */
 export async function getAiPublicConfig(): Promise<AiPublicConfig> {
-  const { raw } = await readRaw()
-  const cfg = await getAiConfig()
+  const stored = await readRaw()
+  const { raw } = stored
+  const cfg = resolveAiConfig(stored)
   return {
     provider:         cfg.provider,
     baseUrl:          cfg.baseUrl,

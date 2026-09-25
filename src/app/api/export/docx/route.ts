@@ -30,7 +30,6 @@ const BlockSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('heading'), level: z.union([z.literal(1), z.literal(2)]), text: z.string() }),
   z.object({ type: z.literal('table'), headers: z.array(z.string()), rows: z.array(z.array(z.string())) }),
   z.object({ type: z.literal('page-break') }),
-  z.object({ type: z.literal('html'), content: z.string() }),
 ])
 
 const BodySchema = z.object({

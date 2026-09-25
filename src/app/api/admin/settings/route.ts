@@ -6,7 +6,7 @@ import { isValidatedSettingKey, parseSetting } from '@/lib/settings-schema'
 
 export async function GET() {
   const session = await getAdminSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   const settings = await getAllSettings()
   // Ancien réglage « connexion PostgreSQL » (supprimé, jamais utilisé) : ne jamais l'exposer, même chiffré
@@ -26,7 +26,7 @@ const PatchSchema = z.object({
 
 export async function PATCH(req: NextRequest) {
   const session = await getAdminSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   const body = await req.json().catch(() => null)
   const parsed = PatchSchema.safeParse(body)

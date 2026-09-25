@@ -16,10 +16,10 @@ export async function POST(req: NextRequest) {
   const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : null
 
   if (!email) {
-    return NextResponse.json({ error: 'Email requis' }, { status: 400 })
+    return NextResponse.json({ error: 'Email is required.' }, { status: 400 })
   }
   if (!isValidEmail(email)) {
-    return NextResponse.json({ error: 'Adresse email invalide' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid email address.' }, { status: 400 })
   }
 
   const emailLimit = checkRateLimit(`otp-email:${email}`, OTP_PER_EMAIL_PER_MIN)
@@ -31,6 +31,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ code })
   } catch (err) {
     console.error('[OTP] DB error:', err)
-    return NextResponse.json({ error: 'Service indisponible. Vérifiez la connexion à la base de données.' }, { status: 503 })
+    return NextResponse.json({ error: 'Service unavailable. Check the database connection.' }, { status: 503 })
   }
 }

@@ -5,13 +5,13 @@ import { logAudit } from '@/lib/audit'
 
 export async function DELETE(req: NextRequest) {
   const session = await getAdminSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   const { searchParams } = new URL(req.url)
   const before = searchParams.get('before') // ISO date string YYYY-MM-DD
 
   if (!before || !/^\d{4}-\d{2}-\d{2}$/.test(before)) {
-    return NextResponse.json({ error: 'Paramètre "before" invalide (format attendu : YYYY-MM-DD)' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid "before" parameter (expected YYYY-MM-DD).' }, { status: 400 })
   }
 
   const result = await query(

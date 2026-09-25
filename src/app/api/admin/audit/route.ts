@@ -4,7 +4,7 @@ import { query } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   const session = await getAdminSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   const { searchParams } = new URL(req.url)
   const page  = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1)

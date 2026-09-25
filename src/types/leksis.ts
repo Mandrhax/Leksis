@@ -9,11 +9,8 @@ export type Block =
   | { type: 'heading'; level: 1 | 2; text: string }
   | { type: 'table'; headers: string[]; rows: string[][] }
   | { type: 'page-break' }
-  | { type: 'html'; content: string }
 
 export type Formality = 'Formal' | 'Informal'
-
-export type RewriteTone = string
 
 export type ToneConfig = {
   id:          string

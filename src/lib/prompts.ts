@@ -1,5 +1,4 @@
-// Centralise tous les prompts envoyés à Ollama.
-// Port de translator.js, rewrite-tab.js, doc-studio.js, image-tab.js
+// Centralise tous les prompts envoyés au moteur IA (Ollama ou API OpenAI-compatible).
 
 import type { Formality, RewriteLength } from '@/types/leksis'
 

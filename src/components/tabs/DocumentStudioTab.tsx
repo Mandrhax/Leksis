@@ -21,11 +21,6 @@ function blocksToHtml(blocks: Block[]): string {
     if (block.type === 'page-break') {
       return '<hr class="border-outline-variant/20 my-4" />'
     }
-    if (block.type === 'html') {
-      // Defensive: no current server path produces this block type — escape rather than
-      // trust raw markup, so a future producer can't accidentally open an XSS hole here.
-      return `<p class="text-sm text-on-surface/90 leading-relaxed mb-2">${escapeHtml(block.content)}</p>`
-    }
     if (block.type === 'heading') {
       const tag = block.level === 1 ? 'h2' : 'h3'
       const cls = block.level === 1
@@ -50,7 +45,6 @@ function blocksToText(blocks: Block[]): string {
   return blocks.map(block => {
     if (block.type === 'page-break') return '---'
     if (block.type === 'paragraph' || block.type === 'heading') return block.text
-    if (block.type === 'html') return block.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
     if (block.type === 'table') {
       const rows = [block.headers, ...block.rows]
       return rows.map(r => r.join('\t')).join('\n')

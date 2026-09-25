@@ -16,7 +16,7 @@ async function removeCurrentBackgroundFile() {
 export async function POST(req: NextRequest) {
   try {
     const session = await getAdminSession()
-    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
     if (requestTooLarge(req, BACKGROUND.maxBytes)) {
       return NextResponse.json({ error: 'File too large (max 5 MB).' }, { status: 413 })
@@ -42,14 +42,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, backgroundImage })
   } catch (err) {
     console.error('[POST /api/admin/background]', err)
-    return NextResponse.json({ error: 'Erreur interne du serveur.' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })
   }
 }
 
 export async function DELETE() {
   try {
     const session = await getAdminSession()
-    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
     await removeCurrentBackgroundFile()
 
@@ -60,6 +60,6 @@ export async function DELETE() {
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[DELETE /api/admin/background]', err)
-    return NextResponse.json({ error: 'Erreur interne du serveur.' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })
   }
 }

@@ -4,7 +4,7 @@ import { getAiConfig, assertAiAllowed, fetchAiMetrics, aiErrorResponse } from '@
 
 export async function GET() {
   const session = await getAdminSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   try {
     const cfg = await getAiConfig()

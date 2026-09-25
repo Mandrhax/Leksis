@@ -88,13 +88,12 @@ export const AiConfigImportSchema = z.object({
 
 export const TonesSchema = z.array(ToneSchema).min(1).max(6)
 
-/** Schéma de chaque clé modifiable depuis l'admin (PATCH) ou importable. `seo` : ancien réglage, non utilisé. */
+/** Schéma de chaque clé modifiable depuis l'admin (PATCH) ou importable. */
 export const SETTING_SCHEMAS = {
   branding:      BrandingSchema,
   design:        DesignSchema,
   general:       GeneralSchema,
   features:      FeaturesSchema,
-  seo:           z.record(z.string(), z.unknown()),
   rewrite_tones: TonesSchema,
 } as const
 

@@ -79,19 +79,24 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 - [x] Erreur React #418 à l'ouverture de la page de connexion (signalée en test beta.2, présente depuis v1.5.0) : `Suspense` retiré de la page de connexion — corrigé sur `dev`, sera dans la beta.3
 - [ ] HSTS : à ajouter côté Caddy en mode HTTPS seulement (après validation que le retour en HTTP n'est plus prévu) — non fait volontairement
 
+## Phase 4 ter : Déconnexion renvoyée sur 0.0.0.0
+
+- [x] Cause : le serveur Next écoute sur `HOSTNAME=0.0.0.0` (Docker) et Auth.js en déduit l'adresse du site, même derrière Caddy/proxy → `signOut()` renvoyait `http://0.0.0.0:3000`. Reproduit avec un vrai login/logout.
+- [x] Correctif : callback `redirect` d'Auth.js qui ne renvoie que des chemins relatifs (`auth.config.ts`) + `signOutToSignIn()` (`lib/sign-out.ts`) qui navigue vers `/auth/signin` lui-même
+
 ## Phase 5 : Code mort et doublons
 
-- [ ] Supprimer `AdminToastWrapper.tsx`, `NO_CAPABILITIES`, `validateDocumentInput` (déjà fait en Phase 2), `RewriteTone`
-- [ ] Supprimer le type `html` de `Block` et ses branches (file-parser ×3, DocumentStudioTab ×2)
-- [ ] Supprimer le réglage `seo` (PATCH, reset, export)
-- [ ] Factoriser les helpers de parsing de tables HTML (`file-parser` / `pdf-vision`)
+- [x] Supprimer `AdminToastWrapper.tsx`, `NO_CAPABILITIES`, `validateDocumentInput` (déjà fait en Phase 2), `RewriteTone` — + `NO_CAPABILITIES`, `RewriteTone`
+- [x] Supprimer le type `html` de `Block` et ses branches (file-parser ×3, DocumentStudioTab ×2)
+- [x] Supprimer le réglage `seo` (PATCH, reset, export) — les anciennes lignes `seo` restent en base sur les installations existantes : à supprimer dans la migration de la Phase 6
+- [x] Factoriser les helpers de parsing de tables HTML (`file-parser` / `pdf-vision`) — `stripInlineHtml` + `parseHtmlTable` partagés (entité `&nbsp;` décodée en plus)
 - [x] Fusionner les routes logo et background dans un helper commun — fait en Phase 4 (`site-assets.ts`)
-- [ ] Simplifier `fetchGlossaryEntries` (une requête paramétrée, retirer le `JOIN glossaries` inutile)
-- [ ] `getAiPublicConfig` : une seule lecture de base
-- [ ] Corriger les commentaires périmés (`prompts.ts`, `settings.ts`, `file-parser.ts` + `import 'server-only'`)
-- [ ] `pool.on('error')`, `max`, `statement_timeout` dans `db.ts`
-- [ ] Supprimer le dossier vide `Prompt/`
-- [ ] Uniformiser la langue des messages d'API (EN)
+- [x] Simplifier `fetchGlossaryEntries` (une requête paramétrée, retirer le `JOIN glossaries` inutile) — une seule requête ; vérifié sur Postgres (6 scénarios)
+- [x] `getAiPublicConfig` : une seule lecture de base
+- [x] Corriger les commentaires périmés (`prompts.ts`, `settings.ts`, `file-parser.ts` + `import 'server-only'`)
+- [x] `pool.on('error')`, `max`, `statement_timeout` dans `db.ts` — max 10, timeout de connexion 5 s, `statement_timeout` 30 s
+- [x] Supprimer le dossier vide `Prompt/`
+- [x] Uniformiser la langue des messages d'API (EN) — anglais partout côté serveur. Reste : `UserList`, `BrandingForm` et `SignInForm` affichent encore le texte du serveur tel quel → codes d'erreur + i18n en Phase 7
 
 ## Phase 6 : Base de données (migration requise)
 

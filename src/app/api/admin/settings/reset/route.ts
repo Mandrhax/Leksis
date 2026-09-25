@@ -9,7 +9,6 @@ const DEFAULTS = {
   branding:      { siteName: 'Leksis', primaryColor: '#565e74', secondaryColor: '#506076', headerLogoSize: '32' },
   design:        { buttonRadius: '0.75rem', footerText: '© Leksis', footerLinks: [] },
   general:       { contactEmail: '', globalBanner: '', maintenanceMode: false, maintenanceMessage: '' },
-  seo:           { title: 'Leksis', description: '' },
   features: {
     tabs:     { text: true, document: true, image: true, rewrite: true },
     defaults: { sourceLang: 'auto', targetLang: 'en', formality: 'Informal' },
@@ -20,7 +19,7 @@ const DEFAULTS = {
 
 export async function POST() {
   const session = await getAdminSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   // Supprimer les fichiers logo et background s'ils existent
   try {

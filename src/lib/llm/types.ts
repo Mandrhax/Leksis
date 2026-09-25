@@ -71,7 +71,3 @@ export interface AiPublicConfig {
   /** Contexte Ollama en tokens (ignoré par les API OpenAI-compatibles) */
   numCtx:           number
 }
-
-export const NO_CAPABILITIES: LlmCapabilities = {
-  pull: false, delete: false, warmup: false, unload: false, running: false,
-}

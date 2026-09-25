@@ -1,29 +1,36 @@
 import { Pool } from 'pg'
 
-// Singleton pool — réutilisé entre les requêtes en dev (hot-reload safe)
-// Initialisation lazy : le pool n'est créé qu'au premier appel à query()
+// Singleton pool — réutilisé entre les requêtes en dev (hot-reload safe).
+// Initialisation lazy : le pool n'est créé qu'au premier appel à query().
 declare global {
   // eslint-disable-next-line no-var
   var _pgPool: Pool | undefined
 }
 
-function getPool(): Pool {
-  if (process.env.NODE_ENV === 'development') {
-    if (!global._pgPool) {
-      if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not defined')
-      global._pgPool = new Pool({ connectionString: process.env.DATABASE_URL })
-    }
-    return global._pgPool
-  }
-  // Production : singleton via module-level variable (lazy)
-  if (!_prodPool) {
-    if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not defined')
-    _prodPool = new Pool({ connectionString: process.env.DATABASE_URL })
-  }
-  return _prodPool
+function createPool(): Pool {
+  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not defined')
+  const pool = new Pool({
+    connectionString:        process.env.DATABASE_URL,
+    max:                     10,
+    idleTimeoutMillis:       30_000,
+    connectionTimeoutMillis: 5_000,   // une base injoignable doit échouer vite, pas bloquer les requêtes
+    statement_timeout:       30_000,  // aucune requête de l'application ne doit tourner plus longtemps
+    application_name:        'leksis',
+  })
+  // Sans écouteur, l'erreur d'une connexion inactive (ex. redémarrage de PostgreSQL) est une exception non
+  // interceptée qui arrête le processus Node : on la journalise, le pool rouvre une connexion à la demande.
+  pool.on('error', err => console.error('[db] idle client error:', err.message))
+  return pool
 }
 
 let _prodPool: Pool | undefined
+
+function getPool(): Pool {
+  if (process.env.NODE_ENV === 'development') {
+    return (global._pgPool ??= createPool())
+  }
+  return (_prodPool ??= createPool())
+}
 
 // Compat : certains imports utilisent encore `pool` directement
 export const pool = new Proxy({} as Pool, {

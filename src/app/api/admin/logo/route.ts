@@ -16,7 +16,7 @@ async function removeCurrentLogoFile() {
 export async function POST(req: NextRequest) {
   try {
     const session = await getAdminSession()
-    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
     if (requestTooLarge(req, LOGO.maxBytes)) {
       return NextResponse.json({ error: 'File too large (max 2 MB).' }, { status: 413 })
@@ -42,14 +42,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, logoUrl })
   } catch (err) {
     console.error('[POST /api/admin/logo] ERROR:', err)
-    return NextResponse.json({ error: 'Erreur interne du serveur.' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })
   }
 }
 
 export async function DELETE() {
   try {
     const session = await getAdminSession()
-    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
     await removeCurrentLogoFile()
 
@@ -60,6 +60,6 @@ export async function DELETE() {
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[DELETE /api/admin/logo]', err)
-    return NextResponse.json({ error: 'Erreur interne du serveur.' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })
   }
 }

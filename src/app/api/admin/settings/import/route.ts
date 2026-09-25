@@ -13,7 +13,7 @@ const MAX_IMPORT_BYTES = 15 * 1024 * 1024
 // Clés importables : celles de l'admin (validées par leur schéma) + ai_config (voir plus bas).
 // L'ancien ollama_config n'est plus importé : il n'est lu que comme repli d'anciennes installations.
 function isAllowedKey(k: string): k is ValidatedSettingKey | 'ai_config' {
-  return k === 'ai_config' || (isValidatedSettingKey(k) && k !== 'seo')
+  return k === 'ai_config' || isValidatedSettingKey(k)
 }
 
 interface AssetInput { filename?: unknown; data?: unknown }
@@ -31,16 +31,16 @@ async function writeAsset(asset: AssetInput | null | undefined, kind: AssetKind)
 
 export async function POST(req: NextRequest) {
   const session = await getAdminSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   if (requestTooLarge(req, MAX_IMPORT_BYTES)) {
-    return NextResponse.json({ error: 'Fichier de backup trop volumineux.' }, { status: 413 })
+    return NextResponse.json({ error: 'Backup file too large.' }, { status: 413 })
   }
 
   const body = await req.json().catch(() => null)
 
   if (!body || typeof body !== 'object' || !body.version || !body.settings || typeof body.settings !== 'object') {
-    return NextResponse.json({ error: 'Fichier de backup invalide.' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid backup file.' }, { status: 400 })
   }
 
   const incoming = body.settings as Record<string, unknown>

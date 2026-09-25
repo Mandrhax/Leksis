@@ -13,13 +13,13 @@ export async function PATCH(
 ) {
   try {
     const session = await getAdminSession()
-    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
     const { id } = await params
     const body   = await req.json().catch(() => null)
     const parsed = Schema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Données invalides' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid data.' }, { status: 400 })
     }
 
     const newRole = parsed.data.role
@@ -27,7 +27,7 @@ export async function PATCH(
     // Un admin ne peut pas se rétrograder lui-même
     if (session.user.id && id === session.user.id && newRole !== 'admin') {
       return NextResponse.json(
-        { error: 'Vous ne pouvez pas rétrograder votre propre compte.' },
+        { error: 'You cannot demote your own account.' },
         { status: 400 },
       )
     }
@@ -38,7 +38,7 @@ export async function PATCH(
     )
 
     if (!result.rowCount) {
-      return NextResponse.json({ error: 'Utilisateur introuvable.' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found.' }, { status: 404 })
     }
 
     invalidateUserRole(id) // la prochaine lecture de session de cet utilisateur relit son rôle
@@ -47,6 +47,6 @@ export async function PATCH(
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[PATCH /api/admin/users/[id]]', err)
-    return NextResponse.json({ error: 'Erreur interne du serveur.' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })
   }
 }
