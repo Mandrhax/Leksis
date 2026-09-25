@@ -36,8 +36,8 @@ Formats supportés :
 Règles importantes :
 - Le texte est **extrait côté serveur**
 - La traduction est effectuée par l'IA via le Gateway
-- Avec un modèle standard : le document traduit conserve autant que possible la structure originale (headings, tables, paragraphes) via un séparateur `|||` pour la traduction structurée par segments (`buildDocumentTranslationPrompt`, `flattenBlocks`/`applyTranslatedSegments`)
-- Avec un modèle à prompt délimité (TranslateGemma, voir « Moteur IA ») : **pas de séparateurs** — le document est aplati en un seul bloc de texte (`flattenBlocksPlain`), traduit en un appel via le format `<<<source>>>/<<<target>>>`, puis reconverti en blocks (`textToBlocks`). La structure (tableaux/titres) n'est donc **pas reconstruite** dans ce cas — limitation temporaire, à retravailler
+- Le document traduit conserve autant que possible la structure originale (headings, tables, paragraphes)
+- Séparateur `|||` pour la traduction structurée par segments
 
 ---
 
@@ -78,7 +78,7 @@ Cette fonctionnalité **n'est pas une traduction**, mais une transformation du t
 - TypeScript
 - React 19
 - API server-side intégrée (Backend-for-Frontend)
-- Moteur IA : Ollama (`/api/generate`) **ou** vLLM (`/v1/chat/completions`), local ou distant
+- Moteur IA : Ollama (`/api/generate`) **ou** API compatible OpenAI (`/v1/chat/completions` — vLLM, LM Studio, llama.cpp, OpenAI…), local ou distant
 - Tailwind CSS v4 (configuration CSS-first avec `@theme`)
 - Fonts : Manrope (headlines) + Inter (body) via `next/font/google`
 - Material Symbols Outlined (icons) : **self-hébergé** — woff2 dans `public/fonts/material-symbols/`, `@font-face` + classe `.material-symbols-outlined` définis dans `globals.css`
@@ -109,7 +109,7 @@ Internet / NPM (SSL)
 - Le client React **NE DOIT JAMAIS** appeler Ollama directement
 - Toute interaction IA passe par une API server-side (`/api/*`)
 - Les prompts système sont **centralisés** dans `src/lib/prompts.ts`
-- Les appels IA sont **isolés** dans `src/lib/llm/` (server-only, point d'entrée `@/lib/llm`) — un fournisseur (Ollama ou vLLM) pour les 3 fonctions
+- Les appels IA sont **isolés** dans `src/lib/llm/` (server-only, point d'entrée `@/lib/llm`) — un fournisseur (Ollama ou OpenAI-compatible) pour les 3 fonctions
 - Aucun secret ne doit être exposé au client
 
 ---
@@ -215,7 +215,7 @@ src/
 │       ├── TonesForm.tsx                (CRUD tonalités : label EN/FR/DE/IT, instruction prompt, on/off, min 1 / max 6)
 │       ├── GeneralForm.tsx              (Email contact, bannière, mode maintenance — sous-blocs en grille)
 │       ├── ExportImportForm.tsx         (Carte statut sauvegarde complète (`lastBackupAt`, prop serveur) + Export/Import configuration JSON — logo/fond embarqués en base64 dans l'export)
-│       ├── AiServiceForm.tsx            (Config du moteur IA : choix Ollama / vLLM, URL, clé API, case « serveurs hors réseau privé », case « même modèle partout » (1 ou 3 sélecteurs `OllamaModelSelect` — synchronise translationModel/ocrModel/rewriteModel, recommandé pour TranslateGemma), test connexion ; « Load into VRAM » seulement pour Ollama — rendu en 2 panneaux Connection/Models selon le prop `activeTab` reçu d'`OllamaServicesLayout`, formulaire toujours monté pour préserver les saisies)
+│       ├── AiServiceForm.tsx            (Config du moteur IA : choix Ollama / API OpenAI-compatible, URL, clé API, case « serveurs hors réseau privé », 3 sélecteurs `OllamaModelSelect`, test connexion ; « Load into VRAM » seulement pour Ollama — rendu en 2 panneaux Connection/Models selon le prop `activeTab` reçu d'`OllamaServicesLayout`, formulaire toujours monté pour préserver les saisies)
 │       ├── OllamaModelSelect.tsx        (Sélecteur de modèle : installés / suggérés non installés / « Autre… » ; modèle absent du serveur → « Télécharger et utiliser » = pull avec barre de progression puis sauvegarde de la config. Repli en input + datalist si le serveur est injoignable)
 │       ├── DbServiceForm.tsx            (Config PostgreSQL, test connexion)
 │       ├── CaddyServiceForm.tsx         (Accès & HTTPS : 3 modes http / https (domaine) / proxy, secours HTTP, adresses de proxy — 2 colonnes : réglages à gauche, aperçu du Caddyfile à droite (sticky) — PATCH /api/admin/services)
@@ -246,7 +246,7 @@ src/
 │   ├── caddy-config.ts                  (CLIENT-SAFE : AccessMode, CaddyConfig, resolveCaddyConfig, normalizeCaddyConfig, generateCaddyfile — partagé serveur/formulaire)
 │   ├── caddy.ts                         (SERVER-ONLY: reloadCaddy() — POST http://caddy:2019/load — + ré-exports de caddy-config)
 │   ├── caddy-tls.ts                     (SERVER-ONLY: checkCertificate() — état du certificat HTTPS via TLS vers caddy:443)
-│   ├── llm/                             (SERVER-ONLY sauf types.ts : types, ollama-provider, vllm-provider, config, service, network, index — voir « Moteur IA »)
+│   ├── llm/                             (SERVER-ONLY sauf types.ts : types, ollama-provider, openai-provider, config, service, network, index — voir « Moteur IA »)
 │   ├── prompts.ts                       (Factory prompts: translate, document, ocr, rewrite, correct)
 │   ├── tones.ts                         (SERVER-ONLY: DEFAULT_TONES, getConfiguredTones — fallback + migration DB)
 │   ├── file-parser.ts                   (SERVER-ONLY: parsePdf, parseDocx, parseTxt, Block model)
@@ -364,19 +364,19 @@ Classes CSS custom dans `globals.css` : `.icon-btn`, `.text-button`, `.action-bt
 
 ---
 
-## 🤖 Moteur IA (Ollama ou vLLM)
+## 🤖 Moteur IA (Ollama ou API compatible OpenAI)
 
 Un **seul fournisseur** pour les 3 fonctions (traduction, réécriture, OCR) — choisi dans l'admin (Services → AI) ou à l'installation :
 
 | Fournisseur | API | Usage |
 |---|---|---|
 | `ollama` | `/api/generate` (NDJSON) | conteneur local (profil compose `ollama`) ou serveur Ollama distant |
-| `vllm` | `/v1/chat/completions` (SSE) + `/v1/models` | Serveur vLLM (API compatible OpenAI, clé API optionnelle, `Authorization: Bearer`) |
+| `openai` | `/v1/chat/completions` (SSE) + `/v1/models` | vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI… (clé API optionnelle, `Authorization: Bearer`) |
 
 ### Architecture (`src/lib/llm/`, server-only sauf `types.ts`)
 
 - `types.ts` — types partagés (importables côté client en `import type`) : `LlmProvider`, `LlmRequest`, `LlmCapabilities`, `AiMetricsResult`, `AiPublicConfig`
-- `ollama-provider.ts` / `vllm-provider.ts` — `createOllamaProvider(url)` / `createVllmProvider(url, key)` : `stream(req)` → `ReadableStream<Uint8Array>` de **texte brut** (les routes et le client ne voient jamais NDJSON/SSE), `complete(req)` → `string`, `listModels()`. `vllm` : `system` → message `system`, `images` (base64) → blocs `image_url` (data URI, MIME détecté), base `http://h:8000` normalisée en `.../v1`
+- `ollama-provider.ts` / `openai-provider.ts` — `createOllamaProvider(url)` / `createOpenAiProvider(url, key)` : `stream(req)` → `ReadableStream<Uint8Array>` de **texte brut** (les routes et le client ne voient jamais NDJSON/SSE), `complete(req)` → `string`, `listModels()`. `openai` : `system` → message `system`, `images` (base64) → blocs `image_url` (data URI, MIME détecté), base `http://h:8000` normalisée en `.../v1`
 - `config.ts` — `getAiConfig()` (ai_config → ancienne clé `ollama_config` → env), `getAi()` / `getAiOrError()` (config + provider, **lève/renvoie une erreur si le serveur est externe non autorisé**), `getOllamaAdminBase()` (actions Ollama-only), `aiErrorResponse()`
 - `service.ts` — `fetchAiMetrics()` (modèles, latence, version, modèles en mémoire Ollama), `sameModelName()`
 - `network.ts` — `isExternalUrl()` : IP/nom hors réseau privé (RFC1918, loopback, link-local, CGNAT, `.local/.lan/.internal`, noms sans point) ; un nom public est résolu en DNS (fail closed)
@@ -399,8 +399,7 @@ Usage dans une route : `const ai = await getAiOrError(); if (ai.error) return ai
 ### Points d'attention
 
 - Les prompts (`src/lib/prompts.ts`) sont des chaînes libres envoyées comme message `user` : avec certains modèles servis par vLLM (ex. TranslateGemma, dont le chat template attend une structure de contenu), le résultat peut différer de celui d'Ollama — à valider par modèle
-- **Modèles à prompt délimité (TranslateGemma)** : `isDelimitedModel(providerId, model)` (provider `vllm` **et** nom contenant `translategemma`) bascule les 3 fonctions sur le chat template dédié plutôt que sur des prompts en langage naturel — voir « Prompts » ci-dessous. Volontairement restreint au provider `vllm` : un modèle `ollama` portant le même nom (ex. suggestion `translategemma:12b`) a son propre Modelfile/TEMPLATE, non vérifié compatible avec ce format. Ces modèles n'ont **pas de rôle system** (user/assistant uniquement) : le rewrite regroupe system+prompt dans l'unique message user via `buildCustomPrompt()`
-- Pas d'équivalent à `keep_alive` / `num_ctx` pour `vllm` (gérés côté serveur) ; l'OCR exige un modèle multimodal
+- Pas d'équivalent à `keep_alive` / `num_ctx` pour `openai` (gérés côté serveur) ; l'OCR exige un modèle multimodal
 - Aucun appel IA depuis le client, jamais (règle inchangée)
 
 ---
@@ -411,17 +410,12 @@ Tous les prompts sont dans `src/lib/prompts.ts` :
 
 | Fonction | Usage |
 |----------|-------|
-| `buildTranslationPrompt()` | Traduction texte libre (avec formality + glossaire optionnels) — langage naturel |
-| `buildDocumentTranslationPrompt()` | Traduction segments `\|\|\|` — langage naturel |
-| `buildOcrPrompt()` | Extraction texte image (tables en markdown) — langage naturel |
-| `buildRewritePrompt()` | Réécriture (instruction de ton + length + glossaire) — langage naturel |
-| `buildCorrectPrompt()` | Correction grammaticale — langage naturel |
+| `buildTranslationPrompt()` | Traduction texte libre (avec formality + glossaire optionnels) |
+| `buildDocumentTranslationPrompt()` | Traduction segments `\|\|\|` |
+| `buildOcrPrompt()` | Extraction texte image (tables en markdown) |
+| `buildRewritePrompt()` | Réécriture (instruction de ton + length + glossaire) |
+| `buildCorrectPrompt()` | Correction grammaticale |
 | `buildLangClause()` | Clause "respond in [lang] only" |
-| `isDelimitedModel(providerId, model)` | Détecte un modèle à chat template délimité (provider `vllm` + substring `translategemma`) |
-| `buildDelimitedTranslationPrompt()` | Traduction source→cible pure : `<<<source>>>{code}<<<target>>>{code}<<<text>>>{text}` — pas de formality/glossaire |
-| `buildCustomPrompt(text)` | Échappatoire `<<<custom>>>{text}` (non officiellement supportée par TranslateGemma) pour OCR/réécriture/cas non couverts par le format délimité |
-
-Routage par modèle + provider : chaque route (`translate`, `rewrite`, `ocr`, `translate/document`, `pdf-vision`) teste `isDelimitedModel(cfg.provider, cfg.<fonction>Model)` et choisit `buildDelimitedTranslationPrompt`/`buildCustomPrompt` plutôt que le prompt en langage naturel correspondant. `translate/document` utilise en plus `flattenBlocksPlain()`/`textToBlocks()` (voir « Traduction de documents ») et `detectLanguage()` server-side si `sourceCode` n'est pas fourni.
 
 ---
 
@@ -449,7 +443,7 @@ Le script `install.sh` à la racine du projet gère le cycle de vie complet de l
 - **Helpers de saisie avec KEY** : `p_input KEY "question" défaut`, `p_yesno KEY "question" y|n`, `p_password KEY "prompt"`, `p_choose KEY "titre" défaut "valeur|Label"…`, `p_multi KEY "titre" "défauts" "valeur|Label"…`. La valeur revient sur **stdout** (`x=$(p_input …)`) ; `p_yesno` renvoie 0/1. **Toute nouvelle question doit avoir une KEY** : `LEKSIS_<KEY>` (env ou fichier `--answers`) y répond sans poser la question ; en mode `--yes` la valeur par défaut est utilisée. Dans une boucle de validation, faire `die` si `$NONINTERACTIVE` et `p_unset_preset KEY` avant de reposer la question (sinon boucle infinie)
 - `p_spin "Titre" cmd args…` (spinner gum, sortie → log, affichée seulement en cas d'échec ; **commandes externes uniquement**, gum ne sait pas appeler une fonction shell) et `run_logged cmd…` (sortie à l'écran + `/var/log/leksis-install.log`)
 - **Barres de progression** (gum n'en a pas : `draw_bar` maison, redessinée avec `\r` sur le fd 3 ; sans TTY, un jalon tous les 10 %) : `run_with_bar "Titre" layers|steps cmd…` transforme la sortie d'un `docker compose pull` (couches terminées / couches vues) ou `docker compose build` (BuildKit `plain`, étapes `#N [stage i/n]` terminées / vues) en barre — la sortie complète va au log, les 15 dernières lignes ne s'affichent qu'en cas d'échec. `api_pull_with_bar MODEL URL` suit `POST /api/pull` en streaming (octets, vitesse) ; `pull_model` l'utilise en local (via l'IP du conteneur `leksis-ollama`) comme en distant, avec repli sur `ollama pull` en local. Ne jamais mettre `echo $?` après la commande dans le `< <(…)` sous `set -e` : utiliser `cmd && echo 0 >f || echo $? >f`
-- **Sélection des modèles** (`ask_ai_models DEFAULT_TRANSLATION DEFAULT_OCR DEFAULT_REWRITE`, appelée par `cmd_install` étape 5/5 et par `cmd_config`, pour les 3 modes `local`/`remote`/`vllm`) : demande d'abord « Use the same model for translation, OCR and rewrite? » (clé `SAME_MODEL_FOR_ALL`, défaut **oui** sauf si les 3 modèles existants diffèrent déjà — recommandé pour TranslateGemma, qui couvre les 3 fonctions via vision + prompt délimité, voir `src/lib/prompts.ts`). Si oui : un seul modèle est demandé (`ask_translation_model` en local/remote, `ask_vllm_model` en mode API) et recopié dans `OLLAMA_MODEL`/`OLLAMA_OCR_MODEL`/`OLLAMA_REWRITE_MODEL`. Si non : comportement historique — **le modèle de traduction** est un choix dans une liste (`ask_translation_model` : `translategemma:27b` / `12b` / `4b`, plus le modèle actuel s'il est personnalisé) en local/remote ou `ask_vllm_model` (liste servie par `GET /models`) en mode API ; les modèles OCR et réécriture restent en saisie libre (`ask_model`/`ask_vllm_model`) mais **pré-remplis avec le modèle de traduction choisi**. `sync_ai_config_db` écrit aussi `sameModelForAll` dans `ai_config` pour que la case admin reflète le choix. `OLLAMA_KEEP_ALIVE=-1`, `OLLAMA_SCHED_SPREAD=true` et `OLLAMA_MAX_LOADED_MODELS=3` ne sont **pas demandés à l'installation** (toujours écrits dans `.env`, surchargeables par `LEKSIS_OLLAMA_KEEP_ALIVE` / `LEKSIS_OLLAMA_SCHED_SPREAD` / `LEKSIS_OLLAMA_MAX_LOADED_MODELS`) ; `config` propose de les modifier derrière la question « Edit the Ollama runtime settings ? » (clé `CONFIG_RUNTIME`, valeurs validées par `ask_validated`)
+- Le **modèle de traduction** est un choix dans une liste (`ask_translation_model` : `translategemma:27b` / `12b` / `4b`, plus le modèle actuel s'il est personnalisé) ; les modèles OCR et réécriture restent en saisie libre (`ask_model`) mais **pré-remplis avec le modèle de traduction choisi**. `OLLAMA_KEEP_ALIVE=-1`, `OLLAMA_SCHED_SPREAD=true` et `OLLAMA_MAX_LOADED_MODELS=3` ne sont **pas demandés à l'installation** (toujours écrits dans `.env`, surchargeables par `LEKSIS_OLLAMA_KEEP_ALIVE` / `LEKSIS_OLLAMA_SCHED_SPREAD` / `LEKSIS_OLLAMA_MAX_LOADED_MODELS`) ; `config` propose de les modifier derrière la question « Edit the Ollama runtime settings ? » (clé `CONFIG_RUNTIME`, valeurs validées par `ask_validated`)
 - `set -eEuo pipefail` + `trap ERR` (`on_error`, affiche la ligne fautive ; silencieux pour `exit 130` = annulation utilisateur). Garde stdin non-TTY : refuse `curl … | bash` (sauf `--yes`), exige `bash <(curl …)`
 - Doit tourner en **root** (`check_root`, pour toutes les commandes)
 - `VERSION` : constante `VERSION="X.Y.Z"` en tête de script, écrasée par `package.json` quand il est présent. `RAW_URL` en est dérivée
@@ -457,7 +451,7 @@ Le script `install.sh` à la racine du projet gère le cycle de vie complet de l
 
 ### Options et automatisation
 
-`-y/--yes` (jamais de question), `--answers FILE` (lignes `LEKSIS_<KEY>=valeur`, jamais `source`), `--dir DIR`, `--no-tui`, `-V`, `-h`. Clés : `INSTALL_DIR REPO_URL APP_HOST ADMIN_EMAIL ADMIN_NAME OLLAMA_MODE OLLAMA_URL GPU_VENDOR SAME_MODEL_FOR_ALL OLLAMA_MODEL OLLAMA_OCR_MODEL OLLAMA_REWRITE_MODEL OLLAMA_MAX_LOADED_MODELS POSTGRES_PASSWORD PULL_REMOTE_MODELS UPDATE_COMPONENTS CONFIRM_DELETE CONFIRM_RESTORE …`. Les opérations destructives exigent leur confirmation typée même en `--yes` (`LEKSIS_CONFIRM_DELETE=DELETE`, `LEKSIS_CONFIRM_RESTORE=RESTORE`).
+`-y/--yes` (jamais de question), `--answers FILE` (lignes `LEKSIS_<KEY>=valeur`, jamais `source`), `--dir DIR`, `--no-tui`, `-V`, `-h`. Clés : `INSTALL_DIR REPO_URL APP_HOST ADMIN_EMAIL ADMIN_NAME OLLAMA_MODE OLLAMA_URL GPU_VENDOR OLLAMA_MODEL OLLAMA_OCR_MODEL OLLAMA_REWRITE_MODEL OLLAMA_MAX_LOADED_MODELS POSTGRES_PASSWORD PULL_REMOTE_MODELS UPDATE_COMPONENTS CONFIRM_DELETE CONFIRM_RESTORE …`. Les opérations destructives exigent leur confirmation typée même en `--yes` (`LEKSIS_CONFIRM_DELETE=DELETE`, `LEKSIS_CONFIRM_RESTORE=RESTORE`).
 
 ### Commandes disponibles
 
@@ -476,8 +470,8 @@ Sans argument : menu interactif (`show_menu`, chaque commande dans un sous-shell
 
 ### Ollama local ou distant (RÈGLE)
 
-- **3 modes de moteur IA** (variable interne `OLLAMA_MODE`) : `local` (conteneur Ollama), `remote` (serveur Ollama) et **`vllm`** (serveur vLLM, API compatible OpenAI). `.env` : `AI_PROVIDER` (`ollama`|`vllm`), `AI_BASE_URL`, `AI_API_KEY` (en clair dans le `.env` chmod 600, masquée dans l'aperçu ; la clé enregistrée par l'admin — chiffrée en base — a priorité), `OLLAMA_BASE_URL` (copie de compatibilité) ; `COMPOSE_PROFILES=ollama` **uniquement** en `local`. Clés de réponse : `AI_MODE` (`local|remote|vllm`), `AI_URL`, `AI_API_KEY` (les anciennes `OLLAMA_MODE` / `OLLAMA_URL` restent acceptées via `map_answer_aliases`). **Rétrocompatibilité** : le fournisseur générique s'appelait `openai` avant ce renommage — `getAiConfig()` (`src/lib/llm/config.ts`) normalise encore une valeur stockée ou un `.env` en `openai` vers `vllm`, et `migrate_env()` réécrit `AI_PROVIDER=openai` → `AI_PROVIDER=vllm` dans le `.env` au prochain `update`/`config`
-- Mode `vllm` : `configure_vllm_api` (URL normalisée en `.../v1`, clé via `p_secret`, test `GET /models` avec `vllm_models`, avertissement `host_looks_private` si le serveur semble externe — l'app le bloquera tant que « Autoriser les serveurs hors du réseau privé » n'est pas coché dans l'admin) ; les modèles sont les **ids servis** (`ask_vllm_model` propose la liste renvoyée par l'API) ; **aucun pull** (`ensure_models` vérifie seulement) ; pas de GPU / drivers / runtime
+- **3 modes de moteur IA** (variable interne `OLLAMA_MODE`) : `local` (conteneur Ollama), `remote` (serveur Ollama) et **`openai`** (API compatible OpenAI). `.env` : `AI_PROVIDER` (`ollama`|`openai`), `AI_BASE_URL`, `AI_API_KEY` (en clair dans le `.env` chmod 600, masquée dans l'aperçu ; la clé enregistrée par l'admin — chiffrée en base — a priorité), `OLLAMA_BASE_URL` (copie de compatibilité) ; `COMPOSE_PROFILES=ollama` **uniquement** en `local`. Clés de réponse : `AI_MODE` (`local|remote|openai`), `AI_URL`, `AI_API_KEY` (les anciennes `OLLAMA_MODE` / `OLLAMA_URL` restent acceptées via `map_answer_aliases`)
+- Mode `openai` : `configure_openai_api` (URL normalisée en `.../v1`, clé via `p_secret`, test `GET /models` avec `openai_models`, avertissement `host_looks_private` si le serveur semble externe — l'app le bloquera tant que « Autoriser les serveurs hors du réseau privé » n'est pas coché dans l'admin) ; les modèles sont les **ids servis** (`ask_openai_model` propose la liste renvoyée par l'API) ; **aucun pull** (`ensure_models` vérifie seulement) ; pas de GPU / drivers / runtime
 - `sync_ai_config_db [yes]` remplace `sync_ollama_config_db` : met à jour `site_settings.ai_config` (ou l'ajoute à partir de l'ancienne `ollama_config`) ; `yes` efface aussi la clé chiffrée stockée quand le mode / l'URL / la clé changent, pour que la clé du `.env` s'applique
 - `migrate_env` ajoute `AI_PROVIDER=ollama`, `AI_BASE_URL`, `AI_API_KEY=` aux `.env` d'avant la 1.2
 

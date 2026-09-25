@@ -2,7 +2,6 @@
 // Port de translator.js, rewrite-tab.js, doc-studio.js, image-tab.js
 
 import type { Formality, RewriteLength } from '@/types/leksis'
-import type { AiProviderId } from '@/lib/llm/types'
 
 // ── Traduction texte ────────────────────────────────────────────
 
@@ -36,52 +35,6 @@ export function buildTranslationPrompt({
     `Produce only the ${targetLang} translation, without any additional explanations or commentary. ` +
     `Please translate the following ${sourceLang} text into ${targetLang}:\n\n${text}`
   )
-}
-
-// ── Modèles à prompt délimité (ex. TranslateGemma via vLLM) ──────
-
-/**
- * Détecte un modèle de traduction dédié à chat template délimité (ex.
- * TranslateGemma servi par vLLM). Ces modèles n'acceptent que les formats
- * <<<source>>>/<<<target>>>/<<<text>>> (traduction) ou <<<custom>>> (tout le
- * reste) — jamais de langage naturel brut ni de rôle system (user/assistant
- * uniquement).
- *
- * Restreint au provider `vllm` : le packaging Ollama d'un modèle portant le
- * même nom (ex. suggestion `translategemma:12b`) a son propre
- * Modelfile/TEMPLATE, non vérifié comme compatible avec ce format — on ne
- * veut pas casser une installation Ollama existante sur la seule foi du nom
- * du modèle.
- */
-export function isDelimitedModel(providerId: AiProviderId, model: string): boolean {
-  return providerId === 'vllm' && /translategemma/i.test(model)
-}
-
-type DelimitedTranslationPromptOptions = {
-  sourceCode: string
-  targetCode: string
-  text: string
-}
-
-/**
- * Traduction pure source→cible pour un modèle à prompt délimité. Codes
- * langue en ISO 639-1 (ou régional, ex. "fr-CH") — les mêmes sourceCode/
- * targetCode utilisés ailleurs. Le modèle ignore tout ce qui n'est pas dans
- * ce format (pas de formality, pas de glossaire).
- */
-export function buildDelimitedTranslationPrompt({ sourceCode, targetCode, text }: DelimitedTranslationPromptOptions): string {
-  return `<<<source>>>${sourceCode}<<<target>>>${targetCode}<<<text>>>${text}`
-}
-
-/**
- * Échappatoire "prompt libre" d'un modèle à prompt délimité (non officiellement
- * supporté par TranslateGemma — prévu pour du post-editing de traduction,
- * réemployé ici pour OCR/réécriture faute d'alternative). Sert aussi à
- * regrouper system+prompt en un seul message, le modèle n'ayant pas de rôle
- * system.
- */
-export function buildCustomPrompt(text: string): string {
-  return `<<<custom>>>${text}`
 }
 
 // ── Traduction document (segments séparés par |||) ──────────────

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAiOrError } from '@/lib/llm'
-import { buildRewritePrompt, buildCorrectPrompt, buildLangClause, buildCustomPrompt, isDelimitedModel } from '@/lib/prompts'
+import { buildRewritePrompt, buildCorrectPrompt, buildLangClause } from '@/lib/prompts'
 
 export const maxDuration = 300
 import { validateTextInput } from '@/lib/validators'
@@ -89,14 +89,7 @@ export async function POST(req: NextRequest) {
     charCount: text.length,
   })
 
-  // TranslateGemma n'a pas de rôle system (user/assistant uniquement) : on
-  // regroupe system+prompt dans l'unique message user, via <<<custom>>>
-  // (non officiellement supportée — pas d'alternative pour la réécriture).
-  const streamReq = isDelimitedModel(cfg.provider, cfg.rewriteModel)
-    ? { prompt: buildCustomPrompt(`${system}\n\n${prompt}`), signal: req.signal, model: cfg.rewriteModel }
-    : { system, prompt, signal: req.signal, model: cfg.rewriteModel }
-
-  const stream = provider.stream(streamReq)
+  const stream = provider.stream({ system, prompt, signal: req.signal, model: cfg.rewriteModel })
 
   return new Response(stream, {
     headers: {

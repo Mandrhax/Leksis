@@ -87,7 +87,6 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
       const next = { ...prev, [k]: v }
       if (next.sameModelForAll && k === 'translationModel') {
         next.rewriteModel = v as string
-        next.ocrModel     = v as string
       }
       return next
     })
@@ -97,7 +96,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
     setData(prev => ({
       ...prev,
       sameModelForAll: checked,
-      ...(checked ? { rewriteModel: prev.translationModel, ocrModel: prev.translationModel } : {}),
+      ...(checked ? { rewriteModel: prev.translationModel } : {}),
     }))
   }
 
@@ -106,7 +105,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
     setProvider(next)
     setResult(null)
     // Une adresse typique de l'autre fournisseur n'a pas de sens ici : on la vide
-    if (next === 'vllm' && /:11434\/?$/.test(baseUrl)) setBaseUrl('')
+    if (next === 'openai' && /:11434\/?$/.test(baseUrl)) setBaseUrl('')
     if (next === 'ollama' && /\/v1\/?$/.test(baseUrl))   setBaseUrl('')
   }
 
@@ -120,7 +119,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
         ...(apiKey ? { apiKey } : {}),
         ...(clearApiKey ? { clearApiKey: true } : {}),
         translationModel: data.translationModel,
-        ocrModel:         data.sameModelForAll ? data.translationModel : data.ocrModel,
+        ocrModel:         data.ocrModel,
         rewriteModel:     data.sameModelForAll ? data.translationModel : data.rewriteModel,
         sameModelForAll:  data.sameModelForAll,
         allowExternal,
@@ -255,7 +254,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
           <div>
             <span className="block text-sm text-on-surface mb-1.5">{of.providerLabel}</span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label={of.providerLabel}>
-              {(['ollama', 'vllm'] as const).map(p => (
+              {(['ollama', 'openai'] as const).map(p => (
                 <button
                   key={p}
                   type="button"
@@ -269,10 +268,10 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
                   }`}
                 >
                   <span className="block text-sm font-semibold text-on-surface">
-                    {p === 'ollama' ? of.providerOllama : of.providerVllm}
+                    {p === 'ollama' ? of.providerOllama : of.providerOpenai}
                   </span>
                   <span className="block text-xs text-on-surface-variant mt-0.5">
-                    {p === 'ollama' ? of.providerOllamaDesc : of.providerVllmDesc}
+                    {p === 'ollama' ? of.providerOllamaDesc : of.providerOpenaiDesc}
                   </span>
                 </button>
               ))}
@@ -291,12 +290,12 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
               placeholder={provider === 'ollama' ? 'http://192.168.1.39:11434' : 'http://192.168.1.50:8000/v1'}
             />
             <p className="mt-1 text-xs text-on-surface-variant">
-              {provider === 'ollama' ? of.urlHintOllama : of.urlHintVllm}
+              {provider === 'ollama' ? of.urlHintOllama : of.urlHintOpenai}
             </p>
           </div>
 
-          {/* Clé API (vLLM / API OpenAI-compatible) */}
-          {provider === 'vllm' && (
+          {/* Clé API (API OpenAI-compatible) */}
+          {provider === 'openai' && (
             <div>
               <label htmlFor="ai-api-key" className="block text-sm text-on-surface mb-1.5">
                 {of.apiKeyLabel} <span className="text-on-surface-variant">{of.apiKeyOptional}</span>

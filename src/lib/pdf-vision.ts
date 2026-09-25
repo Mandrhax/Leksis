@@ -3,7 +3,7 @@
 // LightOnOCR-2 retourne du texte/Markdown avec des tableaux en HTML — on parse les deux
 
 import type { LlmProvider } from '@/lib/llm/types'
-import { buildOcrPrompt, buildCustomPrompt, isDelimitedModel } from '@/lib/prompts'
+import { buildOcrPrompt } from '@/lib/prompts'
 import { textToBlocks } from '@/lib/file-parser'
 import type { Block } from '@/types/leksis'
 
@@ -72,7 +72,6 @@ export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, 
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise
 
   const allBlocks: Block[] = []
-  const ocrPrompt = isDelimitedModel(provider.id, model) ? buildCustomPrompt(buildOcrPrompt()) : buildOcrPrompt()
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
@@ -87,7 +86,7 @@ export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, 
     const base64 = canvas.toBuffer('image/png').toString('base64')
 
     const pageOutput = await provider.complete({
-      prompt: ocrPrompt,
+      prompt: buildOcrPrompt(),
       images: [base64],
       signal,
       model,

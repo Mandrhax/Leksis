@@ -5,7 +5,7 @@ import { logAudit } from '@/lib/audit'
 import { getAiConfig, createProvider, isExternalUrl, sameModelName } from '@/lib/llm'
 
 const Schema = z.object({
-  provider:         z.enum(['ollama', 'vllm']),
+  provider:         z.enum(['ollama', 'openai']),
   baseUrl:          z.string().url().refine(u => /^https?:\/\//i.test(u)),
   apiKey:           z.string().optional(),   // vide = clé enregistrée (si même serveur)
   allowExternal:    z.boolean().optional(),

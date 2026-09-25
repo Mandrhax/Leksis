@@ -90,28 +90,6 @@ export function flattenBlocks(blocks: Block[]): string {
   return segments.join(` ${BLOCK_SEP} `)
 }
 
-/**
- * Variante de flattenBlocks() sans séparateur BLOCK_SEP — pour les modèles à
- * prompt délimité (ex. TranslateGemma) traduits en un seul appel, sans
- * reconstruction de structure (voir applyTranslatedSegments). Le texte
- * traduit est reconverti en blocks via textToBlocks().
- */
-export function flattenBlocksPlain(blocks: Block[]): string {
-  const parts: string[] = []
-  for (const block of blocks) {
-    if (block.type === 'page-break') continue
-    if (block.type === 'paragraph' || block.type === 'heading') {
-      parts.push(block.text)
-    } else if (block.type === 'table') {
-      parts.push([block.headers.join(' | '), ...block.rows.map(row => row.join(' | '))].join('\n'))
-    } else if (block.type === 'html') {
-      const text = block.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-      if (text) parts.push(text)
-    }
-  }
-  return parts.join('\n\n')
-}
-
 export function applyTranslatedSegments(blocks: Block[], translated: string): Block[] {
   const parts = translated.split(/\s*\|\|\|\s*/)
   let idx = 0

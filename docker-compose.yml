@@ -87,7 +87,7 @@ services:
       # Ollama — internal container by default, or a remote server (see .env).
       # The admin panel (Services → AI) overrides this once saved.
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
-      # AI engine: "ollama" or "vllm" (vLLM server, OpenAI-compatible API)
+      # AI engine: "ollama" or "openai" (any OpenAI-compatible API — vLLM, LM Studio, llama.cpp, OpenAI…)
       AI_PROVIDER: ${AI_PROVIDER:-ollama}
       AI_BASE_URL: ${AI_BASE_URL:-${OLLAMA_BASE_URL:-http://ollama:11434}}
       AI_API_KEY: ${AI_API_KEY:-}

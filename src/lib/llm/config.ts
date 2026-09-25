@@ -3,17 +3,8 @@ import { getSetting } from '@/lib/settings'
 import { decrypt } from '@/lib/crypto'
 import { isExternalUrl } from './network'
 import { createOllamaProvider } from './ollama-provider'
-import { createVllmProvider } from './vllm-provider'
+import { createOpenAiProvider } from './openai-provider'
 import type { AiProviderId, AiPublicConfig, LlmProvider } from './types'
-
-// Avant le renommage du fournisseur générique OpenAI-compatible en "vllm", sa valeur
-// stockée (site_settings.ai_config.provider ou .env AI_PROVIDER) était "openai" — les
-// installations existantes doivent continuer à fonctionner sans migration manuelle.
-function normalizeProviderId(v: string): AiProviderId | '' {
-  if (v === 'vllm' || v === 'openai') return 'vllm'
-  if (v === 'ollama') return 'ollama'
-  return ''
-}
 
 export interface AiConfig {
   provider:         AiProviderId
@@ -55,11 +46,12 @@ async function readRaw(): Promise<{ raw: Record<string, unknown>; fromLegacy: bo
 export async function getAiConfig(): Promise<AiConfig> {
   const { raw, fromLegacy } = await readRaw()
   // Sans provider explicite en base (ou avec l'ancienne clé ollama_config), la variable d'environnement décide
-  const envProvider: AiProviderId = normalizeProviderId(process.env.AI_PROVIDER ?? '') || 'ollama'
-  const explicit = fromLegacy ? '' : normalizeProviderId(str(raw.provider))
-  const effectiveProvider: AiProviderId = explicit || envProvider
+  const envProvider: AiProviderId = process.env.AI_PROVIDER === 'openai' ? 'openai' : 'ollama'
+  const explicit = fromLegacy ? '' : str(raw.provider)
+  const effectiveProvider: AiProviderId =
+    explicit === 'openai' ? 'openai' : explicit === 'ollama' ? 'ollama' : envProvider
 
-  const defaultUrl = effectiveProvider === 'vllm' ? 'http://localhost:8000/v1' : 'http://localhost:11434'
+  const defaultUrl = effectiveProvider === 'openai' ? 'http://localhost:8000/v1' : 'http://localhost:11434'
   const baseUrl = str(raw.baseUrl) || process.env.AI_BASE_URL || process.env.OLLAMA_BASE_URL || defaultUrl
 
   let apiKey = ''
@@ -98,8 +90,8 @@ export async function getAiPublicConfig(): Promise<AiPublicConfig> {
 }
 
 export function createProvider(cfg: Pick<AiConfig, 'provider' | 'baseUrl' | 'apiKey'>): LlmProvider {
-  return cfg.provider === 'vllm'
-    ? createVllmProvider(cfg.baseUrl, cfg.apiKey)
+  return cfg.provider === 'openai'
+    ? createOpenAiProvider(cfg.baseUrl, cfg.apiKey)
     : createOllamaProvider(cfg.baseUrl)
 }
 

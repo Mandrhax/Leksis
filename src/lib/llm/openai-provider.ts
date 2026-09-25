@@ -5,7 +5,7 @@ import type { LlmModel, LlmProvider, LlmRequest } from './types'
  * Base de l'API OpenAI-compatible : « http://host:8000 » devient « http://host:8000/v1 » ;
  * un chemin explicite (« https://openrouter.ai/api/v1 ») est conservé tel quel.
  */
-export function normalizeVllmBase(baseUrl: string): string {
+export function normalizeOpenAiBase(baseUrl: string): string {
   let url: URL
   try {
     url = new URL(baseUrl)
@@ -65,11 +65,11 @@ interface ChatChunk {
 }
 
 /**
- * Fournisseur vLLM — API OpenAI-compatible via /v1/chat/completions (flux SSE)
- * et /v1/models.
+ * Fournisseur OpenAI-compatible (vLLM, LM Studio, llama.cpp, LocalAI, OpenRouter, OpenAI…)
+ * via /v1/chat/completions (flux SSE) et /v1/models.
  */
-export function createVllmProvider(baseUrl: string, apiKey = ''): LlmProvider {
-  const base = normalizeVllmBase(baseUrl)
+export function createOpenAiProvider(baseUrl: string, apiKey = ''): LlmProvider {
+  const base = normalizeOpenAiBase(baseUrl)
 
   function headers(json = true): Record<string, string> {
     return {
@@ -79,7 +79,7 @@ export function createVllmProvider(baseUrl: string, apiKey = ''): LlmProvider {
   }
 
   return {
-    id: 'vllm',
+    id: 'openai',
     capabilities: { pull: false, delete: false, warmup: false, unload: false, running: false },
 
     stream(req) {

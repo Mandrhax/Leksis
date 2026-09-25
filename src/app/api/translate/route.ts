@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 300 // 5 min — needed for large model cold-start + long texts
 import { getAiOrError } from '@/lib/llm'
-import {
-  buildTranslationPrompt, buildMarkdownTranslationPrompt,
-  buildDelimitedTranslationPrompt, buildCustomPrompt, isDelimitedModel,
-} from '@/lib/prompts'
+import { buildTranslationPrompt, buildMarkdownTranslationPrompt } from '@/lib/prompts'
 import { validateTextInput } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
 import { logUsage } from '@/lib/usage'
@@ -51,38 +48,26 @@ export async function POST(req: NextRequest) {
   if (ai.error) return ai.error
   const { cfg, provider } = ai.ai
 
-  const delimited = isDelimitedModel(cfg.provider, cfg.translationModel)
+  // Fetch glossary server-side (respects user preferences)
+  const glossaryEntries = await fetchGlossaryEntries(
+    session?.user?.id,
+    sourceCode || 'auto',
+    targetCode,
+    text,
+  )
+  const glossaryClause = buildTranslationGlossaryClause(glossaryEntries)
 
-  let prompt: string
-  if (!markdownMode && delimited && sourceCode && sourceCode !== 'auto') {
-    // Format délimité natif — glossaire/formality non supportés par ce chat template
-    prompt = buildDelimitedTranslationPrompt({ sourceCode, targetCode, text })
-  } else {
-    // Fetch glossary server-side (respects user preferences)
-    const glossaryEntries = await fetchGlossaryEntries(
-      session?.user?.id,
-      sourceCode || 'auto',
-      targetCode,
-      text,
-    )
-    const glossaryClause = buildTranslationGlossaryClause(glossaryEntries)
-
-    const naturalPrompt = markdownMode
-      ? buildMarkdownTranslationPrompt({ sourceLang: sourceLang || 'Unknown', targetLang, text })
-      : buildTranslationPrompt({
-          sourceLang: sourceLang || 'Unknown',
-          sourceCode: sourceCode || 'auto',
-          targetLang,
-          targetCode,
-          formality,
-          glossaryClause,
-          text,
-        })
-    // TranslateGemma n'a pas de rôle system ni de suivi d'instruction garanti hors
-    // du format délimité : <<<custom>>> est l'échappatoire (non officiellement
-    // supportée) pour markdown-mode et le cas "source inconnue".
-    prompt = delimited ? buildCustomPrompt(naturalPrompt) : naturalPrompt
-  }
+  const prompt = markdownMode
+    ? buildMarkdownTranslationPrompt({ sourceLang: sourceLang || 'Unknown', targetLang, text })
+    : buildTranslationPrompt({
+        sourceLang: sourceLang || 'Unknown',
+        sourceCode: sourceCode || 'auto',
+        targetLang,
+        targetCode,
+        formality,
+        glossaryClause,
+        text,
+      })
 
   logUsage({
     userId:    session?.user?.id,
