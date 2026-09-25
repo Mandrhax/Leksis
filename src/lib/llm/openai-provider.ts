@@ -19,6 +19,19 @@ export function normalizeOpenAiBase(baseUrl: string): string {
   return url.toString().replace(/\/+$/, '')
 }
 
+/**
+ * Beaucoup de serveurs compatibles OpenAI (vLLM, LM Studio…) appliquent un `max_tokens`
+ * par défaut bas quand il est omis — contrairement à Ollama, qui génère jusqu'à la fin
+ * naturelle ou la limite de contexte. On l'estime donc explicitement à partir de la taille
+ * de l'entrée (les images — OCR — ont un prompt court mais une sortie potentiellement longue).
+ */
+function estimateMaxTokens(req: LlmRequest): number {
+  if (req.images?.length) return 8192
+  const inputChars = (req.system?.length ?? 0) + req.prompt.length
+  const estimated = Math.ceil((inputChars / 3) * 1.5)
+  return Math.min(8192, Math.max(1024, estimated))
+}
+
 function imageMime(b64: string): string {
   if (b64.startsWith('/9j/'))   return 'image/jpeg'
   if (b64.startsWith('iVBOR'))  return 'image/png'
@@ -91,7 +104,7 @@ export function createOpenAiProvider(baseUrl: string, apiKey = ''): LlmProvider 
             res = await fetch(`${base}/chat/completions`, {
               method: 'POST',
               headers: headers(),
-              body: JSON.stringify({ model: req.model, messages: buildMessages(req), stream: true }),
+              body: JSON.stringify({ model: req.model, messages: buildMessages(req), stream: true, max_tokens: estimateMaxTokens(req) }),
               signal: req.signal,
             })
           } catch (err) {
@@ -152,7 +165,7 @@ export function createOpenAiProvider(baseUrl: string, apiKey = ''): LlmProvider 
       const res = await fetch(`${base}/chat/completions`, {
         method: 'POST',
         headers: headers(),
-        body: JSON.stringify({ model: req.model, messages: buildMessages(req), stream: false }),
+        body: JSON.stringify({ model: req.model, messages: buildMessages(req), stream: false, max_tokens: estimateMaxTokens(req) }),
         signal: req.signal,
       })
       if (!res.ok) throw await httpError(res)
