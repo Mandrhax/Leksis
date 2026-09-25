@@ -294,6 +294,40 @@ try {
   check('every setting was written with its default', stored.branding?.siteName === 'Leksis' && stored.general?.usageRetentionDays === 365
     && stored.features?.limits?.maxDocChars === 12000 && stored.features?.limits?.maxImageMB === 10 && stored.rewrite_tones?.length === 6, JSON.stringify(Object.keys(stored)))
 
+  // ── Services → AI: engine cards and saving an Ollama server ─────
+  await adminPage.goto(BASE + '/admin/services/ai', { waitUntil: 'networkidle0' })
+  const cards = () => adminPage.evaluate(() => [...document.querySelectorAll('button[role=radio]')].map(b => ({
+    text: b.innerText.replace(/\s+/g, ' ').trim(), checked: b.getAttribute('aria-checked') === 'true', disabled: b.disabled,
+  })))
+  await adminPage.waitForFunction(() => [...document.querySelectorAll('button[role=radio]')].some(b => b.disabled), { timeout: 10000 }).catch(() => {})
+  let engine = await cards()
+  check('the engine choice has three cards', engine.length === 3, JSON.stringify(engine.map(c => c.text)))
+  check('an Ollama server at another address is shown as "another server"', engine[1]?.checked === true && engine[1].text.includes('another server'), JSON.stringify(engine.map(c => c.checked)))
+  check('the local Ollama card is greyed out when the container is not there', engine[0]?.disabled === true && engine[0].text.includes('leksis config'), engine[0]?.text)
+
+  const saveButton = () => adminPage.evaluate(() => {
+    const b = [...document.querySelectorAll('button.action-btn')].find(x => x.innerText.includes('Save'))
+    return b ? { found: true, disabled: b.disabled } : { found: false }
+  })
+  const sb = await saveButton()
+  check('the Save button is usable for an Ollama server (num_ctx accepted)', sb.found && sb.disabled === false, JSON.stringify(sb))
+  await adminPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(x => x.innerText.includes('Save')).click())
+  let saved = null
+  for (let i = 0; i < 20 && !saved; i++) {
+    const r = await db.query("SELECT value FROM site_settings WHERE key = 'ai_config'")
+    saved = r.rows[0]?.value ?? null
+    if (!saved) await new Promise(r => setTimeout(r, 500))
+  }
+  check('saving stores the Ollama server with its context size', saved?.provider === 'ollama' && saved.numCtx === 8192 && saved.baseUrl?.includes('127.0.0.1'), JSON.stringify(saved))
+
+  await adminPage.evaluate(() => [...document.querySelectorAll('button[role=radio]')][2].click())
+  await adminPage.waitForSelector('#ai-api-key', { timeout: 5000 })
+  check('choosing the OpenAI-compatible API shows the API key field', true)
+  await adminPage.evaluate(() => [...document.querySelectorAll('button[role=radio]')][1].click())
+  await adminPage.waitForFunction(() => !document.querySelector('#ai-api-key'), { timeout: 5000 })
+  engine = await cards()
+  check('going back to "another server" selects that card again', engine[1]?.checked === true, JSON.stringify(engine.map(c => c.checked)))
+
   check('no browser console errors on the admin pages', adminProblems.length === 0, adminProblems.join(' | '))
 
   check('no browser console errors or uncaught exceptions (e.g. hydration #418)', problems.length === 0, problems.join(' | '))

@@ -5,6 +5,24 @@ export type AiProviderId = 'ollama' | 'openai'
 
 /** Fenêtre de contexte demandée à Ollama (tokens) quand l'admin n'en a pas choisi. */
 export const DEFAULT_NUM_CTX = 8192
+export const NUM_CTX_MIN = 2048
+export const NUM_CTX_MAX = 262144
+
+/** Adresse du conteneur Ollama installé avec Leksis (profil compose `ollama`), vue depuis le conteneur de l'application. */
+export const LOCAL_OLLAMA_URL = 'http://ollama:11434'
+
+/** Les trois façons de brancher le moteur IA dans l'admin. Seuls fournisseur et adresse sont enregistrés : le mode s'en déduit. */
+export type AiMode = 'ollama-local' | 'ollama-remote' | 'openai'
+
+export function aiModeOf(provider: AiProviderId, baseUrl: string): AiMode {
+  if (provider === 'openai') return 'openai'
+  return baseUrl.trim().replace(/\/+$/, '').toLowerCase() === LOCAL_OLLAMA_URL ? 'ollama-local' : 'ollama-remote'
+}
+
+/** Valeur saisie pour le contexte Ollama : entier entre NUM_CTX_MIN et NUM_CTX_MAX (aussi vérifié côté serveur). */
+export function isValidNumCtx(value: string): boolean {
+  return /^\d+$/.test(value) && Number(value) >= NUM_CTX_MIN && Number(value) <= NUM_CTX_MAX
+}
 
 export interface LlmRequest {
   prompt:  string

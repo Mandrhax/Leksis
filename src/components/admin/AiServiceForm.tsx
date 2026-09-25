@@ -5,7 +5,7 @@ import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
 import { useOllamaMetrics } from './OllamaMetrics'
 import { OllamaModelSelect, type ModelSuggestion, type InstalledModel } from './OllamaModelSelect'
-import { DEFAULT_NUM_CTX, type AiPublicConfig, type AiProviderId } from '@/lib/llm/types'
+import { aiModeOf, DEFAULT_NUM_CTX, isValidNumCtx, LOCAL_OLLAMA_URL, type AiMode, type AiPublicConfig, type AiProviderId } from '@/lib/llm/types'
 
 // Approximate download sizes, shown next to Ollama models that are not installed yet
 const TRANSLATION_SUGGESTIONS: ModelSuggestion[] = [
@@ -54,7 +54,11 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
 
   const [provider,      setProvider]      = useState<AiProviderId>(initial.provider)
   const [baseUrl,       setBaseUrl]       = useState(initial.baseUrl)
-  const [apiKey,        setApiKey]        = useState('')
+  // Ce que l'admin a choisi : « local » et « distant » ont le même fournisseur (Ollama), seule l'adresse les distingue
+  const [mode,          setMode]          = useState<AiMode>(aiModeOf(initial.provider, initial.baseUrl))
+  // Le conteneur Ollama de ce serveur répond-il ? (null = pas encore su)
+  const [localUp,       setLocalUp]       = useState<boolean | null>(null)
+  const [apiKey,       setApiKey]        = useState('')
   const [hasApiKey,     setHasApiKey]     = useState(initial.hasApiKey)
   const [clearApiKey,   setClearApiKey]   = useState(false)
   const [allowExternal, setAllowExternal] = useState(initial.allowExternal)
@@ -73,7 +77,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
   const [result,   setResult]   = useState<TestResult | null>(null)
 
   const currentKey = `${provider}|${trimSlash(baseUrl)}`
-  const numCtxValid = /^d+$/.test(numCtx) && Number(numCtx) >= 2048 && Number(numCtx) <= 262144
+  const numCtxValid = isValidNumCtx(numCtx)
 
   // Modèles du serveur : métriques du serveur enregistré, ou résultat du dernier test pour ce serveur
   let installed: InstalledModel[] | null = null
@@ -122,13 +126,29 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
     }))
   }
 
-  function changeProvider(next: AiProviderId) {
-    if (next === provider) return
-    setProvider(next)
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/admin/services/ai/local', { cache: 'no-store' })
+      .then(r => r.json())
+      .then((j: { available?: boolean }) => { if (!cancelled) setLocalUp(j.available === true) })
+      .catch(() => { if (!cancelled) setLocalUp(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  function changeMode(next: AiMode) {
+    if (next === mode) return
+    setMode(next)
     setResult(null)
-    // Une adresse typique de l'autre fournisseur n'a pas de sens ici : on la vide
-    if (next === 'openai' && /:11434\/?$/.test(baseUrl)) setBaseUrl('')
-    if (next === 'ollama' && /\/v1\/?$/.test(baseUrl))   setBaseUrl('')
+    if (next === 'ollama-local') {
+      setProvider('ollama')
+      setBaseUrl(LOCAL_OLLAMA_URL)
+      return
+    }
+    setProvider(next === 'openai' ? 'openai' : 'ollama')
+    // Une adresse de l'autre mode n'a pas de sens ici : on la vide
+    if (mode === 'ollama-local') setBaseUrl('')
+    else if (next === 'openai' && /:11434\/?$/.test(baseUrl)) setBaseUrl('')
+    else if (next === 'ollama-remote' && /\/v1\/?$/.test(baseUrl)) setBaseUrl('')
   }
 
   async function handleSave(successMessage?: string) {
@@ -277,46 +297,65 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
           {/* Fournisseur */}
           <div>
             <span className="block text-sm text-on-surface mb-1.5">{of.providerLabel}</span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label={of.providerLabel}>
-              {(['ollama', 'openai'] as const).map(p => (
-                <button
-                  key={p}
-                  type="button"
-                  role="radio"
-                  aria-checked={provider === p}
-                  onClick={() => changeProvider(p)}
-                  className={`text-left rounded-lg border px-4 py-3 transition-colors ${
-                    provider === p
-                      ? 'border-primary bg-primary/5'
-                      : 'border-outline-variant/30 hover:border-outline-variant'
-                  }`}
-                >
-                  <span className="block text-sm font-semibold text-on-surface">
-                    {p === 'ollama' ? of.providerOllama : of.providerOpenai}
-                  </span>
-                  <span className="block text-xs text-on-surface-variant mt-0.5">
-                    {p === 'ollama' ? of.providerOllamaDesc : of.providerOpenaiDesc}
-                  </span>
-                </button>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label={of.providerLabel}>
+              {([
+                { id: 'ollama-local',  icon: 'dns',   title: of.providerOllamaLocal,  desc: of.providerOllamaLocalDesc },
+                { id: 'ollama-remote', icon: 'lan',   title: of.providerOllamaRemote, desc: of.providerOllamaRemoteDesc },
+                { id: 'openai',        icon: 'cloud', title: of.providerOpenai,       desc: of.providerOpenaiDesc },
+              ] as const).map(card => {
+                // Le conteneur local ne se crée pas depuis l'admin : sans lui, la carte n'est pas choisissable
+                const unavailable = card.id === 'ollama-local' && localUp === false && mode !== 'ollama-local'
+                return (
+                  <button
+                    key={card.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={mode === card.id}
+                    disabled={unavailable}
+                    onClick={() => changeMode(card.id)}
+                    className={`text-left rounded-lg border px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      mode === card.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-outline-variant/30 hover:border-outline-variant'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 text-sm font-semibold text-on-surface">
+                      <span className="material-symbols-outlined text-[1.1rem] leading-none text-on-surface-variant" aria-hidden="true">{card.icon}</span>
+                      {card.title}
+                    </span>
+                    <span className="block text-xs text-on-surface-variant mt-1">
+                      {unavailable ? of.localUnavailable : card.desc}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
+            {mode === 'ollama-local' && localUp === false && (
+              <p className="mt-2 text-xs text-error">{of.localDown}</p>
+            )}
           </div>
 
-          {/* URL */}
-          <div>
-            <label htmlFor="ai-base-url" className="block text-sm text-on-surface mb-1.5">{of.serverUrlLabel}</label>
-            <input
-              id="ai-base-url"
-              type="url"
-              value={baseUrl}
-              onChange={e => { setBaseUrl(e.target.value); setResult(null) }}
-              className={inputCls}
-              placeholder={provider === 'ollama' ? 'http://192.168.1.39:11434' : 'http://192.168.1.50:8000/v1'}
-            />
-            <p className="mt-1 text-xs text-on-surface-variant">
-              {provider === 'ollama' ? of.urlHintOllama : of.urlHintOpenai}
+          {/* URL : imposée pour le conteneur local, à saisir pour les autres */}
+          {mode === 'ollama-local' ? (
+            <p className="text-xs text-on-surface-variant">
+              {of.localUrlNote.replace('{0}', LOCAL_OLLAMA_URL)}
             </p>
-          </div>
+          ) : (
+            <div>
+              <label htmlFor="ai-base-url" className="block text-sm text-on-surface mb-1.5">{of.serverUrlLabel}</label>
+              <input
+                id="ai-base-url"
+                type="url"
+                value={baseUrl}
+                onChange={e => { setBaseUrl(e.target.value); setResult(null) }}
+                className={inputCls}
+                placeholder={provider === 'ollama' ? 'http://192.168.1.39:11434' : 'http://192.168.1.50:8000/v1'}
+              />
+              <p className="mt-1 text-xs text-on-surface-variant">
+                {provider === 'ollama' ? of.urlHintOllama : of.urlHintOpenai}
+              </p>
+            </div>
+          )}
 
           {/* Clé API (API OpenAI-compatible) */}
           {provider === 'openai' && (
@@ -347,8 +386,8 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
             </div>
           )}
 
-          {/* Serveurs hors réseau privé */}
-          <label className="flex items-start gap-3 cursor-pointer select-none rounded-lg border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] p-3">
+          {/* Serveurs hors réseau privé (le conteneur local est toujours sur le réseau privé) */}
+          {mode !== 'ollama-local' && <label className="flex items-start gap-3 cursor-pointer select-none rounded-lg border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] p-3">
             <input
               type="checkbox"
               checked={allowExternal}
@@ -359,7 +398,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
               <span className="block text-sm text-on-surface">{of.externalLabel}</span>
               <span className="block text-xs text-on-surface-variant mt-0.5">{of.externalDesc}</span>
             </span>
-          </label>
+          </label>}
 
           {/* Résultat du test */}
           {result && (

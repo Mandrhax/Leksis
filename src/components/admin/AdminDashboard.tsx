@@ -12,6 +12,8 @@ type AdminPagesMessages = Messages['adminPages']
 interface ServiceHealth {
   key: 'ollama' | 'db' | 'caddy'
   name: string
+  /** Fournisseur IA (clé ollama seulement) : le nom affiché est traduit au rendu */
+  provider?: string
   icon: string
   href: string
   ok: boolean | null
@@ -176,7 +178,7 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
         if (key === 'ollama') {
           setServices(s => s.map(svc => svc.key !== 'ollama' ? svc : {
             ...svc,
-            name:    data.provider ? (data.provider === 'openai' ? 'OpenAI API' : 'Ollama') : svc.name,
+            provider: data.provider ?? svc.provider,
             ok:      res.ok,
             version: data.version || null,
             latency: data.latencyMs != null ? `${data.latencyMs} ms` : null,
@@ -264,7 +266,7 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
                   >
                     {svc.icon}
                   </span>
-                  <span className="font-headline font-bold text-sm text-on-surface flex-1 min-w-0 truncate">{svc.name}</span>
+                  <span className="font-headline font-bold text-sm text-on-surface flex-1 min-w-0 truncate">{svc.provider === 'openai' ? t.ollamaForm.providerOpenai : svc.name}</span>
                   <StatusBadge ok={svc.ok} at={at} />
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1">

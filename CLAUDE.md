@@ -286,6 +286,10 @@ Usage dans une route : `const ai = await getAiOrError(); if (ai.error) return ai
 - **Serveurs externes bloqués par défaut** : tant que `allowExternal` n'est pas coché (Admin → Services → AI : « Autoriser les serveurs hors du réseau privé »), toute requête vers un hôte hors réseau privé est refusée (403 `external_blocked`) et la sauvegarde d'une telle URL est rejetée. Les textes des utilisateurs quittent alors le réseau : c'est un choix explicite de l'admin
 - Capacités (`capabilities`) : seul Ollama sait `pull`, `delete`, `warmup` (VRAM), `unload`, `running`. Les routes `services/ollama/{pull,delete,warmup,unload}` répondent 400 pour un autre fournisseur ; l'UI masque ces blocs
 
+### Choix du moteur dans l'admin (Services → AI)
+
+Trois cartes : **Ollama (ce serveur)**, **Ollama (autre serveur)**, **API compatible OpenAI**. Seuls `provider` et `baseUrl` sont enregistrés : le mode se déduit (`aiModeOf()` dans `llm/types.ts` — Ollama + `http://ollama:11434` = local). « Local » verrouille l'adresse (`LOCAL_OLLAMA_URL`) et masque la case « hors réseau privé ». La carte locale est grisée si le conteneur ne répond pas (`GET /api/admin/services/ai/local`, sans audit — `ai/test` en écrit un à chaque appel) : il ne se crée pas depuis l'admin, seulement à l'installation ou par `leksis config`.
+
 ### Routes admin
 
 - `GET /api/admin/services/ai/metrics` (générique) et `POST /api/admin/services/ai/test` (teste la config **en cours d'édition** ; renvoie `ok`, `code`, `models`, `modelFound` — les messages sont construits côté client en i18n)
@@ -424,6 +428,7 @@ npm run test:e2e   # tests/e2e/journeys.mjs : navigateur réel, base PGlite en m
 - **Tests unitaires** : les modules qui touchent la base sont testés avec un vrai PostgreSQL en mémoire (**PGlite** chargé avec `docker/init-schema.sql`, `@/lib/db` remplacé par un adaptateur — voir `tests/unit/users.test.ts`). `server-only` est remplacé par un stub (`vitest.config.mts`). Piège : `beforeEach(() => mock.mockReset())` renvoie le mock, que Vitest prend pour une fonction de nettoyage → toujours des accolades
 - **Test e2e** : serveur Next `standalone` sur `0.0.0.0` **sans** `NEXTAUTH_URL` (comme Docker — c'est ce qui a causé deux régressions de connexion/déconnexion). Couvre connexion → espace de travail → déconnexion, désactivation d'un utilisateur par un admin, traduction de documents face à un modèle qui fusionne les `|||`, nettoyage des journaux, réinitialisation des réglages, refus d'un logo SVG. Chaque nouvelle fonctionnalité qui touche l'authentification, les pages admin ou la chaîne IA doit y ajouter un scénario
 - **Navigateur** : `CHROME_PATH`, sinon Chrome / Chromium / Edge sont cherchés aux emplacements usuels. Sous Windows, Edge ne se lance **pas** depuis le shell Bash de Claude Code (bac à sable) : lancer le e2e depuis PowerShell
+- **Antislash perdus** : les expressions régulières et `\n` écrits par un script shell (heredoc, `node -e`) perdent leurs antislash sans erreur (`/^\d+$/` devenait `/^d+$/`, ce qui a désactivé le bouton Enregistrer d'Ollama de la beta.1 à la beta.6). Écrire ces lignes avec l'outil Edit/Write, puis relire — et tester la fonction (`isValidNumCtx` a maintenant son test)
 - **Vérifier pour de vrai** : un test qui n'a jamais échoué ne prouve rien — casser volontairement le code pour voir le test échouer, puis restaurer
 - Flux local : le frontend appelle `/api/*` ; le serveur appelle le moteur IA (`${OLLAMA_BASE_URL}/api/generate` ou `/v1/chat/completions`)
 

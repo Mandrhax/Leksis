@@ -5,6 +5,7 @@ import { updateSetting, getSetting } from '@/lib/settings'
 import { encrypt } from '@/lib/crypto'
 import { generateCaddyfile, normalizeCaddyConfig, reloadCaddy } from '@/lib/caddy'
 import { getAiConfig, getAiPublicConfig, isExternalUrl } from '@/lib/llm'
+import { NUM_CTX_MAX, NUM_CTX_MIN } from '@/lib/llm/types'
 
 const AiSchema = z.object({
   service:          z.literal('ai'),
@@ -17,7 +18,7 @@ const AiSchema = z.object({
   rewriteModel:     z.string().min(1),
   sameModelForAll:  z.boolean().optional(),
   allowExternal:    z.boolean().optional(),
-  numCtx:           z.number().int().min(2048).max(262144).optional(),  // Ollama : contexte en tokens
+  numCtx:           z.number().int().min(NUM_CTX_MIN).max(NUM_CTX_MAX).optional(),  // Ollama : contexte en tokens
 })
 
 const CaddySchema = z.object({

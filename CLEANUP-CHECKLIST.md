@@ -119,6 +119,13 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 - [x] Schéma zod unique des réglages (défauts + validation) partagé PATCH / import / reset — `lib/settings-schema.ts` : PATCH et import partageaient déjà les schémas (phase 4) ; les **défauts** y sont maintenant aussi (`SETTING_DEFAULTS`, limites prises des constantes de `validators.ts`, une seule source) et la réinitialisation les utilise. Un test vérifie que chaque défaut passe son propre schéma. Reste hors du fichier : `DEFAULT_TONES` (`lib/tones.ts`, serveur seul). 14 tests + e2e de la réinitialisation
 - [x] Mettre à jour CLAUDE.md (`proxy.ts`, fichiers manquants, suppressions) et l'alléger — 617 → 548 lignes, 68 → 57 Ko : arborescence condensée, nouvelles sections (qualité et tests, réglages, comptes et sessions, base et migrations, documents), sécurité mise à jour, parties obsolètes retirées (adaptateur NextAuth, mode sombre, formulaire PostgreSQL, `middleware.ts`). Sections `install.sh` et releases conservées telles quelles
 
+## Après la beta.6 : retours du test sur la VM
+
+- [x] Journal d'audit : `user:<uuid>` affiché en `user:<email>` (`labelAuditResources`, page d'audit et tableau de bord)
+- [x] Carte du moteur IA du tableau de bord : les versions longues (vLLM `0.23.1rc1.dev1029+…`) passent à la ligne au lieu de déborder ; le nom du fournisseur est traduit
+- [x] Services → AI : trois cartes **Ollama (ce serveur) / Ollama (autre serveur) / API compatible OpenAI** (le mode se déduit de fournisseur + adresse, rien de nouveau en base). Carte locale grisée si le conteneur ne répond pas (`GET /api/admin/services/ai/local`)
+- [x] **Bug corrigé, présent de la beta.1 à la beta.6** : `/^d+$/` (antislash perdu) rendait le contexte Ollama toujours invalide → bouton Enregistrer de Services → AI désactivé pour un serveur Ollama (invisible avec l'API OpenAI). Règle extraite dans `isValidNumCtx` avec test, vérifiée en navigateur. Aucune autre occurrence trouvée dans `src`
+
 ## Livraison
 
 - [ ] Betas `v1.5.1-beta.1` (phases 0-2), `beta.2` (phases 3-4) et `beta.3` (phases 5 + déconnexion + hydratation) , `beta.4` (correctif connexion) `beta.5` (migration base) et `beta.6` (phase 7 : utilisateurs, documents par lots, rétention, outillage) publiées — **à tester sur une VM séparée** ; beta.4 après les phases 6-7
