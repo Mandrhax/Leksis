@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.5/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.6/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,18 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.5.1-beta.6
+Users, documents and maintenance, on top of beta.5. **Database migration** (`users.disabled`) — `leksis update` takes a backup and applies it. Updating from beta.4 or older: run `sudo leksis migrate` once after the update.
+- **Users**: administrators can now disable, re-enable and delete accounts, search them and page through the list. A disabled account cannot sign in and its open sessions end within seconds. At least one active administrator always remains, and nobody can demote, disable or delete their own account. Deleting an account does not keep the person out (a new account is created at their next sign-in) — disable it instead
+- **Document translation**: documents are translated in batches and the number of `|||` separators is checked. When a model merges or drops one, the batch is asked again, then split, so the translation can no longer end up shifted. The server logs `separators not respected by <model>` when that happens
+- **Log retention**: usage statistics older than 365 days and audit entries older than 730 days are deleted automatically (Admin → Settings → General, 0 keeps everything). ⚠️ On update, older entries are removed at the first run
+- **Settings** are cached for a few seconds, which removes several database queries per request
+- Fix: the source language chosen in the AI Rewrite tab was ignored
+- Fix: a hydration error on the Users page; the audit log no longer breaks when the session has expired
+- Translated error messages for sign-in (disabled account, too many attempts), users and logo/background uploads
+- Database updates now use a `schema_migrations` table (applied once each) and a new `leksis migrate` command
+- Internal: ESLint, 144 unit tests, a browser test of sign-in/sign-out and CI on every push
 
 ### v1.5.1-beta.5
 Database cleanup (migration) — take a backup first; `leksis update` does it automatically.
