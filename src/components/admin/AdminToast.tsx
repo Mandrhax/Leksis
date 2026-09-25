@@ -28,7 +28,7 @@ export function AdminToast({ toast, onDismiss }: Props) {
         ${isSuccess
           ? 'bg-surface-container-lowest border border-primary/20 text-on-surface'
           : isWarning
-          ? 'bg-surface-container-lowest border border-yellow-500/30 text-yellow-700 dark:text-yellow-400'
+          ? 'bg-surface-container-lowest border border-yellow-500/30 text-yellow-700'
           : 'bg-surface-container-lowest border border-error/20 text-error'
         }`}
     >

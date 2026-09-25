@@ -62,14 +62,21 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 
 ## Phase 4 : Réglages, images, en-têtes
 
-- [ ] Schémas zod pour `branding`, `design`, `general`, `features` (couleurs hex, URLs http(s), nombres bornés)
-- [ ] Mêmes schémas dans l'import de config
-- [ ] Import d'images : plafond de taille + magic bytes
-- [ ] `site-assets` : `Content-Security-Policy: sandbox` + `nosniff`
-- [ ] Logo/background : magic bytes, refus ou nettoyage du SVG
-- [ ] En-têtes de sécurité dans `next.config.mjs` (CSP, X-Frame-Options, Referrer-Policy, `poweredByHeader: false`)
-- [ ] Docker : `no-new-privileges`, `cap_drop: [ALL]` sur `app`, épingler les versions ollama/caddy
-- [ ] PostgreSQL (option A) : supprimer l'onglet Connection, `DbServiceForm`, `db/test`, et `db_config` (PATCH, export, import, page)
+- [x] Schémas zod pour `branding`, `design`, `general`, `features` (couleurs hex, URLs http(s), nombres bornés) — `src/lib/settings-schema.ts` (couleurs hex, images = uniquement `/api/site-assets/…`, liens http(s)/mailto/relatifs, limites bornées) ; clés inconnues retirées (ex. l'ancien `darkMode`)
+- [x] Mêmes schémas dans l'import de config — les clés invalides sont ignorées et listées dans `skipped` ; `ai_config` importé validé aussi ; `ollama_config` n'est plus importable
+- [x] Import d'images : plafond de taille + magic bytes
+- [x] `site-assets` : `Content-Security-Policy: sandbox` + `nosniff`
+- [x] Logo/background : magic bytes, refus ou nettoyage du SVG — SVG refusé (PNG/JPG/WebP ; ICO en plus pour le logo). Un logo SVG déjà enregistré reste affiché (servi en sandbox) jusqu'au prochain upload. Helper commun `src/lib/site-assets.ts`
+- [x] En-têtes de sécurité dans `next.config.mjs` (CSP, X-Frame-Options, Referrer-Policy, `poweredByHeader: false`) — CSP avec `unsafe-inline` (décision utilisateur) mais `frame-ancestors 'none'`, `object-src 'none'`, `base-uri`, `form-action`, `connect-src`/`img-src`/`font-src` limités à l'origine ; X-Frame-Options, Referrer-Policy, Permissions-Policy, COOP ; CSP seulement en production. HSTS volontairement non posé (voir notes)
+- [x] Docker : `no-new-privileges`, `cap_drop: [ALL]` sur `app`, épingler les versions ollama/caddy — appliqué à `app` seulement ; postgres/caddy/ollama exclus (entrypoints qui changent d'utilisateur / ports bas / GPU). Pas d'épinglage : `caddy:2-alpine` suit déjà la v2, `ollama:latest` doit rester à jour pour les nouveaux modèles
+- [x] PostgreSQL (option A) : supprimer l'onglet Connection, `DbServiceForm`, `db/test`, et `db_config` (PATCH, export, import, page) — page DB = Monitoring seul ; `DbServiceForm`, `DbServicesLayout`, `db/test` et `db_config` supprimés (PATCH, GET, export, import)
+
+## Phase 4 bis : Décisions ajoutées en cours de route
+
+- [x] **Mode sombre supprimé** (demande de l'utilisateur) : bascule du menu compte, réglage admin, CSS `.dark`, script anti-flash, clés i18n
+- [x] `GET /api/admin/settings` ne renvoie plus `apiKeyEnc` (clé API chiffrée) au navigateur
+- [x] Les 9 warnings de build « Dynamic filesystem access » sont résolus (helper `site-assets.ts` + `turbopackIgnore`)
+- [ ] HSTS : à ajouter côté Caddy en mode HTTPS seulement (après validation que le retour en HTTP n'est plus prévu) — non fait volontairement
 
 ## Phase 5 : Code mort et doublons
 
@@ -77,7 +84,7 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 - [ ] Supprimer le type `html` de `Block` et ses branches (file-parser ×3, DocumentStudioTab ×2)
 - [ ] Supprimer le réglage `seo` (PATCH, reset, export)
 - [ ] Factoriser les helpers de parsing de tables HTML (`file-parser` / `pdf-vision`)
-- [ ] Fusionner les routes logo et background dans un helper commun (règle aussi les 9 warnings de build « Dynamic filesystem access » : logo, background, export, reset)
+- [x] Fusionner les routes logo et background dans un helper commun — fait en Phase 4 (`site-assets.ts`)
 - [ ] Simplifier `fetchGlossaryEntries` (une requête paramétrée, retirer le `JOIN glossaries` inutile)
 - [ ] `getAiPublicConfig` : une seule lecture de base
 - [ ] Corriger les commentaires périmés (`prompts.ts`, `settings.ts`, `file-parser.ts` + `import 'server-only'`)
@@ -89,7 +96,7 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 
 - [ ] Vérifier que `PostgresAdapter` ne sert à rien (tester le login sans lui)
 - [ ] Si oui : le retirer, puis supprimer `accounts`, `sessions`, `verification_token`, colonnes `emailVerified`/`image`
-- [ ] Écrire la migration dans `install.sh` (`update`)
+- [ ] Écrire la migration dans `install.sh` (`update`) — y inclure `DELETE FROM site_settings WHERE key IN ('db_config', 'ollama_config' si ai_config existe)` : `db_config` contient encore un mot de passe chiffré inutilisé
 
 ## Phase 7 : Qualité et évolutions
 

@@ -8,7 +8,6 @@ interface BrandingData {
   siteName:          string
   primaryColor:      string
   backgroundColor:   string
-  darkMode:          boolean
   logoUrl?:          string
   backgroundImage?:  string
   headerLogoSize:    string
@@ -242,29 +241,12 @@ export function BrandingForm({ initial, onToast }: Props) {
             <input
               ref={bgInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              accept="image/png,image/jpeg,image/webp"
               className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleBgUpload(f) }}
             />
           </div>
         )}
-      </div>
-
-      {/* Mode sombre */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-on-surface">{t.brandingForm.darkModeTitle}</p>
-            <p className="text-xs text-on-surface-variant mt-0.5">{t.brandingForm.darkModeDesc}</p>
-          </div>
-          <button
-            type="button" role="switch" aria-checked={data.darkMode}
-            onClick={() => set('darkMode', !data.darkMode)}
-            className={`w-11 h-6 rounded-full transition-colors ${data.darkMode ? 'bg-primary' : 'bg-outline-variant/40'}`}
-          >
-            <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform mx-1 ${data.darkMode ? 'translate-x-5' : 'translate-x-0'}`} />
-          </button>
-        </div>
       </div>
 
       </div>{/* end left column */}
@@ -316,7 +298,7 @@ export function BrandingForm({ initial, onToast }: Props) {
         <input
           ref={logoInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/svg+xml,image/webp,image/x-icon"
+          accept="image/png,image/jpeg,image/webp,image/x-icon"
           className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f) }}
         />

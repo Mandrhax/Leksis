@@ -1,6 +1,7 @@
 import { NextResponse }    from 'next/server'
 import { readFile }        from 'node:fs/promises'
-import { join, basename }  from 'node:path'
+import { basename }        from 'node:path'
+import { assetPathFromUrl } from '@/lib/site-assets'
 import { getAdminSession } from '@/lib/admin-guard'
 import { getAllSettings }  from '@/lib/settings'
 import { logAudit }        from '@/lib/audit'
@@ -10,19 +11,15 @@ const CONTENT_TYPES: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', svg: 'image/svg+xml', ico: 'image/x-icon',
 }
 
-function uploadsDir(): string {
-  return process.env.UPLOAD_DIR || '/tmp/uploads'
-}
-
 // Reads an uploaded logo/background referenced by a /api/site-assets/<filename> URL and
 // base64-encodes it, so the exported JSON carries the actual image instead of leaving it behind.
 async function readAsset(url: unknown): Promise<{ filename: string; mime: string; data: string } | null> {
   if (typeof url !== 'string') return null
-  const match = url.split('?')[0].match(/^\/api\/site-assets\/(.+)$/)
-  if (!match) return null
-  const filename = basename(match[1])
+  const path = assetPathFromUrl(url)
+  if (!path) return null
+  const filename = basename(path)
   try {
-    const buffer = await readFile(join(uploadsDir(), filename))
+    const buffer = await readFile(path)
     const ext    = filename.split('.').pop()?.toLowerCase() ?? ''
     return { filename, mime: CONTENT_TYPES[ext] ?? 'application/octet-stream', data: buffer.toString('base64') }
   } catch {
@@ -39,12 +36,8 @@ export async function GET() {
   // Supprimer SEO — non utilisé
   delete settings.seo
 
-  // Supprimer le mot de passe chiffré — jamais exporté
-  if (settings.db_config && typeof settings.db_config === 'object') {
-    const db = { ...(settings.db_config as Record<string, unknown>) }
-    delete db.passwordEnc
-    settings.db_config = db
-  }
+  // Ancien réglage « connexion PostgreSQL » (supprimé) : jamais exporté
+  delete settings.db_config
 
   // Supprimer la clé API chiffrée du serveur IA — jamais exportée
   if (settings.ai_config && typeof settings.ai_config === 'object') {

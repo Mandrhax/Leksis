@@ -25,7 +25,7 @@ export async function GET(
   }
 
   const uploadsDir = process.env.UPLOAD_DIR || '/tmp/uploads'
-  const filePath   = join(uploadsDir, safe)
+  const filePath   = join(/*turbopackIgnore: true*/ uploadsDir, safe)
 
   try {
     const buffer = await readFile(filePath)
@@ -36,6 +36,9 @@ export async function GET(
       headers: {
         'Content-Type':  type,
         'Cache-Control': 'public, max-age=31536000, immutable',
+        // Un logo SVG enregistré avant son interdiction ne doit jamais pouvoir exécuter de script s'il est ouvert directement
+        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+        'X-Content-Type-Options':  'nosniff',
       },
     })
   } catch {

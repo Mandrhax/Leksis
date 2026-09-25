@@ -47,9 +47,9 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 | Section | What you can do |
 |---|---|
 | **Dashboard** | Live health of the AI engine, PostgreSQL and Caddy, usage and activity at a glance |
-| **Settings** | Identity, appearance (logo, colors, background, dark mode), features & limits, AI tones, access, maintenance mode, global banner |
+| **Settings** | Identity, appearance (logo, colors, background), features & limits, AI tones, access, maintenance mode, global banner |
 | **Services → AI** | Choose the AI engine, server URL, API key and models; test the connection; download / delete / preload models (Ollama) |
-| **Services → PostgreSQL / Caddy** | PostgreSQL connection settings and metrics; Caddy **access mode** (HTTP / HTTPS with a domain / behind a reverse proxy), certificate status and live reload |
+| **Services → PostgreSQL / Caddy** | PostgreSQL live metrics; Caddy **access mode** (HTTP / HTTPS with a domain / behind a reverse proxy), certificate status and live reload |
 | **Glossary** | Named glossaries with language pairs, CSV import / export, per-user toggles |
 | **Users** | User list and admin roles |
 | **Usage** | AI usage statistics, filterable, CSV export, purge |

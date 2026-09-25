@@ -1,55 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, unlink, mkdir } from 'node:fs/promises'
-import { join }                     from 'node:path'
 import { getAdminSession }           from '@/lib/admin-guard'
 import { updateSetting, getSetting } from '@/lib/settings'
 import { logAudit }                  from '@/lib/audit'
 import { withTransaction }            from '@/lib/db'
+import { LOGO, BACKGROUND, checkAsset, saveAsset, type AssetKind } from '@/lib/site-assets'
 import { requestTooLarge }           from '@/lib/validators'
+import { AiConfigImportSchema, isValidatedSettingKey, parseSetting, type ValidatedSettingKey } from '@/lib/settings-schema'
 
 // Une config exportée embarque logo (2 Mo) et fond (5 Mo) en base64 : 15 Mo laissent de la marge
 const MAX_IMPORT_BYTES = 15 * 1024 * 1024
 
-const ALLOWED_KEYS = [
-  'branding',
-  'design',
-  'features',
-  'rewrite_tones',
-  'general',
-  'ollama_config',
-  'ai_config',
-  'db_config',
-] as const
-
-type AllowedKey = typeof ALLOWED_KEYS[number]
-
-function isAllowedKey(k: string): k is AllowedKey {
-  return (ALLOWED_KEYS as readonly string[]).includes(k)
-}
-
-const KNOWN_EXTS = ['png', 'jpg', 'jpeg', 'svg', 'webp', 'ico']
-
-function uploadsDir(): string {
-  return process.env.UPLOAD_DIR || '/tmp/uploads'
+// Clés importables : celles de l'admin (validées par leur schéma) + ai_config (voir plus bas).
+// L'ancien ollama_config n'est plus importé : il n'est lu que comme repli d'anciennes installations.
+function isAllowedKey(k: string): k is ValidatedSettingKey | 'ai_config' {
+  return k === 'ai_config' || (isValidatedSettingKey(k) && k !== 'seo')
 }
 
 interface AssetInput { filename?: unknown; data?: unknown }
 
-// Writes a base64-encoded logo/background from an export back to disk under the fixed slug
-// (site-logo / site-bg) used by the normal upload routes, and returns the resulting public URL.
-async function writeAsset(asset: AssetInput | null | undefined, slug: string): Promise<string | null> {
+// Écrit sur disque un logo/fond embarqué en base64 dans un export et renvoie son URL publique.
+// Même contrôles qu'à l'upload : taille et format réel (octets magiques) — le nom de fichier de l'export est ignoré.
+async function writeAsset(asset: AssetInput | null | undefined, kind: AssetKind): Promise<string | null> {
   if (!asset || typeof asset.data !== 'string') return null
-  const name = typeof asset.filename === 'string' ? asset.filename : ''
-  const ext  = name.split('.').pop()?.toLowerCase()
-  if (!ext || !KNOWN_EXTS.includes(ext)) return null
-
-  const dir = uploadsDir()
-  await mkdir(dir, { recursive: true })
-  // Retire toute ancienne variante (extension différente) avant d'écrire la nouvelle
-  await Promise.all(KNOWN_EXTS.map(e => unlink(join(dir, `${slug}.${e}`)).catch(() => {})))
-
-  await writeFile(join(dir, `${slug}.${ext}`), Buffer.from(asset.data, 'base64'))
-  return `/api/site-assets/${slug}.${ext}?v=${Date.now()}`
+  if (asset.data.length > Math.ceil(kind.maxBytes * 1.4)) return null // évite de décoder un fichier énorme
+  const buffer = Buffer.from(asset.data, 'base64')
+  const check  = checkAsset(kind, buffer)
+  if (!check.ok) return null
+  return saveAsset(kind, buffer, check.format)
 }
 
 export async function POST(req: NextRequest) {
@@ -69,6 +46,7 @@ export async function POST(req: NextRequest) {
   const incoming = body.settings as Record<string, unknown>
   const assetsIn = (body.assets && typeof body.assets === 'object' ? body.assets : {}) as { logo?: AssetInput; background?: AssetInput }
   const imported: string[] = []
+  const skipped: string[] = []
 
   for (const key of Object.keys(incoming)) {
     if (!isAllowedKey(key)) continue
@@ -76,21 +54,21 @@ export async function POST(req: NextRequest) {
     const value = incoming[key]
     if (value === null || typeof value !== 'object') continue
 
-    if (key === 'rewrite_tones') {
-      if (!Array.isArray(value) || value.length < 1 || value.length > 6) continue
-    }
-
     if (key === 'branding') {
-      const safe = { ...(value as Record<string, unknown>) }
-      delete safe.logoUrl
-      delete safe.backgroundImage
+      // Les URL d'images ne viennent jamais du fichier : elles sont recréées depuis les images embarquées
+      const raw = { ...(value as Record<string, unknown>) }
+      delete raw.logoUrl
+      delete raw.backgroundImage
+      const checked = parseSetting('branding', raw)
+      if (!checked.ok) { skipped.push(key); continue }
+      const safe = checked.value
 
       // Les images voyagent à part (base64, cf. export) — écrites sur disque puis reliées ici.
       // Sans image dans l'export (ancien format, ou aucune définie), on garde celle déjà en place.
       const existing = await getSetting<Record<string, unknown>>('branding')
       const [logoUrl, backgroundImage] = await Promise.all([
-        writeAsset(assetsIn.logo, 'site-logo'),
-        writeAsset(assetsIn.background, 'site-bg'),
+        writeAsset(assetsIn.logo, LOGO),
+        writeAsset(assetsIn.background, BACKGROUND),
       ])
       const merged = {
         ...safe,
@@ -102,23 +80,13 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    if (key === 'db_config') {
-      // Ne jamais importer passwordEnc — préserver l'existant en base
-      const existing = await getSetting<Record<string, unknown>>('db_config')
-      const safeValue = { ...(value as Record<string, unknown>) }
-      delete safeValue.passwordEnc
-      const merged = { ...safeValue, passwordEnc: existing.passwordEnc ?? '' }
-      await updateSetting('db_config', merged, session.user.id, session.user.email!)
-      imported.push(key)
-      continue
-    }
-
     if (key === 'ai_config') {
       // Jamais de clé API importée, et jamais d'autorisation « serveur externe » importée :
       // les deux restent ceux de cette instance
       const existing = await getSetting<Record<string, unknown>>('ai_config')
-      const safeValue = { ...(value as Record<string, unknown>) }
-      delete safeValue.apiKeyEnc
+      const checked = AiConfigImportSchema.safeParse(value)
+      if (!checked.success) { skipped.push(key); continue }
+      const safeValue: Record<string, unknown> = checked.data
       const merged = {
         ...safeValue,
         apiKeyEnc:     existing.apiKeyEnc ?? '',
@@ -131,7 +99,9 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    await updateSetting(key, value as object, session.user.id, session.user.email!)
+    const checked = parseSetting(key, value)
+    if (!checked.ok) { skipped.push(key); continue }
+    await updateSetting(key, checked.value, session.user.id, session.user.email!)
     imported.push(key)
   }
 
@@ -149,7 +119,7 @@ export async function POST(req: NextRequest) {
         const glossaryId = res.rows[0]?.id
         if (!glossaryId || !Array.isArray(g.entries)) continue
         for (const e of g.entries) {
-          if (!e.source_term || !e.target_term) continue
+          if (typeof e.source_term !== 'string' || typeof e.target_term !== 'string' || !e.source_term || !e.target_term) continue
           await tx(
             'INSERT INTO glossary_entries (glossary_id, source_term, target_term, source_lang, target_lang) VALUES ($1, $2, $3, $4, $5)',
             [glossaryId, e.source_term, e.target_term, e.source_lang ?? null, e.target_lang ?? null]
@@ -166,8 +136,8 @@ export async function POST(req: NextRequest) {
     session.user.email!,
     'IMPORT_SETTINGS',
     'settings:all',
-    { imported }
+    { imported, skipped }
   )
 
-  return NextResponse.json({ ok: true, imported })
+  return NextResponse.json({ ok: true, imported, skipped })
 }

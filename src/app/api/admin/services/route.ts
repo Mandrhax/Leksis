@@ -20,15 +20,6 @@ const AiSchema = z.object({
   numCtx:           z.number().int().min(2048).max(262144).optional(),  // Ollama : contexte en tokens
 })
 
-const DbSchema = z.object({
-  service:  z.literal('db'),
-  host:     z.string().min(1),
-  port:     z.number().int().min(1).max(65535),
-  database: z.string().min(1),
-  user:     z.string().min(1),
-  password: z.string().optional(), // vide = ne pas modifier
-})
-
 const CaddySchema = z.object({
   service:          z.literal('caddy'),
   mode:             z.enum(['http', 'https', 'proxy']),
@@ -37,21 +28,16 @@ const CaddySchema = z.object({
   trustedProxies:   z.string().optional(),       // mode proxy : adresses hors réseau privé
 })
 
-const Schema = z.discriminatedUnion('service', [AiSchema, DbSchema, CaddySchema])
+const Schema = z.discriminatedUnion('service', [AiSchema, CaddySchema])
 
 export async function GET() {
   const session = await getAdminSession()
   if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
 
   const ai     = await getAiPublicConfig()
-  const db     = await getSetting<Record<string, unknown>>('db_config')
   const caddy  = await getSetting<Record<string, unknown>>('caddy_config')
 
-  // Ne jamais renvoyer le passwordEnc
-  const safeDb = { ...db }
-  delete safeDb.passwordEnc
-
-  return NextResponse.json({ ai, db: safeDb, caddy })
+  return NextResponse.json({ ai, caddy })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -107,16 +93,6 @@ export async function PATCH(req: NextRequest) {
       numCtx:           value.numCtx,
       hasApiKey:        apiKeyEnc !== '',
     })
-  } else if (data.service === 'db') {
-    const existing = await getSetting<Record<string, unknown>>('db_config')
-    const passwordEnc = data.password
-      ? encrypt(data.password)
-      : (existing.passwordEnc as string ?? '')
-
-    await updateSetting('db_config', {
-      host: data.host, port: data.port, database: data.database,
-      user: data.user, passwordEnc,
-    }, session.user.id, session.user.email!)
   } else {
     const normalized = normalizeCaddyConfig(data)
     if ('error' in normalized) {

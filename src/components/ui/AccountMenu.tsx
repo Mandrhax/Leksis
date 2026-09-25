@@ -13,21 +13,6 @@ export function AccountMenu() {
   const btnRef                    = useRef<HTMLButtonElement>(null)
   const menuRef                   = useRef<HTMLDivElement>(null)
   const [pos, setPos]             = useState({ top: 0, right: 0 })
-  const [isDark, setIsDark]       = useState(false)
-
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains('dark'))
-  }, [])
-
-  function toggleDark() {
-    const next = !isDark
-    setIsDark(next)
-    document.documentElement.classList.toggle('dark', next)
-    document.documentElement.classList.toggle('light', !next)
-    document.body.style.backgroundColor = next ? '#0f1112' : ''
-    document.body.style.color = next ? '#dde3e6' : ''
-    try { localStorage.setItem('leksisDarkMode', String(next)) } catch {}
-  }
 
   // Positionner le dropdown aligné sur le bord droit du bouton
   useEffect(() => {
@@ -105,18 +90,6 @@ export function AccountMenu() {
           {t.account.admin}
         </Link>
       )}
-
-      {/* Mode sombre / clair */}
-      <button
-        onClick={toggleDark}
-        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-on-surface
-                   hover:bg-surface-container-low transition-colors"
-      >
-        <span className="material-symbols-outlined text-base leading-none text-on-surface-variant" aria-hidden="true">
-          {isDark ? 'light_mode' : 'dark_mode'}
-        </span>
-        {isDark ? t.account.lightMode : t.account.darkMode}
-      </button>
 
       {/* Paramètres */}
       <Link

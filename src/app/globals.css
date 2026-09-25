@@ -105,58 +105,6 @@
   --c-on-bg:                 #2a3439;
 }
 
-/* ── Mode sombre ── */
-html.dark {
-  color-scheme: dark;
-  background-color: #0f1112 !important;
-}
-
-html.dark body {
-  background-color: #0f1112 !important;
-  color: #dde3e6 !important;
-}
-
-.dark {
-  /* Tailwind token overrides */
-  --color-background:                  #0f1112;
-  --color-on-background:               #dde3e6;
-  --color-surface:                     #0f1112;
-  --color-surface-dim:                 #0a0d0e;
-  --color-surface-bright:              #343a3d;
-  --color-surface-variant:             #3c4347;
-  --color-surface-container-lowest:    #0b0f10;
-  --color-surface-container-low:       #141a1d;
-  --color-surface-container:           #1d2326;
-  --color-surface-container-high:      #252b2d;
-  --color-surface-container-highest:   #2d3437;
-  --color-on-surface:                  #dde3e6;
-  --color-on-surface-variant:          #a3adb3;
-  --color-primary:                     #b4c5fb;
-  --color-primary-dim:                 #9eb0e8;
-  --color-primary-container:           #3d4559;
-  --color-on-primary:                  #1f2840;
-  --color-on-primary-container:        #c8d6ff;
-  --color-secondary-container:         #364558;
-  --color-on-secondary-container:      #c2d4eb;
-  --color-error:                       #f2a8a5;
-  --color-outline:                     #8e9ba0;
-  --color-outline-variant:             #3c4347;
-
-  /* CSS custom vars (utilisées dans .icon-btn, .action-btn, .toolbar, etc.) */
-  --c-bg:                    #0f1112;
-  --c-on-bg:                 #dde3e6;
-  --c-primary:               #b4c5fb;
-  --c-primary-dim:           #9eb0e8;
-  --c-primary-hover:         #c4d3ff;
-  --c-on-primary:            #1f2840;
-  --c-on-surface:            #dde3e6;
-  --c-on-surface-variant:    #a3adb3;
-  --c-surface-container:     #1d2326;
-  --c-surface-container-low: #141a1d;
-  --c-outline-variant:       rgba(60, 67, 71, 0.6);
-  --c-icon-btn-hover:        rgba(180, 197, 251, 0.1);
-}
-
 /* ── Base ── */
 body {
   font-family: 'Inter', sans-serif;

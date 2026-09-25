@@ -28,7 +28,6 @@ type BrandingSettings = {
   siteName?:         string
   primaryColor?:     string
   secondaryColor?:   string
-  darkMode?:         boolean
   logoUrl?:          string
   backgroundColor?:  string
   backgroundImage?:  string
@@ -87,7 +86,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     .join(';')
 
   // ── Mode sombre ──────────────────────────────────────────────────────────────
-  const htmlClass = `${branding.darkMode ? 'dark' : 'light'} ${inter.variable} ${manrope.variable}`
+  const htmlClass = `light ${inter.variable} ${manrope.variable}`
 
   // ── Mode maintenance ─────────────────────────────────────────────────────────
   const isAdmin       = session?.user?.role === 'admin'
@@ -96,8 +95,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={htmlClass} suppressHydrationWarning>
       <head>
-        {/* Anti-flash : lit localStorage avant le premier paint pour éviter le scintillement */}
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var d=localStorage.getItem('leksisDarkMode');if(d!==null){var e=document.documentElement;if(d==='true'){e.classList.add('dark');e.classList.remove('light');}else{e.classList.remove('dark');e.classList.add('light');}}}catch(ex){}})();` }} />
         <style dangerouslySetInnerHTML={{ __html: `:root{${cssVarsString}}` }} />
         {/* Material Symbols + Bootstrap Icons : self-hébergés (next/font + npm) — pas de CDN tiers */}
       </head>

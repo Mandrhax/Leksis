@@ -6,7 +6,7 @@ import type { ToastState }  from './AdminToast'
 import { useI18n }          from '@/lib/i18n'
 import { timeAgo }          from '@/lib/relative-time'
 
-const KNOWN_KEYS = ['branding', 'design', 'features', 'rewrite_tones', 'general', 'ollama_config', 'ai_config', 'db_config', 'glossaries']
+const KNOWN_KEYS = ['branding', 'design', 'features', 'rewrite_tones', 'general', 'ollama_config', 'ai_config', 'glossaries']
 
 interface Props {
   lastBackupAt: string | null

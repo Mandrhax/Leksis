@@ -64,6 +64,13 @@ services:
       ollama:
         condition: service_healthy
         required: false
+    # Hardening: the app is an unprivileged Node process listening on 3000 — it needs no Linux capability
+    # and must never gain new privileges. (Not applied to postgres / caddy / ollama, whose entrypoints
+    # need to switch users or bind low ports.)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     # Lets the app reach an Ollama running on the Docker host itself
     # (OLLAMA_BASE_URL=http://host.docker.internal:11434).
     extra_hosts:

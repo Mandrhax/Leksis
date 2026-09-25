@@ -1,33 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, unlink, mkdir } from 'node:fs/promises'
-import { join, basename }           from 'node:path'
-import { getAdminSession }          from '@/lib/admin-guard'
-import { getSetting, updateSetting } from '@/lib/settings'
+import { unlink }                       from 'node:fs/promises'
+import { getAdminSession }              from '@/lib/admin-guard'
+import { getSetting, updateSetting }    from '@/lib/settings'
+import { requestTooLarge }              from '@/lib/validators'
+import { BACKGROUND, checkAsset, saveAsset, assetPathFromUrl } from '@/lib/site-assets'
 
-const ALLOWED_TYPES: Record<string, string> = {
-  'image/png':     'png',
-  'image/jpeg':    'jpg',
-  'image/webp':    'webp',
-  'image/svg+xml': 'svg',
-}
-const MAX_SIZE   = 5 * 1024 * 1024 // 5 Mo
-const ASSET_SLUG = 'site-bg'
-
-function uploadsDir(): string {
-  return process.env.UPLOAD_DIR || '/tmp/uploads'
-}
-
-function urlToPath(url: string): string {
-  const withoutQuery = url.split('?')[0]
-  const newFormat = withoutQuery.match(/^\/api\/site-assets\/(.+)$/)
-  if (newFormat) return join(uploadsDir(), basename(newFormat[1]))
-  return join(process.cwd(), 'public', basename(withoutQuery))
-}
-
-async function removeExistingBgFile() {
+async function removeCurrentBackgroundFile() {
   try {
     const branding = await getSetting<{ backgroundImage?: string }>('branding')
-    if (branding?.backgroundImage) await unlink(urlToPath(branding.backgroundImage)).catch(() => {})
+    const path = branding?.backgroundImage ? assetPathFromUrl(branding.backgroundImage) : null
+    if (path) await unlink(path).catch(() => {})
   } catch {}
 }
 
@@ -36,30 +18,24 @@ export async function POST(req: NextRequest) {
     const session = await getAdminSession()
     if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
 
+    if (requestTooLarge(req, BACKGROUND.maxBytes)) {
+      return NextResponse.json({ error: 'File too large (max 5 MB).' }, { status: 413 })
+    }
+
     const formData = await req.formData()
     const file = formData.get('background') as File | null
-    if (!file) return NextResponse.json({ error: 'Aucun fichier.' }, { status: 400 })
+    if (!file) return NextResponse.json({ error: 'No file.' }, { status: 400 })
 
-    const ext = ALLOWED_TYPES[file.type]
-    if (!ext) {
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const check = checkAsset(BACKGROUND, buffer)
+    if (!check.ok) {
       return NextResponse.json(
-        { error: 'Format non supporté. Utilisez PNG, JPG, WebP ou SVG.' },
-        { status: 400 },
+        { error: check.error === 'too_large' ? 'File too large (max 5 MB).' : 'Unsupported format. Use PNG, JPG or WebP.' },
+        { status: check.error === 'too_large' ? 413 : 400 },
       )
     }
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: 'Fichier trop volumineux (max 5 Mo).' }, { status: 400 })
-    }
 
-    await removeExistingBgFile()
-
-    const dir      = uploadsDir()
-    const filename = `${ASSET_SLUG}.${ext}`
-    const dest     = join(dir, filename)
-    await mkdir(dir, { recursive: true })
-    await writeFile(dest, Buffer.from(await file.arrayBuffer()))
-
-    const backgroundImage = `/api/site-assets/${filename}?v=${Date.now()}`
+    const backgroundImage = await saveAsset(BACKGROUND, buffer, check.format)
     const branding = (await getSetting<Record<string, unknown>>('branding')) ?? {}
     await updateSetting('branding', { ...branding, backgroundImage }, session.user.id, session.user.email!)
 
@@ -75,7 +51,7 @@ export async function DELETE() {
     const session = await getAdminSession()
     if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
 
-    await removeExistingBgFile()
+    await removeCurrentBackgroundFile()
 
     const branding = (await getSetting<Record<string, unknown>>('branding')) ?? {}
     const { backgroundImage: _removed, ...rest } = branding
