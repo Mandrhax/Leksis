@@ -23,3 +23,29 @@ export async function logAudit(
     console.error(`[audit] failed to record ${action} on ${resource}:`, err)
   }
 }
+
+/**
+ * Texte lisible de la colonne « ressource » : `user:<id>` devient `user:<email>` (le compte, ou à défaut l'email
+ * gardé dans `detail` — un compte supprimé n'existe plus en base). Les autres ressources restent telles quelles.
+ */
+export async function labelAuditResources<T extends { resource: string; detail?: unknown }>(
+  rows: T[],
+): Promise<(T & { resource_label: string })[]> {
+  const ids = [...new Set(rows.flatMap(r => (r.resource.startsWith('user:') ? [r.resource.slice(5)] : [])))]
+  const emails = new Map<string, string>()
+  if (ids.length) {
+    try {
+      const found = await query<{ id: string; email: string }>('SELECT id, email FROM users WHERE id = ANY($1)', [ids])
+      for (const u of found.rows) emails.set(u.id, u.email)
+    } catch (err) {
+      console.error('[audit] could not resolve user names:', err) // l'identifiant brut reste affiché
+    }
+  }
+  return rows.map(r => {
+    if (!r.resource.startsWith('user:')) return { ...r, resource_label: r.resource }
+    const id = r.resource.slice(5)
+    const detailEmail = (r.detail as { email?: unknown } | null)?.email
+    const email = emails.get(id) ?? (typeof detailEmail === 'string' ? detailEmail : null)
+    return { ...r, resource_label: `user:${email ?? id}` }
+  })
+}

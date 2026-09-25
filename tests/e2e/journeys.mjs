@@ -235,6 +235,8 @@ try {
   const audit = await db.query("SELECT action FROM audit_log WHERE action = 'DISABLE_USER'")
   await adminPage.goto(BASE + '/admin/audit', { waitUntil: 'networkidle0' })
   check('the change is in the audit log', audit.rows.length === 1)
+  const auditApi = await adminPage.evaluate(() => fetch('/api/admin/audit').then(r => r.json()))
+  check('the audit log shows the account by email, not by id', auditApi.rows.some(r => r.action === 'DISABLE_USER' && r.resource_label === 'user:victim@example.com'), JSON.stringify(auditApi.rows.find(r => r.action === 'DISABLE_USER')?.resource_label))
   // ── Document translation: separators the model does not respect ──
   const translateDoc = (lines) => adminPage.evaluate(async text => {
     const form = new FormData()

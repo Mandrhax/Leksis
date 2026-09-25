@@ -9,6 +9,7 @@ interface AuditEntry {
   user_email: string
   action: string
   resource: string
+  resource_label?: string
   detail: unknown
   created_at: string
 }
@@ -108,7 +109,7 @@ export function AuditTable() {
                     </div>
                   </td>
                   <td className="px-5 py-3 text-xs text-on-surface-variant hidden md:table-cell">
-                    {row.resource}
+                    {row.resource_label ?? row.resource}
                   </td>
                   <td className="px-5 py-3 text-xs text-on-surface-variant hidden sm:table-cell truncate max-w-[160px]">
                     {row.user_email}

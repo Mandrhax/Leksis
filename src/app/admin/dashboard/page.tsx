@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { requireAdmin } from '@/lib/admin-guard'
 import { query }        from '@/lib/db'
 import { getSetting }   from '@/lib/settings'
+import { labelAuditResources } from '@/lib/audit'
 import { AdminDashboard } from '@/components/admin/AdminDashboard'
 import pkg from '../../../../package.json'
 
@@ -27,8 +28,8 @@ export default async function AdminDashboardPage() {
          GROUP BY g.id
        ) sub`
     ),
-    query<{ action: string; resource: string; user_email: string; created_at: string }>(
-      `SELECT action, resource, user_email, created_at
+    query<{ action: string; resource: string; detail: unknown; user_email: string; created_at: string }>(
+      `SELECT action, resource, detail, user_email, created_at
        FROM audit_log
        ORDER BY created_at DESC
        LIMIT 5`
@@ -72,7 +73,7 @@ export default async function AdminDashboardPage() {
   return (
     <AdminDashboard
       stats={stats}
-      recentActivity={auditRes.rows}
+      recentActivity={(await labelAuditResources(auditRes.rows)).map(({ detail: _detail, ...row }) => row)}
       appVersion={pkg.version}
       trend={trend}
       featureCounts={featureCounts}

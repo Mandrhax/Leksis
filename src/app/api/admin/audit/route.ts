@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/admin-guard'
 import { query } from '@/lib/db'
+import { labelAuditResources } from '@/lib/audit'
 
 export async function GET(req: NextRequest) {
   const session = await getAdminSession()
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
   const total = await query<{ count: string }>('SELECT COUNT(*) AS count FROM audit_log')
 
   return NextResponse.json({
-    rows: result.rows,
+    rows: await labelAuditResources(result.rows),
     total: parseInt(total.rows[0]?.count ?? '0'),
     page,
     limit,

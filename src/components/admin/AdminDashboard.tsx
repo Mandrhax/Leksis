@@ -28,6 +28,7 @@ interface DashboardStats {
 interface AuditEntry {
   action:     string
   resource:   string
+  resource_label?: string
   user_email: string
   created_at: string
 }
@@ -247,7 +248,7 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
                 key={svc.key}
                 type="button"
                 onClick={() => router.push(svc.href)}
-                className={`bg-surface-container-lowest rounded-xl border p-4 text-left hover:shadow-sm transition-shadow cursor-pointer ${
+                className={`min-w-0 bg-surface-container-lowest rounded-xl border p-4 text-left hover:shadow-sm transition-shadow cursor-pointer ${
                   svc.ok === false
                     ? 'border-error/25'
                     : svc.ok === true
@@ -263,12 +264,12 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
                   >
                     {svc.icon}
                   </span>
-                  <span className="font-headline font-bold text-sm text-on-surface flex-1">{svc.name}</span>
+                  <span className="font-headline font-bold text-sm text-on-surface flex-1 min-w-0 truncate">{svc.name}</span>
                   <StatusBadge ok={svc.ok} at={at} />
                 </div>
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
                   {svc.version && (
-                    <span className="text-xs text-on-surface-variant">
+                    <span className="text-xs text-on-surface-variant min-w-0 [overflow-wrap:anywhere]" title={svc.version}>
                       <span className="font-medium text-on-surface">{svc.version}</span>
                     </span>
                   )}
@@ -398,7 +399,7 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
                   <div className="flex-1 min-w-0">
                     <div className="text-[13.5px] font-medium text-on-surface truncate">{entry.action}</div>
                     <div className="text-xs text-on-surface-variant">
-                      <code className="text-[11.5px] bg-surface-container px-1 py-px rounded text-on-surface">{entry.resource}</code>
+                      <code className="text-[11.5px] bg-surface-container px-1 py-px rounded text-on-surface">{entry.resource_label ?? entry.resource}</code>
                       {' · '}{entry.user_email}
                     </div>
                   </div>
