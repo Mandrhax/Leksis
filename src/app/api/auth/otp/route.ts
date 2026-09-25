@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOrCreateUser, generateOtp } from '@/lib/otp'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
+import { isValidEmail } from '@/lib/validators'
 
 const OTP_PER_IP_PER_MIN    = 20
 const OTP_PER_EMAIL_PER_MIN = 5
@@ -16,6 +17,9 @@ export async function POST(req: NextRequest) {
 
   if (!email) {
     return NextResponse.json({ error: 'Email requis' }, { status: 400 })
+  }
+  if (!isValidEmail(email)) {
+    return NextResponse.json({ error: 'Adresse email invalide' }, { status: 400 })
   }
 
   const emailLimit = checkRateLimit(`otp-email:${email}`, OTP_PER_EMAIL_PER_MIN)

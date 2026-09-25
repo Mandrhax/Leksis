@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/admin-guard'
 import { query } from '@/lib/db'
+import { logAudit } from '@/lib/audit'
 
 export async function DELETE(req: NextRequest) {
   const session = await getAdminSession()
@@ -18,5 +19,9 @@ export async function DELETE(req: NextRequest) {
     [before]
   )
 
-  return NextResponse.json({ deleted: result.rowCount ?? 0 })
+  const deleted = result.rowCount ?? 0
+  // Écrit APRÈS la suppression : la trace de la purge elle-même survit toujours
+  await logAudit(session.user.id, session.user.email!, 'PURGE_AUDIT', 'audit_log', { before, deleted })
+
+  return NextResponse.json({ deleted })
 }

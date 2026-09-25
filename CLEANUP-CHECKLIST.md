@@ -55,10 +55,10 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 
 ## Phase 3 : Sessions, audit, OTP
 
-- [ ] Relire le rôle en base (cache court) pour que la rétrogradation soit immédiate
-- [ ] OTP : `crypto.randomInt`, vérification atomique, format d'email, purge des `otp_tokens` expirés
-- [ ] Journaliser les purges audit/usage sans effacer leur propre trace
-- [ ] `logAudit` : au minimum un `console.error` en cas d'échec
+- [x] Relire le rôle en base (cache court) pour que la rétrogradation soit immédiate — `lib/users.ts` : cache 30 s, invalidé au changement de rôle ; compte supprimé = session invalidée ; base injoignable = on garde le rôle du jeton
+- [x] OTP : `crypto.randomInt`, vérification atomique, format d'email, purge des `otp_tokens` expirés — + `ON CONFLICT` sur la création de compte, limite de 10 essais/min par email à la vérification ; testé sur un vrai Postgres (PGlite) : 3 vérifications simultanées → 1 seule réussit
+- [x] Journaliser les purges audit/usage sans effacer leur propre trace — `PURGE_AUDIT` / `PURGE_USAGE`, écrits après la suppression
+- [x] `logAudit` : au minimum un `console.error` en cas d'échec
 
 ## Phase 4 : Réglages, images, en-têtes
 

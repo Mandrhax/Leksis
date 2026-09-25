@@ -3,7 +3,7 @@ import { query } from '@/lib/db'
 
 /**
  * Enregistre une entrée dans le journal d'audit.
- * Les erreurs sont silencieuses (on ne veut pas bloquer une action admin pour ça).
+ * Une erreur est journalisée dans la console du serveur mais ne bloque pas l'action admin.
  */
 export async function logAudit(
   userId: string,
@@ -18,7 +18,8 @@ export async function logAudit(
        VALUES ($1, $2, $3, $4, $5)`,
       [userId, email, action, resource, detail ? JSON.stringify(detail) : null]
     )
-  } catch {
-    // Ne pas bloquer l'action principale si l'audit échoue
+  } catch (err) {
+    // Ne pas bloquer l'action principale si l'audit échoue — mais ne pas le faire en silence
+    console.error(`[audit] failed to record ${action} on ${resource}:`, err)
   }
 }

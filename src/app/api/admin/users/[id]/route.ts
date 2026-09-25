@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { getAdminSession } from '@/lib/admin-guard'
 import { query } from '@/lib/db'
 import { logAudit } from '@/lib/audit'
+import { invalidateUserRole } from '@/lib/users'
 
 const Schema = z.object({ role: z.enum(['user', 'admin']) })
 
@@ -40,6 +41,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Utilisateur introuvable.' }, { status: 404 })
     }
 
+    invalidateUserRole(id) // la prochaine lecture de session de cet utilisateur relit son rôle
     await logAudit(session.user.id, session.user.email!, 'UPDATE_ROLE', `user:${id}`, { role: newRole })
 
     return NextResponse.json({ ok: true })

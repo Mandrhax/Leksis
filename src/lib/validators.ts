@@ -56,3 +56,10 @@ export function validateFileExtension(filename: string): { ext: string; error: n
   }
   return { ext, error: null }
 }
+
+// Adresse email : même exigence que l'installeur (« x@y.z »), sans espace ni caractère de contrôle.
+const EMAIL_RE = /^[^\s@\u0000-\u001f]+@[^\s@\u0000-\u001f]+\.[^\s@\u0000-\u001f]+$/
+
+export function isValidEmail(v: unknown): v is string {
+  return typeof v === 'string' && v.length <= 254 && EMAIL_RE.test(v)
+}
