@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.4/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.5/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,12 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.5.1-beta.5
+Database cleanup (migration) — take a backup first; `leksis update` does it automatically.
+- Removed the unused NextAuth database adapter (sessions were already JWT-only). The `accounts`, `sessions` and `verification_token` tables and the `users.emailVerified` / `users.image` columns are dropped by a new one-time, idempotent migration (`docker/migrations/`) that `leksis update` applies after the update — anything that still holds data is kept and reported
+- The migration also removes the dead `db_config` (it still held an encrypted password), `seo` and legacy `ollama_config` (once `ai_config` exists) settings
+- New installations get the cleaned schema directly
 
 ### v1.5.1-beta.4
 - Fix: entering the sign-in code failed with "Invalid URL" in beta.3 (a side effect of the sign-out fix). Sign-in works again; signing out still returns to the sign-in page at the address you use, never `0.0.0.0`
