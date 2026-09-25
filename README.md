@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0-beta.5/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0-beta.6/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,9 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.5.0-beta.6
+- The admin AI panel no longer falls back to guessed model names (`translategemma:27b`, `qwen2.5:14b`, a fixed OCR model) when nothing is configured — it now auto-selects the first model the connected server actually reports
 
 ### v1.5.0-beta.5
 - Fix: with OpenAI-compatible engines (vLLM in particular), translation/rewrite/correct could stop after the first sentence — vLLM defaults `max_tokens` to 16 when the client doesn't send it explicitly. Leksis now sends an explicit `max_tokens` sized to the input
