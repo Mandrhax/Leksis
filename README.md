@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0-beta.3/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0-beta.4/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,9 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.5.0-beta.4
+- Fix: with some OpenAI-compatible models (e.g. Apertus-8B via vLLM), AI Rewrite/Correct could prepend a leftover sentence from the system prompt (e.g. restating the language/tone instructions) before the actual rewritten text — the prompts now explicitly forbid any preamble
 
 ### v1.5.0-beta.3
 Rollback of the vLLM / TranslateGemma-specific work from beta.1 and beta.2 — too narrow, and it disabled Document translation and Image extraction.
