@@ -1,7 +1,5 @@
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
-import PostgresAdapter from '@auth/pg-adapter'
-import { pool } from '@/lib/db'
 import { verifyOtp, getUserByEmail } from '@/lib/otp'
 import { getUserRole } from '@/lib/users'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -10,8 +8,8 @@ import { authConfig } from '@/auth.config'
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
 
-  adapter: PostgresAdapter(pool),
-
+  // Pas d'adaptateur : sessions en JWT + fournisseur Credentials, aucune table NextAuth (accounts, sessions,
+  // verification_token) n'est lue ni écrite — les comptes sont gérés par lib/otp.ts.
   providers: [
     Credentials({
       name: 'OTP',

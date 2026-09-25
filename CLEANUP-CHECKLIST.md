@@ -100,9 +100,9 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 
 ## Phase 6 : Base de données (migration requise)
 
-- [ ] Vérifier que `PostgresAdapter` ne sert à rien (tester le login sans lui)
-- [ ] Si oui : le retirer, puis supprimer `accounts`, `sessions`, `verification_token`, colonnes `emailVerified`/`image`
-- [ ] Écrire la migration dans `install.sh` (`update`) — y inclure `DELETE FROM site_settings WHERE key IN ('db_config', 'ollama_config' si ai_config existe)` : `db_config` contient encore un mot de passe chiffré inutilisé
+- [x] Vérifier que `PostgresAdapter` ne sert à rien (tester le login sans lui) — parcours connexion → espace de travail → déconnexion vérifié dans un vrai navigateur sans l'adaptateur, sur l'ancien schéma (tables présentes) et sur le nouveau
+- [x] Si oui : le retirer, puis supprimer `accounts`, `sessions`, `verification_token`, colonnes `emailVerified`/`image` — adaptateur, export `pool` de `db.ts` et dépendance `@auth/pg-adapter` retirés ; `init-schema.sql` sans ces tables/colonnes (installations neuves)
+- [x] Écrire la migration dans `install.sh` (`update`) — y inclure `DELETE FROM site_settings WHERE key IN ('db_config', 'ollama_config' si ai_config existe)` : `db_config` contient encore un mot de passe chiffré inutilisé — `docker/migrations/001-remove-unused-auth-and-settings.sql` appliqué par `migrate_db` à la fin de `leksis update`. Idempotent et non destructif : une table ou colonne qui contient des données est conservée. Supprime aussi `db_config`, `seo` et `ollama_config` (si `ai_config` existe). Testé sur Postgres : ancien schéma, données présentes, config héritée seule, installation neuve, double exécution
 
 ## Phase 7 : Qualité et évolutions
 

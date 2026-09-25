@@ -8,17 +8,14 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ============================================================
--- users — compatible with @auth/pg-adapter
--- Pre-registered by admin via INSERT or the install script
+-- users — accounts are created on first sign-in (OTP) or by the install script
 -- ============================================================
 CREATE TABLE IF NOT EXISTS users (
-  id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  name            TEXT,
-  email           TEXT UNIQUE NOT NULL,
-  "emailVerified" TIMESTAMPTZ,
-  image           TEXT,
-  role            TEXT NOT NULL DEFAULT 'user',
-  created_at      TIMESTAMPTZ DEFAULT NOW()
+  id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  name       TEXT,
+  email      TEXT UNIQUE NOT NULL,
+  role       TEXT NOT NULL DEFAULT 'user',
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================================
@@ -33,38 +30,6 @@ CREATE TABLE IF NOT EXISTS otp_tokens (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS otp_tokens_email_idx ON otp_tokens(email);
-
--- ============================================================
--- NextAuth tables (@auth/pg-adapter)
--- ============================================================
-CREATE TABLE IF NOT EXISTS accounts (
-  id                   TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  "userId"             TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  provider             TEXT NOT NULL,
-  type                 TEXT NOT NULL,
-  "providerAccountId"  TEXT NOT NULL,
-  access_token         TEXT,
-  expires_at           BIGINT,
-  refresh_token        TEXT,
-  id_token             TEXT,
-  scope                TEXT,
-  session_state        TEXT,
-  token_type           TEXT
-);
-
-CREATE TABLE IF NOT EXISTS sessions (
-  id             TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  "sessionToken" TEXT UNIQUE NOT NULL,
-  "userId"       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  expires        TIMESTAMPTZ NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS verification_token (
-  identifier TEXT NOT NULL,
-  token      TEXT NOT NULL,
-  expires    TIMESTAMPTZ NOT NULL,
-  PRIMARY KEY (identifier, token)
-);
 
 -- ============================================================
 -- site_settings — key/value store for admin configuration

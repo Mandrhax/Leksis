@@ -1383,6 +1383,30 @@ SQL
   fi
 }
 
+# ── Database migrations ───────────────────────────────────────
+# migrate_db — applies docker/migrations/*.sql to an existing database (fresh installs get the current
+# schema from docker/init-schema.sql). Every file is idempotent and never destroys non-empty data, so this
+# runs on every update. Best-effort: a failure is reported but never fails the update (the app does not
+# depend on these cleanups). Always returns 0 (set -e).
+migrate_db() {
+  local f out applied=0
+  [[ -d docker/migrations ]] || return 0
+  for f in docker/migrations/*.sql; do
+    [[ -f "$f" ]] || continue
+    if out=$(docker compose exec -T postgres psql -U leksis_user -d leksis -q -v ON_ERROR_STOP=1 <"$f" 2>&1); then
+      applied=$((applied + 1))
+      # NOTICE lines report what was dropped / kept
+      while IFS= read -r line; do
+        [[ "$line" == *NOTICE:* ]] && p_info "  ${line#*NOTICE:  }"
+      done <<<"$out"
+    else
+      p_warn "Database cleanup $(basename "$f") skipped (the database may not be running): ${out##*$'\n'}"
+    fi
+  done
+  (( applied > 0 )) && p_ok "Database cleanup applied (${applied})"
+  return 0
+}
+
 # ── Backup / restore ──────────────────────────────────────────
 # Archive layout: postgres.sql, uploads.tar (logo/background), .env, VERSION
 record_backup_timestamp() {
@@ -2284,6 +2308,9 @@ cmd_update() {
     p_spin "Restarting the app (public address detection)" docker compose up -d app || true
     wait_healthy app 180 || true
   fi
+
+  # One-time removal of objects the new version no longer uses (after the app is healthy on the new code)
+  migrate_db
 
   check_app_http || true
   install_launcher

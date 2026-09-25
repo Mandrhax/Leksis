@@ -32,13 +32,6 @@ function getPool(): Pool {
   return (_prodPool ??= createPool())
 }
 
-// Compat : certains imports utilisent encore `pool` directement
-export const pool = new Proxy({} as Pool, {
-  get(_target, prop) {
-    return (getPool() as unknown as Record<string | symbol, unknown>)[prop]
-  },
-})
-
 export async function query<T = Record<string, unknown>>(
   text: string,
   params?: unknown[]
