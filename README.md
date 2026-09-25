@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,22 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.5.1-beta.1
+Security hardening and reliability pass (dependencies, API guards, document handling).
+- Security: dependencies updated (Next.js 16.3, Auth.js beta.32, mammoth, docx 9) — `npm audit` reports 0 vulnerabilities
+- Security: every user API route now checks the session itself (defence in depth behind the proxy); **maintenance mode now also blocks the API** for non-admin users
+- Security: per-user rate limit on AI calls (default 30 per minute, configurable in *Admin → Settings → Features & limits*, 0 = unlimited) and per-IP / per-email limits on the sign-in code endpoint
+- Security: uploads are refused early when too large (documents 10 MB, images per the admin limit, DOCX export 5 MB, config import 15 MB); Caddy also caps request bodies at 50 MB; scanned PDFs are limited to 20 pages
+- Security: usage CSV export neutralises spreadsheet formulas; error details are no longer sent to the browser; the DOCX export sanitises the file name
+- New: *Admin → Services → AI → Models* has a **context window (`num_ctx`)** setting for Ollama (default 8192, applied to every request and to "Load into VRAM") — previously Ollama's small default could silently truncate long documents
+- Change: Leksis no longer forces `keep_alive` on every Ollama request; the local container keeps models loaded through `OLLAMA_KEEP_ALIVE=-1` (already set in `docker-compose.yml`)
+- Fix: DOCX translation no longer drops bullet/numbered lists and heading levels 3–6
+- Fix: Italian tone labels were never saved; "Reset to defaults" did not delete the logo/background files and did not reset the Features settings
+- Fix: Ollama errors reported in the middle of a stream are now shown instead of ending silently
+- Fix: the maintenance screen and `<html lang>` follow the interface language; usage statistics cover the whole selected period; glossary import is all-or-nothing
+- Removed: legacy `.doc` upload (never worked — only PDF, DOCX, TXT and CSV are supported)
+- Docker: the image now installs npm packages from the default npm registry
 
 ### v1.5.0
 Reliability fixes for OpenAI-compatible AI engines (vLLM, LM Studio, llama.cpp…), and a cleaner AI model setup.
