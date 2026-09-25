@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.3/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,14 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.5.1-beta.3
+Sign-in/sign-out fixes and internal cleanup, on top of beta.2.
+- Fix: signing out no longer sends the browser to `http://0.0.0.0:3000` — redirects are now relative to the address you actually use (also behind Caddy or a reverse proxy)
+- Fix: React hydration error (#418) logged in the browser console when opening the sign-in page
+- Internal: removed dead code (unused components, the never-produced `html` block type, the unused `seo` setting), merged duplicated HTML-table parsing between DOCX and scanned-PDF handling, simplified the glossary query
+- Internal: PostgreSQL connection pool now has timeouts and an idle-connection error handler (a database restart can no longer crash the app process)
+- Internal: server error messages are now consistently in English
 
 ### v1.5.1-beta.2
 Sessions, audit and settings hardening, on top of beta.1.
