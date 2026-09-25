@@ -3,8 +3,6 @@
 import 'server-only'
 import type { Block } from '@/types/leksis'
 
-export const BLOCK_SEP = '|||'
-
 // ── Parsing markdown tables (port de doc-studio.js) ────────────
 
 function parseMarkdownTable(lines: string[]): Extract<Block, { type: 'table' }> | null {
@@ -70,12 +68,12 @@ export function textToBlocks(text: string): Block[] {
   return blocks
 }
 
-// ── Flatten / unflatten pour traduction ────────────────────────
+// ── Segments pour la traduction ────────────────────────────────
 
-export function flattenBlocks(blocks: Block[]): string {
+/** Textes à traduire, dans l'ordre du document : paragraphes, titres, puis en-têtes et cellules des tableaux. */
+export function blocksToSegments(blocks: Block[]): string[] {
   const segments: string[] = []
   for (const block of blocks) {
-    if (block.type === 'page-break') continue
     if (block.type === 'paragraph' || block.type === 'heading') {
       segments.push(block.text)
     } else if (block.type === 'table') {
@@ -83,22 +81,24 @@ export function flattenBlocks(blocks: Block[]): string {
       for (const row of block.rows) segments.push(...row)
     }
   }
-  return segments.join(` ${BLOCK_SEP} `)
+  return segments
 }
 
-export function applyTranslatedSegments(blocks: Block[], translated: string): Block[] {
-  const parts = translated.split(/\s*\|\|\|\s*/)
+/** Remet les segments traduits (même ordre et même nombre que `blocksToSegments`) dans la structure du document. */
+export function applySegments(blocks: Block[], segments: string[]): Block[] {
   let idx = 0
+  const next = (fallback: string) => segments[idx++] ?? fallback
 
   return blocks.map(block => {
-    if (block.type === 'page-break') return block
     if (block.type === 'paragraph' || block.type === 'heading') {
-      return { ...block, text: parts[idx++] ?? block.text }
+      return { ...block, text: next(block.text) }
     }
     if (block.type === 'table') {
-      const newHeaders = block.headers.map(() => parts[idx++] ?? '')
-      const newRows    = block.rows.map(row => row.map(() => parts[idx++] ?? ''))
-      return { ...block, headers: newHeaders, rows: newRows }
+      return {
+        ...block,
+        headers: block.headers.map(h => next(h)),
+        rows:    block.rows.map(row => row.map(c => next(c))),
+      }
     }
     return block
   })

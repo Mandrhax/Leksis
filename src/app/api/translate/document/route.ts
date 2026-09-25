@@ -3,7 +3,8 @@ import { getAiOrError } from '@/lib/llm'
 import { buildDocumentTranslationPrompt } from '@/lib/prompts'
 
 export const maxDuration = 300
-import { parseFile, parsePdf, isProbablyScanned, flattenBlocks, applyTranslatedSegments, countBlockChars } from '@/lib/file-parser'
+import { parseFile, parsePdf, isProbablyScanned, blocksToSegments, applySegments, countBlockChars } from '@/lib/file-parser'
+import { translateSegments } from '@/lib/doc-translate'
 import { parsePdfWithVision, PdfPageLimitError } from '@/lib/pdf-vision'
 import { getDynamicLimits } from '@/lib/limits'
 import { logUsage } from '@/lib/usage'
@@ -84,17 +85,19 @@ export async function POST(req: NextRequest) {
     }, { status: 400 })
   }
 
-  const segments = flattenBlocks(blocks)
-
-  const prompt = buildDocumentTranslationPrompt({
-    segments,
-    sourceLang: sourceLang || 'Auto',
-    targetLang,
-  })
-
-  let translated: string
+  let translatedSegments: string[]
   try {
-    translated = await provider.complete({ prompt, signal: req.signal, model: cfg.translationModel })
+    const { segments, stats } = await translateSegments(
+      blocksToSegments(blocks),
+      (joined, count) => provider.complete({
+        prompt: buildDocumentTranslationPrompt({ segments: joined, segmentCount: count, sourceLang: sourceLang || 'Auto', targetLang }),
+        signal: req.signal,
+        model: cfg.translationModel,
+      }),
+    )
+    translatedSegments = segments
+    // Le modèle a mal respecté les séparateurs : à savoir pour choisir ou régler le modèle
+    if (stats.retries || stats.splits) console.warn(`[translate/document] separators not respected by ${cfg.translationModel}:`, stats)
   } catch (err) {
     console.error('[translate/document] translation failed:', err)
     return NextResponse.json({ error: 'Translation failed. The AI server did not return a result.' }, { status: 502 })
@@ -110,7 +113,7 @@ export async function POST(req: NextRequest) {
     charCount,
   })
 
-  const translatedBlocks = applyTranslatedSegments(blocks, translated)
+  const translatedBlocks = applySegments(blocks, translatedSegments)
 
   return NextResponse.json({ blocks: translatedBlocks })
 }

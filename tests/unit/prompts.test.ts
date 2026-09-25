@@ -33,6 +33,12 @@ describe('buildDocumentTranslationPrompt', () => {
     expect(p).toContain('preserve every ||| token')
     expect(p.endsWith('a ||| b')).toBe(true)
   })
+  it('tells the model how many segments to return when there are several', () => {
+    const base = { segments: 'a ||| b ||| c', sourceLang: 'German', targetLang: 'Italian' }
+    expect(buildDocumentTranslationPrompt({ ...base, segmentCount: 3 })).toContain('exactly 3 segments and 2 ||| tokens')
+    expect(buildDocumentTranslationPrompt({ ...base, segmentCount: 1 })).not.toContain('There are exactly')
+    expect(buildDocumentTranslationPrompt(base)).not.toContain('There are exactly')
+  })
 })
 
 describe('buildOcrPrompt / buildMarkdownTranslationPrompt', () => {

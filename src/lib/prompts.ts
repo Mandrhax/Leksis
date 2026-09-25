@@ -40,18 +40,24 @@ export function buildTranslationPrompt({
 
 type DocumentTranslationPromptOptions = {
   segments: string
+  /** Nombre de segments joints par |||, annoncé au modèle pour qu'il garde le même nombre de séparateurs */
+  segmentCount?: number
   sourceLang: string
   targetLang: string
 }
 
 export function buildDocumentTranslationPrompt({
-  segments, sourceLang, targetLang,
+  segments, segmentCount, sourceLang, targetLang,
 }: DocumentTranslationPromptOptions): string {
+  const countLine = segmentCount && segmentCount > 1
+    ? `There are exactly ${segmentCount} segments, so your output must contain exactly ${segmentCount} segments and ${segmentCount - 1} ||| tokens. `
+    : ''
   return (
     `You are a professional ${sourceLang} to ${targetLang} translator. ` +
     `Translate the following text segments from ${sourceLang} to ${targetLang}. ` +
     `The segments are separated by ||| tokens. ` +
     `You MUST preserve every ||| token exactly as-is in your output — do not remove, merge, or add any. ` +
+    countLine +
     `Translate each segment independently. Do not add any explanations.\n\n` +
     segments
   )

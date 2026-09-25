@@ -4,7 +4,7 @@ import {
 } from 'docx'
 import type { Block } from '@/types/leksis'
 import {
-  applyTranslatedSegments, BLOCK_SEP, countBlockChars, flattenBlocks, isProbablyScanned,
+  applySegments, blocksToSegments, countBlockChars, isProbablyScanned,
   parseDocx, parseFile, parseHtmlTable, parseTxt, stripInlineHtml, textToBlocks,
 } from '@/lib/file-parser'
 
@@ -34,7 +34,7 @@ describe('textToBlocks', () => {
   })
 })
 
-describe('flattenBlocks / applyTranslatedSegments', () => {
+describe('blocksToSegments / applySegments', () => {
   const blocks: Block[] = [
     { type: 'heading', level: 1, text: 'Title' },
     { type: 'paragraph', text: 'Body' },
@@ -42,13 +42,12 @@ describe('flattenBlocks / applyTranslatedSegments', () => {
     { type: 'table', headers: ['H1', 'H2'], rows: [['a', 'b']] },
   ]
 
-  it('joins text segments with |||, skipping page breaks', () => {
-    expect(flattenBlocks(blocks)).toBe(['Title', 'Body', 'H1', 'H2', 'a', 'b'].join(` ${BLOCK_SEP} `))
+  it('lists the texts in document order, skipping page breaks', () => {
+    expect(blocksToSegments(blocks)).toEqual(['Title', 'Body', 'H1', 'H2', 'a', 'b'])
   })
 
   it('round-trips: translated segments go back to the same structure', () => {
-    const translated = ['Titre', 'Corps', 'E1', 'E2', 'x', 'y'].join(` ${BLOCK_SEP} `)
-    expect(applyTranslatedSegments(blocks, translated)).toEqual([
+    expect(applySegments(blocks, ['Titre', 'Corps', 'E1', 'E2', 'x', 'y'])).toEqual([
       { type: 'heading', level: 1, text: 'Titre' },
       { type: 'paragraph', text: 'Corps' },
       { type: 'page-break' },
@@ -56,15 +55,11 @@ describe('flattenBlocks / applyTranslatedSegments', () => {
     ])
   })
 
-  it('tolerates spacing variations around |||', () => {
-    const out = applyTranslatedSegments(blocks.slice(0, 2), 'Titre|||Corps')
-    expect(out).toMatchObject([{ text: 'Titre' }, { text: 'Corps' }])
-  })
-
-  it('keeps the original text for a missing paragraph segment, blanks a missing table cell', () => {
-    const out = applyTranslatedSegments(blocks, 'Titre')
+  it('keeps the original text for any segment that is missing', () => {
+    const out = applySegments(blocks, ['Titre'])
+    expect(out[0]).toMatchObject({ text: 'Titre' })
     expect(out[1]).toMatchObject({ text: 'Body' })
-    expect(out[3]).toEqual({ type: 'table', headers: ['', ''], rows: [['', '']] })
+    expect(out[3]).toEqual({ type: 'table', headers: ['H1', 'H2'], rows: [['a', 'b']] })
   })
 })
 

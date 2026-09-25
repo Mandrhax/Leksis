@@ -7,6 +7,7 @@
 // Browser: set CHROME_PATH, otherwise Chrome / Chromium / Edge is looked up in the usual places.
 // Database: an in-memory PGlite exposed on a local port, loaded from docker/init-schema.sql — no Docker needed.
 import { spawn } from 'node:child_process'
+import { createServer } from 'node:http'
 import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -17,6 +18,7 @@ import puppeteer from 'puppeteer-core'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const APP_PORT = Number(process.env.E2E_APP_PORT ?? 3111)
 const DB_PORT = Number(process.env.E2E_DB_PORT ?? 5544)
+const AI_PORT = Number(process.env.E2E_AI_PORT ?? 11555)
 const BASE = `http://127.0.0.1:${APP_PORT}`
 
 function findBrowser() {
@@ -56,6 +58,27 @@ await db.exec(readFileSync(join(root, 'docker', 'init-schema.sql'), 'utf8').repl
 const dbServer = new PGLiteSocketServer({ db, port: DB_PORT, host: '127.0.0.1', maxConnections: 10 })
 await dbServer.start()
 
+// ── Fake AI server (Ollama API) ─────────────────────────────────
+// Upper-cases every segment. When a segment contains MERGE it behaves like a weak model: for a group of more than
+// two segments it drops the ||| separators, which is exactly what the document translation must survive.
+const aiCalls = []
+const aiServer = createServer((req, res) => {
+  let body = ''
+  req.on('data', d => { body += d })
+  req.on('end', () => {
+    res.setHeader('Content-Type', 'application/json')
+    if (req.url === '/api/tags') return res.end(JSON.stringify({ models: [{ name: 'fake-model', size: 1, modified_at: '' }] }))
+    if (req.url !== '/api/generate') { res.statusCode = 404; return res.end('{}') }
+    const { prompt } = JSON.parse(body)
+    const joined = prompt.split('\n\n').pop()
+    const parts = joined.split(' ||| ')
+    aiCalls.push({ segments: parts.length, chars: joined.length })
+    const weak = joined.includes('MERGE') && parts.length > 2
+    res.end(JSON.stringify({ response: (weak ? parts.join(' ') : joined).toUpperCase(), done: true }))
+  })
+})
+await new Promise(resolve => aiServer.listen(AI_PORT, '127.0.0.1', resolve))
+
 // ── App ─────────────────────────────────────────────────────────
 const env = {
   ...process.env,
@@ -67,6 +90,11 @@ const env = {
   ENCRYPTION_KEY: '0'.repeat(64),
   NEXTAUTH_URL: '',
   AUTH_URL: '',
+  AI_PROVIDER: 'ollama',
+  OLLAMA_BASE_URL: `http://127.0.0.1:${AI_PORT}`,
+  OLLAMA_MODEL: 'fake-model',
+  OLLAMA_OCR_MODEL: 'fake-model',
+  OLLAMA_REWRITE_MODEL: 'fake-model',
 }
 const app = spawn(process.execPath, [standalone], { env, stdio: ['ignore', 'pipe', 'pipe'] })
 let appLog = ''
@@ -200,6 +228,31 @@ try {
   const audit = await db.query("SELECT action FROM audit_log WHERE action = 'DISABLE_USER'")
   await adminPage.goto(BASE + '/admin/audit', { waitUntil: 'networkidle0' })
   check('the change is in the audit log', audit.rows.length === 1)
+  // ── Document translation: separators the model does not respect ──
+  const translateDoc = (lines) => adminPage.evaluate(async text => {
+    const form = new FormData()
+    form.append('file', new File([text], 'doc.txt', { type: 'text/plain' }))
+    form.append('targetLang', 'French')
+    form.append('sourceLang', 'English')
+    const r = await fetch('/api/translate/document', { method: 'POST', body: form })
+    return { status: r.status, json: await r.json() }
+  }, lines.join(String.fromCharCode(10)))
+  const texts = out => out.json.blocks?.map(b => b.text)
+
+  aiCalls.length = 0
+  const weak = await translateDoc(['one', 'two MERGE', 'three', 'four', 'five'])
+  check('a model that merges the separators still gives an aligned translation',
+    weak.status === 200 && JSON.stringify(texts(weak)) === JSON.stringify(['ONE', 'TWO MERGE', 'THREE', 'FOUR', 'FIVE']), JSON.stringify(weak).slice(0, 200))
+  check('the group was asked again and cut down instead of trusted', aiCalls.length > 2, JSON.stringify(aiCalls))
+  check('the server logged that the model did not respect the separators', appLog.includes('separators not respected'))
+
+  aiCalls.length = 0
+  const longLines = Array.from({ length: 8 }, (_, i) => 'paragraph ' + (i + 1) + ' ' + 'x'.repeat(480))
+  const long = await translateDoc(longLines)
+  check('a long document is translated in several calls, in order',
+    long.status === 200 && JSON.stringify(texts(long)) === JSON.stringify(longLines.map(l => l.toUpperCase())), String(long.status))
+  check('each call stays within the batch size', aiCalls.length >= 2 && aiCalls.every(c => c.chars <= 3200), JSON.stringify(aiCalls))
+
   check('no browser console errors on the admin pages', adminProblems.length === 0, adminProblems.join(' | '))
 
   check('no browser console errors or uncaught exceptions (e.g. hydration #418)', problems.length === 0, problems.join(' | '))
@@ -211,6 +264,7 @@ try {
   app.kill()
   await dbServer.stop().catch(() => {})
   await db.close().catch(() => {})
+  aiServer.close()
 }
 
 if (failures) console.log(`\n${failures} check(s) failed\n--- server log ---\n${appLog.split('\n').slice(-30).join('\n')}`)
