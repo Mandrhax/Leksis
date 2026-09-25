@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useRef, Suspense } from 'react'
+import { useState, useRef } from 'react'
 import { signIn } from 'next-auth/react'
-import { useSearchParams } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import { UILanguageSwitcher } from '@/components/ui/UILanguageSwitcher'
 
@@ -21,8 +20,6 @@ function safeCallbackPath(raw: string): string {
 }
 
 export function SignInForm({ siteName }: { siteName: string }) {
-  const searchParams = useSearchParams()
-  const callbackUrl  = searchParams.get('callbackUrl') ?? '/'
   const { t } = useI18n()
 
   const [step, setStep]       = useState<Step>('email')
@@ -78,6 +75,9 @@ export function SignInForm({ siteName }: { siteName: string }) {
         return
       }
 
+      // Lu à l'envoi seulement (pas de useSearchParams) : la page n'a ainsi aucune frontière Suspense qui retarderait son
+      // hydratation — elle s'hydratait après l'application de la langue du navigateur et provoquait l'erreur React #418.
+      const callbackUrl = new URLSearchParams(window.location.search).get('callbackUrl') ?? '/'
       window.location.href = safeCallbackPath(callbackUrl)
     } finally {
       setLoading(false)

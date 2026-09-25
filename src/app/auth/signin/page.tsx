@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { I18nProvider } from '@/lib/i18n'
 import { SignInForm } from '@/components/ui/SignInForm'
 
@@ -16,9 +15,7 @@ export default async function SignInPage() {
   const siteName = await loadSiteName()
   return (
     <I18nProvider>
-      <Suspense>
-        <SignInForm siteName={siteName} />
-      </Suspense>
+      <SignInForm siteName={siteName} />
     </I18nProvider>
   )
 }
