@@ -1009,6 +1009,11 @@ migrate_env() {
     _env_set AI_API_KEY "" "$env"
     p_info "Migrated .env: AI_PROVIDER=ollama."
   fi
+  # 1.5.0-beta.* named the OpenAI-compatible provider "vllm": back to the generic id
+  if [[ "$(env_get "$env" AI_PROVIDER)" == "vllm" ]]; then
+    _env_set AI_PROVIDER "openai" "$env"
+    p_info "Migrated .env: AI_PROVIDER=vllm -> openai."
+  fi
 }
 
 # clear_pinned_url — empties NEXTAUTH_URL in .env. Auth.js forces every redirect to that address, which

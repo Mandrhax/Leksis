@@ -46,8 +46,10 @@ async function readRaw(): Promise<{ raw: Record<string, unknown>; fromLegacy: bo
 export async function getAiConfig(): Promise<AiConfig> {
   const { raw, fromLegacy } = await readRaw()
   // Sans provider explicite en base (ou avec l'ancienne clé ollama_config), la variable d'environnement décide
-  const envProvider: AiProviderId = process.env.AI_PROVIDER === 'openai' ? 'openai' : 'ollama'
-  const explicit = fromLegacy ? '' : str(raw.provider)
+  // "vllm" : identifiant utilisé par les versions 1.5.0-beta.*, ramené au fournisseur générique
+  const normalize = (p: string) => (p === 'vllm' ? 'openai' : p)
+  const envProvider: AiProviderId = normalize(process.env.AI_PROVIDER ?? '') === 'openai' ? 'openai' : 'ollama'
+  const explicit = fromLegacy ? '' : normalize(str(raw.provider))
   const effectiveProvider: AiProviderId =
     explicit === 'openai' ? 'openai' : explicit === 'ollama' ? 'ollama' : envProvider
 
