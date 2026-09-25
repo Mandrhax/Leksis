@@ -67,10 +67,13 @@ export async function getAiConfig(): Promise<AiConfig> {
     provider:         effectiveProvider,
     baseUrl,
     apiKey,
-    // "model" : ancienne clé de compatibilité
-    translationModel: str(raw.translationModel) || str(raw.model) || process.env.OLLAMA_MODEL         || 'translategemma:27b',
-    ocrModel:         str(raw.ocrModel)         || process.env.OLLAMA_OCR_MODEL                        || 'maternion/LightOnOCR-2:latest',
-    rewriteModel:     str(raw.rewriteModel)     || process.env.OLLAMA_REWRITE_MODEL                    || 'qwen2.5:14b',
+    // "model" : ancienne clé de compatibilité. Pas de nom de modèle deviné en dernier
+    // recours : un défaut arbitraire (ex. un modèle non installé sur le serveur configuré)
+    // échouerait silencieusement de toute façon — mieux vaut une chaîne vide explicite,
+    // que l'admin comble depuis la liste réelle des modèles du serveur.
+    translationModel: str(raw.translationModel) || str(raw.model) || process.env.OLLAMA_MODEL         || '',
+    ocrModel:         str(raw.ocrModel)         || process.env.OLLAMA_OCR_MODEL                        || '',
+    rewriteModel:     str(raw.rewriteModel)     || process.env.OLLAMA_REWRITE_MODEL                    || '',
     allowExternal:    raw.allowExternal === true,
   }
 }

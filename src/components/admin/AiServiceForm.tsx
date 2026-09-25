@@ -82,6 +82,26 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
   }
   const canPull = provider === 'ollama' && metrics?.provider === 'ollama' && currentKey === savedKey
 
+  // Aucun modèle configuré et le serveur en propose : préremplir avec le premier disponible
+  // plutôt que de laisser un champ vide ou un nom deviné au hasard. Une seule fois — ne doit
+  // jamais écraser un choix que l'utilisateur est en train de faire.
+  const autoFilled = useRef(false)
+  useEffect(() => {
+    if (autoFilled.current || !installed || installed.length === 0) return
+    autoFilled.current = true
+    const first = installed[0].name
+    setData(prev => (
+      prev.translationModel && prev.ocrModel && prev.rewriteModel
+        ? prev
+        : {
+            ...prev,
+            translationModel: prev.translationModel || first,
+            ocrModel:         prev.ocrModel || first,
+            rewriteModel:     prev.rewriteModel || first,
+          }
+    ))
+  }, [installed])
+
   function setField<K extends keyof ModelsData>(k: K, v: ModelsData[K]) {
     setData(prev => {
       const next = { ...prev, [k]: v }
