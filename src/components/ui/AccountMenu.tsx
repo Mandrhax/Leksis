@@ -1,6 +1,7 @@
 'use client'
 
-import { useSession, signOut } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
+import { signOutToSignIn } from '@/lib/sign-out'
 import Link from 'next/link'
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -105,7 +106,7 @@ export function AccountMenu() {
       </Link>
 
       <button
-        onClick={() => { setOpen(false); signOut({ callbackUrl: '/auth/signin' }) }}
+        onClick={() => { setOpen(false); signOutToSignIn() }}
         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-error
                    hover:bg-surface-container-low transition-colors"
       >

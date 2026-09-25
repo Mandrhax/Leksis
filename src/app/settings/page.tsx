@@ -1,6 +1,7 @@
 'use client'
 
-import { useSession, signOut } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
+import { signOutToSignIn } from '@/lib/sign-out'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import { I18nProvider, useI18n } from '@/lib/i18n'
@@ -170,7 +171,7 @@ function SettingsContent() {
               {t.settingsPage.sessionDesc}
             </p>
             <button
-              onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+              onClick={() => signOutToSignIn()}
               className="flex items-center gap-2 text-sm font-medium text-error hover:text-error/80 transition-colors"
             >
               <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">logout</span>
