@@ -31,7 +31,7 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 - [x] Reset : retirer `?v=…` avant `unlink`, ajouter `basename`, inclure `features` dans les défauts
 - [x] Ollama : supprimer `keep_alive: -1` des requêtes (`ollama-provider.ts`)
 - [x] Ollama : gérer les lignes `{"error":…}` dans le flux NDJSON
-- [ ] Ollama : définir `num_ctx` — **en attente de la valeur choisie par l'utilisateur** (selon la VRAM)
+- [x] Ollama : définir `num_ctx` — réglage admin (Services → AI → Models), défaut 8192, aussi appliqué au « Load into VRAM »
 - [x] `extract/document` : garde de fonctionnalité + `getDynamicLimits()` au lieu de la constante
 - [x] Supprimer `.doc` : `validators.ts`, `parseFile`, `accept=` dans `DocumentStudioTab`, README
 - [x] `<html lang>` selon la locale d'interface (au lieu de `fr` en dur)
@@ -41,17 +41,17 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 
 ## Phase 2 : Sécurité des routes
 
-- [ ] Garde commun `requireUser()` (401 JSON) dans les 6 routes IA/export (S2)
-- [ ] Y intégrer le mode maintenance : 503 pour les non-admins
-- [ ] Rate-limit par utilisateur sur translate, rewrite, ocr, translate/document, extract/document (seuils à choisir avec l'utilisateur)
-- [ ] Rate-limit sur `/api/auth/otp`
-- [ ] Plafond de taille : fichiers, JSON export docx, import de config ; Caddy `request_body max_size` (Caddyfile + `caddy-config.ts` + `install.sh` identiques)
-- [ ] Plafond de pages pour l'OCR de PDF scanné + `pdf.destroy()`
-- [ ] Export docx : nettoyer `filename` (RFC 5987), valider la taille des `blocks`
-- [ ] Valider `sourceLang`/`targetLang` avant les prompts
-- [ ] Export CSV usage : neutraliser les formules, guillemets sur les champs
-- [ ] Ne plus renvoyer `err.message` au client (logo, background, users/[id], extraction)
-- [ ] Supprimer les `console.log` de debug de logo et background
+- [x] Garde commun `requireUser()` (401 JSON) dans les 6 routes IA/export (S2) — `src/lib/user-guard.ts`
+- [x] Y intégrer le mode maintenance : 503 pour les non-admins — 503 `maintenance` pour les non-admins
+- [x] Rate-limit par utilisateur sur translate, rewrite, ocr, translate/document, extract/document (seuils à choisir avec l'utilisateur) — 30/min par défaut, réglable dans Admin → Réglages → Features & limits (0 = illimité)
+- [x] Rate-limit sur `/api/auth/otp` — 20/min par IP, 5/min par email
+- [x] Plafond de taille : fichiers, JSON export docx, import de config ; Caddy `request_body max_size` (Caddyfile + `caddy-config.ts` + `install.sh` identiques) — documents 10 Mo, images = limite admin, export docx 5 Mo, import config 15 Mo (413 avant lecture du corps) ; Caddy `max_size 50MB` dans les 3 générateurs (vérifiés identiques)
+- [x] Plafond de pages pour l'OCR de PDF scanné + `pdf.destroy()` — 20 pages (`OCR_MAX_PDF_PAGES`) + `pdf.destroy()`
+- [x] Export docx : nettoyer `filename` (RFC 5987), valider la taille des `blocks` — corps validé par zod, 20 000 blocs max, `Content-Disposition` RFC 5987
+- [x] Valider `sourceLang`/`targetLang` avant les prompts — noms, codes, formality, length ; les 41 langues de l'UI passent
+- [x] Export CSV usage : neutraliser les formules, guillemets sur les champs
+- [x] Ne plus renvoyer `err.message` au client (logo, background, users/[id], extraction)
+- [x] Supprimer les `console.log` de debug de logo et background
 
 ## Phase 3 : Sessions, audit, OTP
 
@@ -73,7 +73,7 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 
 ## Phase 5 : Code mort et doublons
 
-- [ ] Supprimer `AdminToastWrapper.tsx`, `NO_CAPABILITIES`, `validateDocumentInput`, `RewriteTone`
+- [ ] Supprimer `AdminToastWrapper.tsx`, `NO_CAPABILITIES`, `validateDocumentInput` (déjà fait en Phase 2), `RewriteTone`
 - [ ] Supprimer le type `html` de `Block` et ses branches (file-parser ×3, DocumentStudioTab ×2)
 - [ ] Supprimer le réglage `seo` (PATCH, reset, export)
 - [ ] Factoriser les helpers de parsing de tables HTML (`file-parser` / `pdf-vision`)

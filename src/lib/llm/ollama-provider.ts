@@ -1,11 +1,11 @@
 import 'server-only'
-import type { LlmModel, LlmProvider, LlmRequest } from './types'
+import { DEFAULT_NUM_CTX, type LlmModel, type LlmProvider, type LlmRequest } from './types'
 
 /**
  * Fournisseur Ollama — API native /api/generate (NDJSON).
  * Le serveur applique lui-même le template du modèle (system + prompt).
  */
-export function createOllamaProvider(baseUrl: string): LlmProvider {
+export function createOllamaProvider(baseUrl: string, numCtx = DEFAULT_NUM_CTX): LlmProvider {
   const base = baseUrl.replace(/\/+$/, '')
 
   function payload(req: LlmRequest, stream: boolean): string {
@@ -14,6 +14,8 @@ export function createOllamaProvider(baseUrl: string): LlmProvider {
       prompt: req.prompt,
       ...(req.system ? { system: req.system } : {}),
       stream,
+      // Sans num_ctx, Ollama applique son contexte par défaut (petit) et tronque les longs textes en silence
+      options: { num_ctx: numCtx },
       ...(req.images?.length ? { images: req.images } : {}),
     })
   }

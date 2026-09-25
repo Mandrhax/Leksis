@@ -23,6 +23,7 @@ interface FeaturesLimits {
   maxTextChars:  number
   maxDocChars:   number
   maxImageMB:    number
+  rateLimitPerMin: number
 }
 
 interface FeaturesData {
@@ -34,7 +35,7 @@ interface FeaturesData {
 const DEFAULT_FEATURES: FeaturesData = {
   tabs:             { text: true, document: true, image: true, rewrite: true },
   defaults:         { sourceLang: 'auto', targetLang: 'en', formality: 'Informal' },
-  limits:           { maxTextChars: 5000, maxDocChars: 12000, maxImageMB: 10 },
+  limits:           { maxTextChars: 5000, maxDocChars: 12000, maxImageMB: 10, rateLimitPerMin: 30 },
 }
 
 interface Props {
@@ -85,7 +86,8 @@ export function FeaturesForm({ initial, onToast }: Props) {
 
   function setLimit(field: keyof FeaturesLimits, raw: string) {
     const n = parseInt(raw, 10)
-    if (!isNaN(n) && n > 0) {
+    // 0 = illimité, autorisé seulement pour la limite de débit
+    if (!isNaN(n) && (n > 0 || (field === 'rateLimitPerMin' && n === 0))) {
       setData(prev => ({ ...prev, limits: { ...prev.limits, [field]: n } }))
     }
   }
@@ -228,6 +230,19 @@ export function FeaturesForm({ initial, onToast }: Props) {
                 className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
               />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm text-on-surface mb-1.5">
+              {t.featuresForm.rateLimitLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.rateLimitUnit}</span>
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={data.limits.rateLimitPerMin}
+              onChange={e => setLimit('rateLimitPerMin', e.target.value)}
+              className="w-full sm:w-1/3 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+            />
+            <p className="mt-1 text-xs text-on-surface-variant">{t.featuresForm.rateLimitHint}</p>
           </div>
         </div>
       </div>

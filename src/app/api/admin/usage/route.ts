@@ -15,6 +15,14 @@ interface UsageRow {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
+// Champ CSV entre guillemets. Une valeur qui commence par = + - @ (ou tab / retour chariot) serait lue comme
+// une formule par Excel/LibreOffice — les emails sont saisis librement — on la préfixe donc d'une apostrophe.
+function csvField(value: string | number | null | undefined): string {
+  let s = String(value ?? '')
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
+  return `"${s.replace(/"/g, '""')}"`
+}
+
 export async function GET(req: NextRequest) {
   const session = await getAdminSession()
   if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
@@ -51,11 +59,11 @@ export async function GET(req: NextRequest) {
       new Date(r.created_at).toISOString(),
       r.user_email,
       r.feature,
-      r.source_lang ?? '',
-      r.target_lang ?? '',
-      r.model       ?? '',
-      r.char_count  ?? '',
-    ].join(','))
+      r.source_lang,
+      r.target_lang,
+      r.model,
+      r.char_count,
+    ].map(csvField).join(','))
     const csv = [header, ...lines].join('\n')
     return new Response(csv, {
       headers: {

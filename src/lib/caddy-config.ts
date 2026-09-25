@@ -93,6 +93,9 @@ export function normalizeCaddyConfig(input: {
 export function generateCaddyfile(config: CaddyConfig): string {
   const trusted = ['private_ranges', config.trustedProxies].filter(Boolean).join(' ')
   const proxy = (): string[] => [
+    '    request_body {',
+    '        max_size 50MB',
+    '    }',
     '    reverse_proxy app:3000 {',
     '        header_up X-Real-IP {remote_host}',
     '    }',

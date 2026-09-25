@@ -45,7 +45,6 @@ export async function PATCH(
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[PATCH /api/admin/users/[id]]', err)
-    const message = err instanceof Error ? err.message : String(err)
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur interne du serveur.' }, { status: 500 })
   }
 }

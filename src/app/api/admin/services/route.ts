@@ -17,6 +17,7 @@ const AiSchema = z.object({
   rewriteModel:     z.string().min(1),
   sameModelForAll:  z.boolean().optional(),
   allowExternal:    z.boolean().optional(),
+  numCtx:           z.number().int().min(2048).max(262144).optional(),  // Ollama : contexte en tokens
 })
 
 const DbSchema = z.object({
@@ -93,6 +94,7 @@ export async function PATCH(req: NextRequest) {
       rewriteModel:     data.sameModelForAll ? data.translationModel : data.rewriteModel,
       sameModelForAll:  data.sameModelForAll ?? false,
       allowExternal,
+      numCtx:           data.numCtx ?? current.numCtx,
     }
     // Le journal d'audit ne reçoit jamais la clé, même chiffrée
     await updateSetting('ai_config', value, session.user.id, session.user.email!, {
@@ -102,6 +104,7 @@ export async function PATCH(req: NextRequest) {
       ocrModel:         value.ocrModel,
       rewriteModel:     value.rewriteModel,
       allowExternal,
+      numCtx:           value.numCtx,
       hasApiKey:        apiKeyEnc !== '',
     })
   } else if (data.service === 'db') {

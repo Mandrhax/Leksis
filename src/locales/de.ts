@@ -344,6 +344,9 @@ export const messages = {
     docLimitUnit:     '(Zeichen)',
     imageLimitLabel:  'Bild',
     imageLimitUnit:   '(MB)',
+    rateLimitLabel:   'Anfragen pro Minute und Benutzer',
+    rateLimitUnit:    '(Anfragen)',
+    rateLimitHint:    'Begrenzt die KI-Aufrufe (Übersetzung, Umschreiben, OCR, Dokumente) jedes Benutzers. 0 = unbegrenzt.',
     save:             'Speichern',
     toastSaved:       'Funktionen gespeichert.',
     toastError:       'Fehler beim Speichern.',
@@ -367,6 +370,8 @@ export const messages = {
   ollamaForm: {
     serverUrlLabel:   'Server-URL',
     sameModelLabel:   'Dasselbe Modell für alle Funktionen verwenden',
+    numCtxLabel:      'Kontextfenster (Tokens)',
+    numCtxHint:       'Wird bei jeder Anfrage an Ollama mitgesendet. Höhere Werte lassen längere Dokumente ungekürzt durch, brauchen aber mehr GPU-Speicher; eine Änderung lädt die Modelle neu. Standard: {0}.',
     modelAllLabel:    'Modell (alle Funktionen)',
     modelTranslation: 'Übersetzungsmodell',
     modelRewrite:     'Umschreibungsmodell',

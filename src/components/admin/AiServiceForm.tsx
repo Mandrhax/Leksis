@@ -5,7 +5,7 @@ import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
 import { useOllamaMetrics } from './OllamaMetrics'
 import { OllamaModelSelect, type ModelSuggestion, type InstalledModel } from './OllamaModelSelect'
-import type { AiPublicConfig, AiProviderId } from '@/lib/llm/types'
+import { DEFAULT_NUM_CTX, type AiPublicConfig, type AiProviderId } from '@/lib/llm/types'
 
 // Approximate download sizes, shown next to Ollama models that are not installed yet
 const TRANSLATION_SUGGESTIONS: ModelSuggestion[] = [
@@ -58,6 +58,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
   const [hasApiKey,     setHasApiKey]     = useState(initial.hasApiKey)
   const [clearApiKey,   setClearApiKey]   = useState(false)
   const [allowExternal, setAllowExternal] = useState(initial.allowExternal)
+  const [numCtx,        setNumCtx]        = useState(String(initial.numCtx ?? DEFAULT_NUM_CTX))
   const [data, setData] = useState<ModelsData>({
     translationModel: initial.translationModel,
     ocrModel:         initial.ocrModel,
@@ -72,6 +73,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
   const [result,   setResult]   = useState<TestResult | null>(null)
 
   const currentKey = `${provider}|${trimSlash(baseUrl)}`
+  const numCtxValid = /^d+$/.test(numCtx) && Number(numCtx) >= 2048 && Number(numCtx) <= 262144
 
   // Modèles du serveur : métriques du serveur enregistré, ou résultat du dernier test pour ce serveur
   let installed: InstalledModel[] | null = null
@@ -143,6 +145,8 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
         rewriteModel:     data.sameModelForAll ? data.translationModel : data.rewriteModel,
         sameModelForAll:  data.sameModelForAll,
         allowExternal,
+        // Contexte Ollama : ignoré (et non envoyé) avec une API OpenAI-compatible ; valeur invalide → défaut serveur
+        ...(provider === 'ollama' && numCtxValid ? { numCtx: Number(numCtx) } : {}),
       }
       const res = await fetch('/api/admin/services', {
         method: 'PATCH',
@@ -432,6 +436,24 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
               />
             </div>
           )}
+
+          {/* Contexte Ollama */}
+          {provider === 'ollama' && (
+            <div>
+              <label htmlFor="ai-num-ctx" className="block text-sm text-on-surface mb-1.5">{of.numCtxLabel}</label>
+              <input
+                id="ai-num-ctx"
+                type="number"
+                min={2048}
+                max={262144}
+                step={1024}
+                value={numCtx}
+                onChange={e => setNumCtx(e.target.value)}
+                className={`${inputCls} sm:w-1/3 ${numCtxValid ? '' : 'border-error/60'}`}
+              />
+              <p className="mt-1 text-xs text-on-surface-variant">{of.numCtxHint.replace('{0}', String(DEFAULT_NUM_CTX))}</p>
+            </div>
+          )}
         </>
       )}
 
@@ -461,7 +483,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
           </button>
         )}
         <div className="flex-1" />
-        <button onClick={() => handleSave()} disabled={saving || !baseUrl} className="action-btn disabled:opacity-40">
+        <button onClick={() => handleSave()} disabled={saving || !baseUrl || (provider === 'ollama' && !numCtxValid)} className="action-btn disabled:opacity-40">
           {saving ? spinner : (
             <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>
           )}

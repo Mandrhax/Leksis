@@ -3,16 +3,22 @@ import { getAiOrError } from '@/lib/llm'
 import { buildRewritePrompt, buildCorrectPrompt, buildLangClause } from '@/lib/prompts'
 
 export const maxDuration = 300
-import { validateTextInput } from '@/lib/validators'
+import { validateTextInput, isValidLangName } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
 import { logUsage } from '@/lib/usage'
 import { isFeatureEnabled } from '@/lib/features-guard'
-import { auth } from '@/auth'
+import { requireUser } from '@/lib/user-guard'
 import { getConfiguredTones } from '@/lib/tones'
 import { fetchGlossaryEntries, buildRewriteGlossaryClause } from '@/lib/glossary'
 import type { RewriteMode, RewriteLength } from '@/types/leksis'
 
+const LENGTHS: RewriteLength[] = ['Shorter', 'Keep', 'Longer']
+
 export async function POST(req: NextRequest) {
+  const guard = await requireUser({ rateLimit: true })
+  if (guard.error) return guard.error
+  const { session } = guard
+
   if (!await isFeatureEnabled('rewrite')) {
     return NextResponse.json({ error: 'This feature is disabled.' }, { status: 403 })
   }
@@ -41,6 +47,12 @@ export async function POST(req: NextRequest) {
   if (!mode || (mode !== 'rewrite' && mode !== 'correct')) {
     return NextResponse.json({ error: 'Invalid mode. Use "rewrite" or "correct".' }, { status: 400 })
   }
+  if (length !== undefined && !LENGTHS.includes(length)) {
+    return NextResponse.json({ error: 'Invalid length.' }, { status: 400 })
+  }
+  if (sourceLang && !isValidLangName(sourceLang)) {
+    return NextResponse.json({ error: 'Invalid language.' }, { status: 400 })
+  }
 
   const langClause = buildLangClause(sourceLang || 'the same language as the input')
 
@@ -55,14 +67,13 @@ export async function POST(req: NextRequest) {
     toneInstruction = matched.instruction
   }
 
-  const session = await auth()
   const ai = await getAiOrError()
   if (ai.error) return ai.error
   const { cfg, provider } = ai.ai
 
   // Fetch glossary server-side — rewrite is same-language, so only use "any → any" entries
   const glossaryEntries = await fetchGlossaryEntries(
-    session?.user?.id,
+    session.user.id,
     '',
     '',
     text,
@@ -81,8 +92,8 @@ export async function POST(req: NextRequest) {
       })
 
   logUsage({
-    userId:    session?.user?.id,
-    userEmail: session?.user?.email ?? 'anonymous',
+    userId:    session.user.id,
+    userEmail: session.user.email ?? 'unknown',
     feature:   'rewrite',
     sourceLang: sourceLang,
     model:     cfg.rewriteModel,

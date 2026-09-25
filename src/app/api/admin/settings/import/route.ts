@@ -5,6 +5,10 @@ import { getAdminSession }           from '@/lib/admin-guard'
 import { updateSetting, getSetting } from '@/lib/settings'
 import { logAudit }                  from '@/lib/audit'
 import { withTransaction }            from '@/lib/db'
+import { requestTooLarge }           from '@/lib/validators'
+
+// Une config exportée embarque logo (2 Mo) et fond (5 Mo) en base64 : 15 Mo laissent de la marge
+const MAX_IMPORT_BYTES = 15 * 1024 * 1024
 
 const ALLOWED_KEYS = [
   'branding',
@@ -51,6 +55,10 @@ async function writeAsset(asset: AssetInput | null | undefined, slug: string): P
 export async function POST(req: NextRequest) {
   const session = await getAdminSession()
   if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+
+  if (requestTooLarge(req, MAX_IMPORT_BYTES)) {
+    return NextResponse.json({ error: 'Fichier de backup trop volumineux.' }, { status: 413 })
+  }
 
   const body = await req.json().catch(() => null)
 

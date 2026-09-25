@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/admin-guard'
-import { getOllamaAdminBase, aiErrorResponse } from '@/lib/llm'
+import { getOllamaAdminBase, getAiConfig, aiErrorResponse } from '@/lib/llm'
 
 export async function POST(req: NextRequest) {
   const session = await getAdminSession()
@@ -21,6 +21,9 @@ export async function POST(req: NextRequest) {
     return aiErrorResponse(err) ?? NextResponse.json({ error: 'AI configuration error' }, { status: 500 })
   }
 
+  // Même num_ctx que les requêtes réelles : sinon Ollama rechargerait le modèle à la première utilisation
+  const { numCtx } = await getAiConfig()
+
   const loaded: string[] = []
   const errors: { model: string; error: string }[] = []
 
@@ -29,7 +32,7 @@ export async function POST(req: NextRequest) {
       const res = await fetch(`${baseUrl}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, prompt: '', stream: false, keep_alive: -1 }),
+        body: JSON.stringify({ model, prompt: '', stream: false, keep_alive: -1, options: { num_ctx: numCtx } }),
         signal: AbortSignal.timeout(120_000),
       })
       if (res.ok) {

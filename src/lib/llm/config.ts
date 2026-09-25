@@ -4,7 +4,7 @@ import { decrypt } from '@/lib/crypto'
 import { isExternalUrl } from './network'
 import { createOllamaProvider } from './ollama-provider'
 import { createOpenAiProvider } from './openai-provider'
-import type { AiProviderId, AiPublicConfig, LlmProvider } from './types'
+import { DEFAULT_NUM_CTX, type AiProviderId, type AiPublicConfig, type LlmProvider } from './types'
 
 export interface AiConfig {
   provider:         AiProviderId
@@ -16,6 +16,8 @@ export interface AiConfig {
   rewriteModel:     string
   /** Autorise un serveur IA hors réseau privé (les textes quittent le réseau) */
   allowExternal:    boolean
+  /** Fenêtre de contexte Ollama (tokens) — sans effet avec une API OpenAI-compatible */
+  numCtx:           number
 }
 
 export class AiConfigError extends Error {
@@ -75,6 +77,7 @@ export async function getAiConfig(): Promise<AiConfig> {
     ocrModel:         str(raw.ocrModel)         || process.env.OLLAMA_OCR_MODEL                        || '',
     rewriteModel:     str(raw.rewriteModel)     || process.env.OLLAMA_REWRITE_MODEL                    || '',
     allowExternal:    raw.allowExternal === true,
+    numCtx:           typeof raw.numCtx === 'number' && Number.isInteger(raw.numCtx) && raw.numCtx > 0 ? raw.numCtx : DEFAULT_NUM_CTX,
   }
 }
 
@@ -91,13 +94,14 @@ export async function getAiPublicConfig(): Promise<AiPublicConfig> {
     sameModelForAll:  raw.sameModelForAll === true,
     allowExternal:    cfg.allowExternal,
     hasApiKey:        cfg.apiKey !== '',
+    numCtx:           cfg.numCtx,
   }
 }
 
-export function createProvider(cfg: Pick<AiConfig, 'provider' | 'baseUrl' | 'apiKey'>): LlmProvider {
+export function createProvider(cfg: Pick<AiConfig, 'provider' | 'baseUrl' | 'apiKey'> & { numCtx?: number }): LlmProvider {
   return cfg.provider === 'openai'
     ? createOpenAiProvider(cfg.baseUrl, cfg.apiKey)
-    : createOllamaProvider(cfg.baseUrl)
+    : createOllamaProvider(cfg.baseUrl, cfg.numCtx)
 }
 
 /** Refuse un serveur IA externe tant que l'admin ne l'a pas autorisé. */

@@ -3,15 +3,19 @@ import { NextRequest, NextResponse } from 'next/server'
 export const maxDuration = 300 // 5 min — needed for large model cold-start + long texts
 import { getAiOrError } from '@/lib/llm'
 import { buildTranslationPrompt, buildMarkdownTranslationPrompt } from '@/lib/prompts'
-import { validateTextInput } from '@/lib/validators'
+import { validateTextInput, isValidLangName, isValidLangCode } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
 import { logUsage } from '@/lib/usage'
 import { isFeatureEnabled } from '@/lib/features-guard'
-import { auth } from '@/auth'
+import { requireUser } from '@/lib/user-guard'
 import { fetchGlossaryEntries, buildTranslationGlossaryClause } from '@/lib/glossary'
 import type { Formality } from '@/types/leksis'
 
 export async function POST(req: NextRequest) {
+  const guard = await requireUser({ rateLimit: true })
+  if (guard.error) return guard.error
+  const { session } = guard
+
   if (!await isFeatureEnabled('text')) {
     return NextResponse.json({ error: 'This feature is disabled.' }, { status: 403 })
   }
@@ -43,21 +47,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Target language is required.' }, { status: 400 })
   }
 
-  const session = await auth()
+  // Ces valeurs sont insérées telles quelles dans le prompt : format strict
+  if (
+    !isValidLangName(targetLang) || !isValidLangCode(targetCode) ||
+    (sourceLang && !isValidLangName(sourceLang)) || (sourceCode && !isValidLangCode(sourceCode))
+  ) {
+    return NextResponse.json({ error: 'Invalid language.' }, { status: 400 })
+  }
+  if (formality != null && formality !== 'Formal' && formality !== 'Informal') {
+    return NextResponse.json({ error: 'Invalid formality.' }, { status: 400 })
+  }
+
   const ai = await getAiOrError()
   if (ai.error) return ai.error
   const { cfg, provider } = ai.ai
 
   // Fetch glossary server-side (respects user preferences)
   const glossaryEntries = await fetchGlossaryEntries(
-    session?.user?.id,
+    session.user.id,
     sourceCode || 'auto',
     targetCode,
     text,
   )
   const glossaryClause = buildTranslationGlossaryClause(glossaryEntries)
 
-  const prompt = markdownMode
+  const prompt = markdownMode === true
     ? buildMarkdownTranslationPrompt({ sourceLang: sourceLang || 'Unknown', targetLang, text })
     : buildTranslationPrompt({
         sourceLang: sourceLang || 'Unknown',
@@ -70,8 +84,8 @@ export async function POST(req: NextRequest) {
       })
 
   logUsage({
-    userId:    session?.user?.id,
-    userEmail: session?.user?.email ?? 'anonymous',
+    userId:    session.user.id,
+    userEmail: session.user.email ?? 'unknown',
     feature:   'text',
     sourceLang: sourceCode || 'auto',
     targetLang: targetCode,

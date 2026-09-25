@@ -1,23 +1,37 @@
 import 'server-only'
-import { TEXT_MAX_CHARS, DOCUMENT_MAX_CHARS, IMAGE_MAX_BYTES } from '@/lib/validators'
+import { TEXT_MAX_CHARS, DOCUMENT_MAX_CHARS, IMAGE_MAX_BYTES, RATE_LIMIT_PER_MIN } from '@/lib/validators'
+
+export interface DynamicLimits {
+  maxTextChars:    number
+  maxDocChars:     number
+  maxImageBytes:   number
+  /** Appels IA par minute et par utilisateur (0 = illimité) */
+  rateLimitPerMin: number
+}
 
 /**
  * Lit les limites configurables depuis la DB.
  * Server-only — retourne les defaults si la DB est inaccessible.
  */
-export async function getDynamicLimits(): Promise<{ maxTextChars: number; maxDocChars: number; maxImageBytes: number }> {
+export async function getDynamicLimits(): Promise<DynamicLimits> {
   try {
     const { getSetting } = await import('@/lib/settings')
     const cfg = await getSetting<{
-      limits?: { maxTextChars?: number; maxDocChars?: number; maxImageMB?: number }
+      limits?: { maxTextChars?: number; maxDocChars?: number; maxImageMB?: number; rateLimitPerMin?: number }
     }>('features')
     const limits = cfg?.limits ?? {}
     return {
-      maxTextChars:  limits.maxTextChars ?? TEXT_MAX_CHARS,
-      maxDocChars:   limits.maxDocChars  ?? DOCUMENT_MAX_CHARS,
-      maxImageBytes: (limits.maxImageMB ?? 10) * 1024 * 1024,
+      maxTextChars:    limits.maxTextChars ?? TEXT_MAX_CHARS,
+      maxDocChars:     limits.maxDocChars  ?? DOCUMENT_MAX_CHARS,
+      maxImageBytes:   (limits.maxImageMB ?? 10) * 1024 * 1024,
+      rateLimitPerMin: typeof limits.rateLimitPerMin === 'number' ? limits.rateLimitPerMin : RATE_LIMIT_PER_MIN,
     }
   } catch {
-    return { maxTextChars: TEXT_MAX_CHARS, maxDocChars: DOCUMENT_MAX_CHARS, maxImageBytes: IMAGE_MAX_BYTES }
+    return {
+      maxTextChars:    TEXT_MAX_CHARS,
+      maxDocChars:     DOCUMENT_MAX_CHARS,
+      maxImageBytes:   IMAGE_MAX_BYTES,
+      rateLimitPerMin: RATE_LIMIT_PER_MIN,
+    }
   }
 }

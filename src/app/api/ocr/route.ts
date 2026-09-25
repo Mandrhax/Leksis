@@ -3,16 +3,27 @@ import { getAiOrError } from '@/lib/llm'
 import { buildOcrPrompt } from '@/lib/prompts'
 
 export const maxDuration = 300
-import { validateImageSize } from '@/lib/validators'
+import { validateImageSize, requestTooLarge } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
 import { logUsage } from '@/lib/usage'
 import { isFeatureEnabled } from '@/lib/features-guard'
-import { auth } from '@/auth'
+import { requireUser } from '@/lib/user-guard'
 
 export async function POST(req: NextRequest) {
+  const guard = await requireUser({ rateLimit: true })
+  if (guard.error) return guard.error
+  const { session } = guard
+
   if (!await isFeatureEnabled('image')) {
     return NextResponse.json({ error: 'This feature is disabled.' }, { status: 403 })
   }
+
+  // Refus avant de lire le corps : évite de charger un fichier énorme en mémoire
+  const { maxImageBytes } = await getDynamicLimits()
+  if (requestTooLarge(req, maxImageBytes)) {
+    return NextResponse.json({ error: validateImageSize(Infinity, maxImageBytes) }, { status: 413 })
+  }
+
   let formData: FormData
   try {
     formData = await req.formData()
@@ -28,21 +39,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Unsupported image type: ${image.type}` }, { status: 400 })
   }
 
-  const { maxImageBytes } = await getDynamicLimits()
   const sizeError = validateImageSize(image.size, maxImageBytes)
   if (sizeError) return NextResponse.json({ error: sizeError }, { status: 400 })
 
   const arrayBuffer = await image.arrayBuffer()
   const base64 = Buffer.from(arrayBuffer).toString('base64')
 
-  const session = await auth()
   const ai = await getAiOrError()
   if (ai.error) return ai.error
   const { cfg, provider } = ai.ai
 
   logUsage({
-    userId:    session?.user?.id,
-    userEmail: session?.user?.email ?? 'anonymous',
+    userId:    session.user.id,
+    userEmail: session.user.email ?? 'unknown',
     feature:   'image',
     model:     cfg.ocrModel,
     charCount: Math.round(image.size / 1024), // Ko

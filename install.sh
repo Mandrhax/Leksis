@@ -1682,14 +1682,14 @@ caddyfile_content() {
   printf '{\n  admin 0.0.0.0:2019\n  servers {\n    trusted_proxies static %s\n  }\n}\n\n' "$tp"
   case "$mode" in
     https)
-      printf '%s {\n    encode gzip\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' "$host"
+      printf '%s {\n    encode gzip\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' "$host"
       if [[ "$fallback" == "true" ]]; then
-        printf '\n:80 {\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n'
+        printf '\n:80 {\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n'
       fi ;;
     proxy)
-      printf ':80 {\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' ;;
+      printf ':80 {\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' ;;
     *)
-      printf ':80 {\n    encode gzip\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' ;;
+      printf ':80 {\n    encode gzip\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' ;;
   esac
 }
 

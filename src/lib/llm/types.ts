@@ -3,6 +3,9 @@
 
 export type AiProviderId = 'ollama' | 'openai'
 
+/** Fenêtre de contexte demandée à Ollama (tokens) quand l'admin n'en a pas choisi. */
+export const DEFAULT_NUM_CTX = 8192
+
 export interface LlmRequest {
   prompt:  string
   system?: string
@@ -65,6 +68,8 @@ export interface AiPublicConfig {
   sameModelForAll:  boolean
   allowExternal:    boolean
   hasApiKey:        boolean
+  /** Contexte Ollama en tokens (ignoré par les API OpenAI-compatibles) */
+  numCtx:           number
 }
 
 export const NO_CAPABILITIES: LlmCapabilities = {

@@ -342,6 +342,9 @@ export const messages = {
     docLimitUnit:     '(characters)',
     imageLimitLabel:  'Image',
     imageLimitUnit:   '(MB)',
+    rateLimitLabel:   'Requests per minute and per user',
+    rateLimitUnit:    '(requests)',
+    rateLimitHint:    'Limits AI calls (translation, rewrite, OCR, documents) for each user. 0 = unlimited.',
     save:             'Save',
     toastSaved:       'Features saved.',
     toastError:       'Error saving.',
@@ -365,6 +368,8 @@ export const messages = {
   ollamaForm: {
     serverUrlLabel:   'Server URL',
     sameModelLabel:   'Use the same model for all features',
+    numCtxLabel:      'Context window (tokens)',
+    numCtxHint:       'Sent with every request to Ollama. Higher values let longer documents through untruncated but use more GPU memory; changing it reloads the models. Default: {0}.',
     modelAllLabel:    'Model (all features)',
     modelTranslation: 'Translation model',
     modelRewrite:     'Rewrite model',

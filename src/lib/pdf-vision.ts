@@ -5,6 +5,7 @@
 import type { LlmProvider } from '@/lib/llm/types'
 import { buildOcrPrompt } from '@/lib/prompts'
 import { textToBlocks } from '@/lib/file-parser'
+import { OCR_MAX_PDF_PAGES } from '@/lib/validators'
 import type { Block } from '@/types/leksis'
 
 function stripInlineHtml(html: string): string {
@@ -64,6 +65,14 @@ function parseOcrOutput(text: string): Block[] {
   return blocks
 }
 
+/** Levée quand un PDF scanné dépasse le nombre de pages admis : message affichable à l'utilisateur. */
+export class PdfPageLimitError extends Error {
+  constructor(public pages: number, public maxPages: number) {
+    super(`This scanned PDF has ${pages} pages; the limit is ${maxPages} pages.`)
+    this.name = 'PdfPageLimitError'
+  }
+}
+
 export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, model: string, signal?: AbortSignal): Promise<Block[]> {
   // Import dynamique pour éviter les problèmes de bundling côté client
   const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as string) as typeof import('pdfjs-dist')
@@ -71,32 +80,40 @@ export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, 
 
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise
 
-  const allBlocks: Block[] = []
+  try {
+    // Une page = un appel au modèle vision, l'un après l'autre : on plafonne avant de commencer
+    if (pdf.numPages > OCR_MAX_PDF_PAGES) throw new PdfPageLimitError(pdf.numPages, OCR_MAX_PDF_PAGES)
 
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
-    const viewport = page.getViewport({ scale: 1.5 }) // ~150 DPI
+    const allBlocks: Block[] = []
 
-    const canvas = createCanvas(Math.round(viewport.width), Math.round(viewport.height))
-    const ctx = canvas.getContext('2d')
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const viewport = page.getViewport({ scale: 1.5 }) // ~150 DPI
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await page.render({ canvasContext: ctx as any, viewport } as any).promise
+      const canvas = createCanvas(Math.round(viewport.width), Math.round(viewport.height))
+      const ctx = canvas.getContext('2d')
 
-    const base64 = canvas.toBuffer('image/png').toString('base64')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await page.render({ canvasContext: ctx as any, viewport } as any).promise
 
-    const pageOutput = await provider.complete({
-      prompt: buildOcrPrompt(),
-      images: [base64],
-      signal,
-      model,
-    })
+      const base64 = canvas.toBuffer('image/png').toString('base64')
+      page.cleanup()
 
-    if (pageOutput.trim()) {
-      if (allBlocks.length > 0) allBlocks.push({ type: 'page-break' })
-      allBlocks.push(...parseOcrOutput(pageOutput.trim()))
+      const pageOutput = await provider.complete({
+        prompt: buildOcrPrompt(),
+        images: [base64],
+        signal,
+        model,
+      })
+
+      if (pageOutput.trim()) {
+        if (allBlocks.length > 0) allBlocks.push({ type: 'page-break' })
+        allBlocks.push(...parseOcrOutput(pageOutput.trim()))
+      }
     }
-  }
 
-  return allBlocks
+    return allBlocks
+  } finally {
+    await pdf.destroy().catch(() => {})
+  }
 }

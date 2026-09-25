@@ -58,7 +58,6 @@ export async function POST(req: NextRequest) {
     const dest     = join(dir, filename)
     await mkdir(dir, { recursive: true })
     await writeFile(dest, Buffer.from(await file.arrayBuffer()))
-    console.log('[background] Fichier écrit :', dest)
 
     const backgroundImage = `/api/site-assets/${filename}?v=${Date.now()}`
     const branding = (await getSetting<Record<string, unknown>>('branding')) ?? {}
@@ -67,7 +66,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, backgroundImage })
   } catch (err) {
     console.error('[POST /api/admin/background]', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur interne du serveur.' }, { status: 500 })
   }
 }
 
