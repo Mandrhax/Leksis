@@ -1,0 +1,149 @@
+// End-to-end check of the sign-in → workspace → sign-out journey, in a real browser.
+//
+// Why it exists: two betas broke sign-in/sign-out because only the API had been tested. The server here
+// listens on 0.0.0.0 like in Docker (which is what made Auth.js build 0.0.0.0 redirects), with no NEXTAUTH_URL.
+//
+// Prerequisite: `npm run build` (this script serves .next/standalone).
+// Browser: set CHROME_PATH, otherwise Chrome / Chromium / Edge is looked up in the usual places.
+// Database: an in-memory PGlite exposed on a local port, loaded from docker/init-schema.sql — no Docker needed.
+import { spawn } from 'node:child_process'
+import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+import { PGlite } from '@electric-sql/pglite'
+import { PGLiteSocketServer } from '@electric-sql/pglite-socket'
+import puppeteer from 'puppeteer-core'
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const APP_PORT = Number(process.env.E2E_APP_PORT ?? 3111)
+const DB_PORT = Number(process.env.E2E_DB_PORT ?? 5544)
+const BASE = `http://127.0.0.1:${APP_PORT}`
+
+function findBrowser() {
+  const candidates = [
+    process.env.CHROME_PATH,
+    'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+    'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  ]
+  const found = candidates.find(p => p && existsSync(p))
+  if (!found) throw new Error('No Chrome/Chromium/Edge found — set CHROME_PATH')
+  return found
+}
+
+let failures = 0
+function check(label, cond, detail = '') {
+  if (!cond) failures++
+  console.log(`${cond ? 'PASS' : 'FAIL'} ${label}${detail ? ` [${detail}]` : ''}`)
+}
+
+const standalone = join(root, '.next', 'standalone', 'server.js')
+if (!existsSync(standalone)) throw new Error('.next/standalone not found — run `npm run build` first')
+// `next build` does not copy these next to the standalone server (the Dockerfile does)
+mkdirSync(join(root, '.next', 'standalone', '.next'), { recursive: true })
+cpSync(join(root, '.next', 'static'), join(root, '.next', 'standalone', '.next', 'static'), { recursive: true })
+if (existsSync(join(root, 'public'))) cpSync(join(root, 'public'), join(root, '.next', 'standalone', 'public'), { recursive: true })
+
+// ── Database ────────────────────────────────────────────────────
+const db = new PGlite()
+// PGlite has no pgcrypto; gen_random_uuid() is built in since PostgreSQL 13
+await db.exec(readFileSync(join(root, 'docker', 'init-schema.sql'), 'utf8').replace(/CREATE EXTENSION[^\n]*\n/g, ''))
+const dbServer = new PGLiteSocketServer({ db, port: DB_PORT, host: '127.0.0.1', maxConnections: 10 })
+await dbServer.start()
+
+// ── App ─────────────────────────────────────────────────────────
+const env = {
+  ...process.env,
+  NODE_ENV: 'production',
+  PORT: String(APP_PORT),
+  HOSTNAME: '0.0.0.0',
+  DATABASE_URL: `postgresql://postgres:postgres@127.0.0.1:${DB_PORT}/postgres`,
+  AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret-0123',
+  ENCRYPTION_KEY: '0'.repeat(64),
+  NEXTAUTH_URL: '',
+  AUTH_URL: '',
+}
+const app = spawn(process.execPath, [standalone], { env, stdio: ['ignore', 'pipe', 'pipe'] })
+let appLog = ''
+app.stdout.on('data', d => { appLog += d })
+app.stderr.on('data', d => { appLog += d })
+
+async function waitForApp() {
+  for (let i = 0; i < 60; i++) {
+    if (app.exitCode !== null) throw new Error('Server exited early:\n' + appLog)
+    try { await fetch(BASE + '/auth/signin'); return } catch { await new Promise(r => setTimeout(r, 500)) }
+  }
+  throw new Error('Server did not start:\n' + appLog)
+}
+
+let browser
+try {
+  await waitForApp()
+
+  // ── Unauthenticated access ────────────────────────────────────
+  const home = await fetch(BASE + '/', { redirect: 'manual' })
+  const loc = home.headers.get('location') ?? ''
+  check('anonymous visitor is redirected to the sign-in page', home.status >= 300 && home.status < 400 && new URL(loc, BASE).pathname === '/auth/signin', `${home.status} ${loc}`)
+  // The internal address may appear inside `callbackUrl` (SignInForm only keeps its path); the redirect itself must stay relative
+  check('the redirect does not point at the internal 0.0.0.0 address', !/^https?:\/\/0\.0\.0\.0/.test(loc), loc)
+  // The proxy redirects anonymous requests to the sign-in page; requireUser() answers 401 behind it. Never a 200.
+  const api = await fetch(BASE + '/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', redirect: 'manual' })
+  check('AI routes refuse anonymous requests', api.status === 401 || (api.status >= 300 && api.status < 400), String(api.status))
+
+  // ── Browser journey ───────────────────────────────────────────
+  browser = await puppeteer.launch({ executablePath: findBrowser(), headless: true, args: ['--lang=en-US', '--no-first-run', '--disable-gpu', '--no-sandbox'] })
+  const page = await browser.newPage()
+  const problems = []
+  page.on('pageerror', e => problems.push('pageerror: ' + e.message.split('\n')[0]))
+  page.on('console', m => { if (m.type() === 'error') problems.push('console.error: ' + m.text().split('\n')[0]) })
+
+  await page.goto(BASE + '/auth/signin', { waitUntil: 'networkidle0' })
+  await page.type('input[type=email]', 'e2e@example.com')
+  await page.keyboard.press('Enter')
+  await page.waitForFunction(() => /\b\d{6}\b/.test(document.body.innerText), { timeout: 15000 })
+  const code = await page.evaluate(() => document.body.innerText.match(/\b\d{6}\b/)[0])
+  await page.waitForSelector('input:not([type=email])')
+  await page.type('input:not([type=email])', code)
+  await Promise.all([
+    page.waitForFunction(() => !location.pathname.startsWith('/auth/signin'), { timeout: 20000 }),
+    page.keyboard.press('Enter'),
+  ])
+  const afterLogin = new URL(page.url())
+  check('sign-in lands on the workspace, at the address used', afterLogin.origin === BASE && afterLogin.pathname === '/', page.url())
+
+  const session = await page.evaluate(() => fetch('/api/auth/session').then(r => r.json()))
+  check('a session exists after sign-in', session?.user?.email === 'e2e@example.com', JSON.stringify(session))
+
+  const accountLabel = /account|compte|konto|profilo/i
+  const signOutLabel = /sign out|déconnexion|se déconnecter|abmelden|esci/i
+  await page.waitForFunction(re => [...document.querySelectorAll('button')].some(b => new RegExp(re, 'i').test(b.getAttribute('aria-label') || '')), { timeout: 15000 }, accountLabel.source)
+  await page.evaluate(re => [...document.querySelectorAll('button')].find(b => new RegExp(re, 'i').test(b.getAttribute('aria-label') || '')).click(), accountLabel.source)
+  await page.waitForFunction(re => [...document.querySelectorAll('button')].some(b => new RegExp(re, 'i').test(b.innerText)), { timeout: 10000 }, signOutLabel.source)
+  await Promise.all([
+    page.waitForFunction(() => location.pathname.startsWith('/auth/signin'), { timeout: 20000 }),
+    page.evaluate(re => [...document.querySelectorAll('button')].find(b => new RegExp(re, 'i').test(b.innerText)).click(), signOutLabel.source),
+  ])
+  const afterLogout = new URL(page.url())
+  check('sign-out lands on /auth/signin at the same address (not 0.0.0.0)', afterLogout.origin === BASE && afterLogout.pathname === '/auth/signin', page.url())
+  const after = await page.evaluate(() => fetch('/api/auth/session').then(r => r.json()))
+  check('the session is gone after sign-out', after === null || Object.keys(after ?? {}).length === 0, JSON.stringify(after))
+
+  check('no browser console errors or uncaught exceptions (e.g. hydration #418)', problems.length === 0, problems.join(' | '))
+} catch (err) {
+  failures++
+  console.log('FAIL unexpected error:', err instanceof Error ? err.message : err)
+} finally {
+  await browser?.close().catch(() => {})
+  app.kill()
+  await dbServer.stop().catch(() => {})
+  await db.close().catch(() => {})
+}
+
+if (failures) console.log(`\n${failures} check(s) failed\n--- server log ---\n${appLog.split('\n').slice(-30).join('\n')}`)
+else console.log('\nAll checks passed')
+process.exit(failures ? 1 : 0)

@@ -34,6 +34,12 @@ next-env.d.ts
 # Scripts — not needed inside the container
 scripts
 
+# Tests and tooling — not needed inside the container
+tests
+vitest.config.mts
+eslint.config.mjs
+.github
+
 # Test artifacts
 coverage
 __tests__
