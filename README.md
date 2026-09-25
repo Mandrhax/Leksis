@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0-beta.6/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -320,21 +320,12 @@ Users switch the UI language instantly with the language selector — the prefer
 
 ## 🎉 What's new
 
-### v1.5.0-beta.6
-- The admin AI panel no longer falls back to guessed model names (`translategemma:27b`, `qwen2.5:14b`, a fixed OCR model) when nothing is configured — it now auto-selects the first model the connected server actually reports
-
-### v1.5.0-beta.5
-- Fix: with OpenAI-compatible engines (vLLM in particular), translation/rewrite/correct could stop after the first sentence — vLLM defaults `max_tokens` to 16 when the client doesn't send it explicitly. Leksis now sends an explicit `max_tokens` sized to the input
-
-### v1.5.0-beta.4
-- Fix: with some OpenAI-compatible models (e.g. Apertus-8B via vLLM), AI Rewrite/Correct could prepend a leftover sentence from the system prompt (e.g. restating the language/tone instructions) before the actual rewritten text — the prompts now explicitly forbid any preamble
-
-### v1.5.0-beta.3
-Rollback of the vLLM / TranslateGemma-specific work from beta.1 and beta.2 — too narrow, and it disabled Document translation and Image extraction.
-- The AI engine options are back to local Ollama, remote Ollama, or a generic **OpenAI-compatible API** (vLLM, LM Studio, llama.cpp…), with the same natural-language prompts for every model
-- Document translation and Image extraction work again with every AI engine (they were turned off whenever vLLM was selected)
-- Installs that ran beta.1/beta.2 are migrated automatically (the `vllm` engine id maps back to the OpenAI-compatible one, in `.env` and in the admin config)
-- Kept from beta.1: `install.sh` asks once whether to use the same model for translation, OCR and rewrite (all AI engine modes), and syncs that choice to the admin panel
+### v1.5.0
+Reliability fixes for OpenAI-compatible AI engines (vLLM, LM Studio, llama.cpp…), and a cleaner AI model setup.
+- Fix: translation, AI rewrite and correct could stop after the first sentence with some OpenAI-compatible engines — vLLM defaults `max_tokens` to 16 unless the client sets it explicitly; Leksis now always sends an explicit `max_tokens` sized to the input
+- Fix: AI Rewrite/Correct could prepend a leftover instruction sentence to the output with some models (e.g. Apertus via vLLM) — the prompts now explicitly forbid any preamble
+- The admin AI panel no longer falls back to guessed model names (e.g. `translategemma:27b`) when nothing is configured — it auto-selects the first model the connected server actually reports
+- `install.sh` asks once whether to use the same model for translation, OCR and rewrite, for every AI engine mode (local Ollama, remote Ollama, OpenAI-compatible)
 
 ### v1.4.2
 Workspace UI pass: mobile usability, accessibility, and small polish across the four tabs.
