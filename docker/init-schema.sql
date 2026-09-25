@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
   name       TEXT,
   email      TEXT UNIQUE NOT NULL,
   role       TEXT NOT NULL DEFAULT 'user',
+  disabled   BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

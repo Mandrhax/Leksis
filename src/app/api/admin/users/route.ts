@@ -1,15 +1,21 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/admin-guard'
-import { query } from '@/lib/db'
+import { listUsers } from '@/lib/users'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getAdminSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
-  const result = await query<{ id: string; email: string; name: string | null; role: string; created_at: string }>(
-    `SELECT id, email, name, role, created_at
-     FROM users
-     ORDER BY created_at DESC`
-  )
-  return NextResponse.json(result.rows)
+  const sp = req.nextUrl.searchParams
+  try {
+    const result = await listUsers({
+      page:     parseInt(sp.get('page') ?? '1', 10),
+      pageSize: parseInt(sp.get('pageSize') ?? '', 10),
+      q:        sp.get('q') ?? '',
+    })
+    return NextResponse.json(result)
+  } catch (err) {
+    console.error('[GET /api/admin/users]', err)
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })
+  }
 }

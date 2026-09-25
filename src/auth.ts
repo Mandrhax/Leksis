@@ -30,7 +30,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!valid) return null
 
         const user = await getUserByEmail(email)
-        if (!user) return null
+        if (!user || user.disabled) return null // compte inconnu ou désactivé
 
         return { id: user.id, email: user.email, name: user.name ?? undefined }
       },

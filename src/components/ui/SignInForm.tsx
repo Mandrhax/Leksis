@@ -45,7 +45,11 @@ export function SignInForm({ siteName }: { siteName: string }) {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error ?? t.signIn.errorGeneric)
+        setError(
+          data.code === 'account_disabled' ? t.signIn.errorDisabled
+          : data.code === 'rate_limited'   ? t.signIn.errorRateLimited
+          : t.signIn.errorGeneric,
+        )
         return
       }
 

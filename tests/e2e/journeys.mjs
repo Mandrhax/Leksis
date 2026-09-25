@@ -1,4 +1,4 @@
-// End-to-end check of the sign-in → workspace → sign-out journey, in a real browser.
+// End-to-end checks in a real browser: sign-in → workspace → sign-out, and an admin disabling a user.
 //
 // Why it exists: two betas broke sign-in/sign-out because only the API had been tested. The server here
 // listens on 0.0.0.0 like in Docker (which is what made Auth.js build 0.0.0.0 redirects), with no NEXTAUTH_URL.
@@ -81,6 +81,24 @@ async function waitForApp() {
   throw new Error('Server did not start:\n' + appLog)
 }
 
+/** Signs in through the sign-in page (email → on-screen code → code) and returns once the workspace is showing. */
+async function signInViaUi(page, email) {
+  await page.goto(BASE + '/auth/signin', { waitUntil: 'networkidle0' })
+  await page.type('input[type=email]', email)
+  await page.keyboard.press('Enter')
+  await page.waitForFunction(() => /\b\d{6}\b/.test(document.body.innerText), { timeout: 15000 })
+  const code = await page.evaluate(() => document.body.innerText.match(/\b\d{6}\b/)[0])
+  await page.waitForSelector('input:not([type=email])')
+  await page.type('input:not([type=email])', code)
+  await Promise.all([
+    page.waitForFunction(() => !location.pathname.startsWith('/auth/signin'), { timeout: 20000 }),
+    page.keyboard.press('Enter'),
+  ])
+}
+
+const sessionOf = page => page.evaluate(() => fetch('/api/auth/session').then(r => r.json()))
+const noSession = s => s === null || Object.keys(s ?? {}).length === 0
+
 let browser
 try {
   await waitForApp()
@@ -102,21 +120,11 @@ try {
   page.on('pageerror', e => problems.push('pageerror: ' + e.message.split('\n')[0]))
   page.on('console', m => { if (m.type() === 'error') problems.push('console.error: ' + m.text().split('\n')[0]) })
 
-  await page.goto(BASE + '/auth/signin', { waitUntil: 'networkidle0' })
-  await page.type('input[type=email]', 'e2e@example.com')
-  await page.keyboard.press('Enter')
-  await page.waitForFunction(() => /\b\d{6}\b/.test(document.body.innerText), { timeout: 15000 })
-  const code = await page.evaluate(() => document.body.innerText.match(/\b\d{6}\b/)[0])
-  await page.waitForSelector('input:not([type=email])')
-  await page.type('input:not([type=email])', code)
-  await Promise.all([
-    page.waitForFunction(() => !location.pathname.startsWith('/auth/signin'), { timeout: 20000 }),
-    page.keyboard.press('Enter'),
-  ])
+  await signInViaUi(page, 'e2e@example.com')
   const afterLogin = new URL(page.url())
   check('sign-in lands on the workspace, at the address used', afterLogin.origin === BASE && afterLogin.pathname === '/', page.url())
 
-  const session = await page.evaluate(() => fetch('/api/auth/session').then(r => r.json()))
+  const session = await sessionOf(page)
   check('a session exists after sign-in', session?.user?.email === 'e2e@example.com', JSON.stringify(session))
 
   const accountLabel = /account|compte|konto|profilo/i
@@ -130,8 +138,69 @@ try {
   ])
   const afterLogout = new URL(page.url())
   check('sign-out lands on /auth/signin at the same address (not 0.0.0.0)', afterLogout.origin === BASE && afterLogout.pathname === '/auth/signin', page.url())
-  const after = await page.evaluate(() => fetch('/api/auth/session').then(r => r.json()))
-  check('the session is gone after sign-out', after === null || Object.keys(after ?? {}).length === 0, JSON.stringify(after))
+  const after = await sessionOf(page)
+  check('the session is gone after sign-out', noSession(after), JSON.stringify(after))
+
+  // ── Admin: disable a user ─────────────────────────────────────
+  // A user signs in, an admin disables the account from /admin/users; the user's session must end and sign-in must be refused.
+  const victimEmail = 'victim@example.com'
+  const otp = email => fetch(BASE + '/api/auth/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
+  await otp('admin@example.com') // creates the account; promoted straight in the database (there is no other way to get a first admin)
+  await db.query("UPDATE users SET role = 'admin' WHERE email = 'admin@example.com'")
+
+  const victimCtx = await browser.createBrowserContext()
+  const victim = await victimCtx.newPage()
+  await signInViaUi(victim, victimEmail)
+  check('the user to disable is signed in', (await sessionOf(victim))?.user?.email === victimEmail)
+
+  const adminPage = await browser.newPage()
+  const adminProblems = []
+  adminPage.on('pageerror', e => adminProblems.push('pageerror@' + new URL(adminPage.url()).pathname + ': ' + e.message.split('\n')[0]))
+  // HTTP errors are expected here: no Ollama / Caddy behind the metrics endpoints, and one 400 is provoked on purpose
+  adminPage.on('console', m => { if (m.type() === 'error' && !m.text().startsWith('Failed to load resource')) adminProblems.push('console.error@' + new URL(adminPage.url()).pathname + ': ' + m.text().split('\n')[0]) })
+  await signInViaUi(adminPage, 'admin@example.com')
+  await adminPage.goto(BASE + '/admin/users', { waitUntil: 'networkidle0' })
+  check('the admin sees the users page', new URL(adminPage.url()).pathname === '/admin/users', adminPage.url())
+
+  await adminPage.type('input[type=search]', 'victim')
+  await adminPage.waitForFunction(() => document.querySelectorAll('tbody tr').length === 1 && document.body.innerText.includes('victim@example.com'), { timeout: 10000 })
+  const clickInRow = (email, selector) => adminPage.evaluate((em, sel) => {
+    const row = [...document.querySelectorAll('tbody tr')].find(r => r.innerText.includes(em))
+    row.querySelector(sel).click()
+  }, email, selector)
+  await clickInRow(victimEmail, 'button[role=switch][aria-label=Active]')
+  await adminPage.waitForFunction(() => document.body.innerText.includes('Disabled'), { timeout: 10000 })
+  const dbRow = await db.query("SELECT disabled FROM users WHERE email = 'victim@example.com'")
+  check('the account is disabled in the database', dbRow.rows[0]?.disabled === true)
+
+  check("the disabled user's session ends", noSession(await sessionOf(victim)), JSON.stringify(await sessionOf(victim)))
+  const refused = await otp(victimEmail)
+  check('a disabled account cannot ask for a sign-in code', refused.status === 403 && (await refused.json()).code === 'account_disabled', String(refused.status))
+
+  await victim.goto(BASE + '/auth/signin', { waitUntil: 'networkidle0' })
+  await victim.type('input[type=email]', victimEmail)
+  await victim.keyboard.press('Enter')
+  // "Contact your administrator" only exists in the translation, the server text is just "This account is disabled."
+  await victim.waitForFunction(() => document.body.innerText.includes('Contact your administrator'), { timeout: 10000 })
+  check('the sign-in page shows the translated "account disabled" message', true)
+
+  await adminPage.goto(BASE + '/admin/users', { waitUntil: 'networkidle0' })
+  const selfSwitchLocked = await adminPage.evaluate(() => {
+    const row = [...document.querySelectorAll('tbody tr')].find(r => r.innerText.includes('admin@example.com'))
+    return row?.querySelector('button[role=switch][aria-label=Active]')?.disabled === true
+  })
+  check('the users page does not let you disable your own account', selfSwitchLocked)
+  const selfDisable = await adminPage.evaluate(async () => {
+    const me = (await fetch('/api/auth/session').then(r => r.json())).user.id
+    const r = await fetch('/api/admin/users/' + me, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ disabled: true }) })
+    return { status: r.status, code: (await r.json()).code }
+  })
+  check('the API refuses an admin disabling themselves', selfDisable.status === 400 && selfDisable.code === 'self', JSON.stringify(selfDisable))
+
+  const audit = await db.query("SELECT action FROM audit_log WHERE action = 'DISABLE_USER'")
+  await adminPage.goto(BASE + '/admin/audit', { waitUntil: 'networkidle0' })
+  check('the change is in the audit log', audit.rows.length === 1)
+  check('no browser console errors on the admin pages', adminProblems.length === 0, adminProblems.join(' | '))
 
   check('no browser console errors or uncaught exceptions (e.g. hydration #418)', problems.length === 0, problems.join(' | '))
 } catch (err) {

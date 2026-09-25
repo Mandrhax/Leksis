@@ -26,7 +26,10 @@ export async function POST(req: NextRequest) {
   if (!emailLimit.ok) return rateLimitResponse(emailLimit.retryAfterSec)
 
   try {
-    await getOrCreateUser(email)
+    const user = await getOrCreateUser(email)
+    if (user.disabled) {
+      return NextResponse.json({ error: 'This account is disabled.', code: 'account_disabled' }, { status: 403 })
+    }
     const code = await generateOtp(email)
     return NextResponse.json({ code })
   } catch (err) {
