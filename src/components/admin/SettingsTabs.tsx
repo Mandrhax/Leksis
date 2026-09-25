@@ -13,13 +13,12 @@ import { useI18n } from '@/lib/i18n'
 import { ServiceTabBar } from './ServiceTabBar'
 
 interface Props {
-  settings:   Record<string, unknown>
-  aiProvider: 'ollama' | 'vllm'
+  settings: Record<string, unknown>
 }
 
 type Tab = 'identity' | 'appearance' | 'features' | 'tones' | 'general'
 
-export function SettingsTabs({ settings, aiProvider }: Props) {
+export function SettingsTabs({ settings }: Props) {
   const { t } = useI18n()
   const st = t.settingsTabs
   const [tab, setTab]               = useState<Tab>('identity')
@@ -105,7 +104,7 @@ export function SettingsTabs({ settings, aiProvider }: Props) {
         <DesignForm initial={designInitial as never} onToast={setToast} />
       </div>
       <div className={tab === 'features' ? '' : 'hidden'}>
-        <FeaturesForm initial={settings.features as never ?? {}} onToast={setToast} aiProvider={aiProvider} />
+        <FeaturesForm initial={settings.features as never ?? {}} onToast={setToast} />
       </div>
       <div className={tab === 'tones' ? '' : 'hidden'}>
         <TonesForm initial={(settings.rewrite_tones as ToneConfig[] | undefined) ?? []} onToast={setToast} />

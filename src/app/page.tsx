@@ -7,8 +7,7 @@ export const dynamic = 'force-dynamic'
 async function loadPageSettings() {
   try {
     const { getAllSettings } = await import('@/lib/settings')
-    const { getAiConfig } = await import('@/lib/llm')
-    const [settings, aiCfg] = await Promise.all([getAllSettings(), getAiConfig()])
+    const settings = await getAllSettings()
     const branding  = (settings.branding  ?? {}) as { logoUrl?: string; siteName?: string; headerLogoSize?: string }
     const design    = (settings.design    ?? {}) as {
       headerLogoSize?:   string
@@ -22,12 +21,10 @@ async function loadPageSettings() {
       limits?:           { maxTextChars?: number; maxDocChars?: number; maxImageMB?: number }
     }
 
-    // Document et image forcés masqués avec le provider vLLM — voir isFeatureEnabled() dans features-guard.ts
-    const vllmActive = aiCfg.provider === 'vllm'
     const tabs = {
       text:     features.tabs?.text     !== false,
-      document: features.tabs?.document !== false && !vllmActive,
-      image:    features.tabs?.image    !== false && !vllmActive,
+      document: features.tabs?.document !== false,
+      image:    features.tabs?.image    !== false,
       rewrite:  features.tabs?.rewrite  !== false,
     }
 

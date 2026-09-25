@@ -38,12 +38,11 @@ const DEFAULT_FEATURES: FeaturesData = {
 }
 
 interface Props {
-  initial:    Partial<FeaturesData>
-  onToast:    (t: ToastState) => void
-  aiProvider: 'ollama' | 'vllm'
+  initial: Partial<FeaturesData>
+  onToast: (t: ToastState) => void
 }
 
-export function FeaturesForm({ initial, onToast, aiProvider }: Props) {
+export function FeaturesForm({ initial, onToast }: Props) {
   const { t } = useI18n()
   const [data, setData] = useState<FeaturesData>({
     tabs:             { ...DEFAULT_FEATURES.tabs,     ...(initial.tabs     ?? {}) },
@@ -102,43 +101,35 @@ export function FeaturesForm({ initial, onToast, aiProvider }: Props) {
           <p className="text-xs text-on-surface-variant">{t.featuresForm.modulesDesc}</p>
         </div>
         <div className="space-y-2">
-          {MODULE_LABELS.map(m => {
-            const forcedOff = aiProvider === 'vllm' && (m.id === 'document' || m.id === 'image')
-            return (
-              <label
-                key={m.id}
-                className={`flex items-center justify-between gap-4 bg-surface-container border border-outline-variant/20 rounded-lg px-4 py-3 transition-colors ${
-                  forcedOff ? 'opacity-60' : 'cursor-pointer hover:bg-surface-container/60'
+          {MODULE_LABELS.map(m => (
+            <label
+              key={m.id}
+              className="flex items-center justify-between gap-4 bg-surface-container border border-outline-variant/20 rounded-lg px-4 py-3 cursor-pointer hover:bg-surface-container/60 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-on-surface-variant text-base leading-none" aria-hidden="true">{m.icon}</span>
+                <div>
+                  <span className="text-sm font-medium text-on-surface">{m.label}</span>
+                  <span className="text-xs text-on-surface-variant ml-2">{m.desc}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={data.tabs[m.id]}
+                onClick={() => setTab(m.id, !data.tabs[m.id])}
+                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+                  data.tabs[m.id] ? 'bg-primary' : 'bg-outline-variant/40'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-on-surface-variant text-base leading-none" aria-hidden="true">{m.icon}</span>
-                  <div>
-                    <span className="text-sm font-medium text-on-surface">{m.label}</span>
-                    <span className="text-xs text-on-surface-variant ml-2">
-                      {forcedOff ? t.featuresForm.disabledVllm : m.desc}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={!forcedOff && data.tabs[m.id]}
-                  disabled={forcedOff}
-                  onClick={() => setTab(m.id, !data.tabs[m.id])}
-                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none disabled:cursor-not-allowed ${
-                    !forcedOff && data.tabs[m.id] ? 'bg-primary' : 'bg-outline-variant/40'
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                    data.tabs[m.id] ? 'translate-x-4' : 'translate-x-1'
                   }`}
-                >
-                  <span
-                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                      !forcedOff && data.tabs[m.id] ? 'translate-x-4' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </label>
-            )
-          })}
+                />
+              </button>
+            </label>
+          ))}
         </div>
       </div>
 
