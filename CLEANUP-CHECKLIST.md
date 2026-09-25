@@ -128,6 +128,6 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 
 ## Livraison
 
-- [ ] Betas `v1.5.1-beta.1` (phases 0-2), `beta.2` (phases 3-4) et `beta.3` (phases 5 + déconnexion + hydratation) , `beta.4` (correctif connexion) `beta.5` (migration base) et `beta.6` (phase 7 : utilisateurs, documents par lots, rétention, outillage) publiées — **à tester sur une VM séparée** ; beta.4 après les phases 6-7
+- [ ] Betas `v1.5.1-beta.1` (phases 0-2), `beta.2` (phases 3-4) et `beta.3` (phases 5 + déconnexion + hydratation) , `beta.4` (correctif connexion) `beta.5` (migration base), `beta.6` (phase 7 : utilisateurs, documents par lots, rétention, outillage) et `beta.7` (retours de test : cartes du moteur IA, bouton Enregistrer Ollama, audit) publiées — **à tester sur une VM séparée** ; beta.4 après les phases 6-7
 - [ ] Bumper `package.json`, `install.sh` et `README.md` ensemble (What's new inclus)
 - [ ] Merger `dev` dans `main` et taguer après validation de la beta

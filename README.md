@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.6/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.7/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,13 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.5.1-beta.7
+Fixes and a clearer AI engine choice, on top of beta.6. No database migration.
+- **Fix**: with an Ollama server, the **Save** button of Admin → Services → AI stayed disabled (the context-size check rejected every value). Only the OpenAI-compatible API could be saved. This affected every earlier beta
+- **AI engine choice**: three cards — **Ollama (this server)**, **Ollama (another server)** and **OpenAI-compatible API**. Nothing new is stored, so existing installations show the right card automatically. The local card fills in the address of the Ollama container and is greyed out when that container is not there (add it with `leksis config`)
+- Audit log: actions on a user now show the account email instead of its internal id (also in the dashboard's recent activity)
+- Dashboard: a long AI engine version (for example a vLLM development build) wraps instead of overflowing its card, and the provider name is translated
 
 ### v1.5.1-beta.6
 Users, documents and maintenance, on top of beta.5. **Database migration** (`users.disabled`) — `leksis update` takes a backup and applies it. Updating from beta.4 or older: run `sudo leksis migrate` once after the update.
