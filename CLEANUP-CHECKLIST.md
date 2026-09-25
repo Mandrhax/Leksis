@@ -105,6 +105,6 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 
 ## Livraison
 
-- [ ] Beta `v1.5.1-beta.1` après les phases 0 à 3, testée sur une VM séparée
+- [ ] Beta `v1.5.1-beta.1` publiée (phases 0 à 2) — **à tester sur une VM séparée** ; puis beta.2 après les phases 3 et 4
 - [ ] Bumper `package.json`, `install.sh` et `README.md` ensemble (What's new inclus)
 - [ ] Merger `dev` dans `main` et taguer après validation de la beta
