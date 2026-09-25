@@ -9,5 +9,7 @@ import { signOut } from 'next-auth/react'
  */
 export async function signOutToSignIn(): Promise<void> {
   await signOut({ redirect: false })
+  // Full page load on purpose: drops all client state (router cache, in-memory data) of the closed session.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
   window.location.assign('/auth/signin')
 }

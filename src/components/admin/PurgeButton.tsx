@@ -15,10 +15,9 @@ function toInputDate(d: Date) {
 
 export function PurgeButton({ endpoint, label, onSuccess }: PurgeButtonProps) {
   const { t } = useI18n()
-  const defaultDate = toInputDate(new Date(Date.now() - 30 * 24 * 3600 * 1000)) // -30j
 
   const [open, setOpen]         = useState(false)
-  const [before, setBefore]     = useState(defaultDate)
+  const [before, setBefore]     = useState(() => toInputDate(new Date(Date.now() - 30 * 24 * 3600 * 1000))) // -30j
   const [loading, setLoading]   = useState(false)
   const [result, setResult]     = useState<{ deleted: number } | null>(null)
   const [error, setError]       = useState<string | null>(null)

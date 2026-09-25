@@ -3,7 +3,6 @@ import { Pool } from 'pg'
 // Singleton pool — réutilisé entre les requêtes en dev (hot-reload safe).
 // Initialisation lazy : le pool n'est créé qu'au premier appel à query().
 declare global {
-  // eslint-disable-next-line no-var
   var _pgPool: Pool | undefined
 }
 

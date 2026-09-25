@@ -150,7 +150,6 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
         {includeAutoDetect && !search && (
           <LangItem
             name={t.langDropdown.autoDetect}
-            code="auto"
             isSelected={!value || value.code === 'auto'}
             isFavorite={false}
             showStar={false}
@@ -168,7 +167,6 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
               <LangItem
                 key={l.code}
                 name={l.name}
-                code={l.code}
                 isSelected={value?.code === l.code}
                 isFavorite
                 removeLabel={t.langDropdown.removeFromFavorites}
@@ -185,7 +183,6 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
           <LangItem
             key={l.code}
             name={l.name}
-            code={l.code}
             isSelected={value?.code === l.code}
             isFavorite={favorites.includes(l.code)}
             removeLabel={t.langDropdown.removeFromFavorites}
@@ -225,7 +222,6 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
 
 type LangItemProps = {
   name: string
-  code: string
   isSelected: boolean
   isFavorite: boolean
   showStar?: boolean
@@ -235,7 +231,7 @@ type LangItemProps = {
   onToggleFav: (e: React.MouseEvent) => void
 }
 
-function LangItem({ name, code, isSelected, isFavorite, showStar = true, removeLabel, addLabel, onSelect, onToggleFav }: LangItemProps) {
+function LangItem({ name, isSelected, isFavorite, showStar = true, removeLabel, addLabel, onSelect, onToggleFav }: LangItemProps) {
   return (
     <li
       role="option"

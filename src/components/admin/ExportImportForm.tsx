@@ -23,7 +23,8 @@ export function ExportImportForm({ lastBackupAt }: Props) {
   const [fileName, setFileName]     = useState<string>('')
   const [toast, setToast]           = useState<ToastState>(null)
 
-  const backupOk = lastBackupAt != null && (Date.now() - new Date(lastBackupAt).getTime()) <= 8 * 24 * 60 * 60 * 1000
+  const [now] = useState(() => Date.now()) // fixed at mount: render must stay pure
+  const backupOk = lastBackupAt != null && (now - new Date(lastBackupAt).getTime()) <= 8 * 24 * 60 * 60 * 1000
 
   /* ── Export ─────────────────────────────────────────────── */
   async function handleExport() {

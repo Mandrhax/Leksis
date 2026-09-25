@@ -108,8 +108,8 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 
 ## Phase 7 : Qualité et évolutions
 
-- [ ] ESLint (config Next)
-- [ ] Vitest : tests sur `file-parser`, `network.ts`, `caddy-config`, `prompts`, `tones`
+- [x] ESLint (config Next) — `eslint.config.mjs` (flat config, `npm run lint`) : 0 erreur, 0 avertissement. Vrais défauts corrigés : `NavLink` redéfini à chaque rendu dans `AdminSidebar`, `Date.now()` dans le rendu (3 fichiers), prop `code` inutilisée, et **bug réel** dans `AIRewriteTab` (`sourceLang` figé dans `useCallback` : la langue source choisie était ignorée). `react-hooks/set-state-in-effect` désactivée volontairement (chargement au montage, lecture de `localStorage` après hydratation) ; les `_x` sont ignorés par `no-unused-vars`
+- [x] Vitest : tests sur `file-parser`, `network.ts`, `caddy-config`, `prompts`, `tones` — `npm test`, 84 tests dans `tests/unit/` (`vitest.config.mts`, stub `server-only`). Le test DOCX génère un vrai fichier avec `docx` (listes, titres h3, tableau) et échoue si on casse la gestion des listes
 - [ ] Test de bout en bout du parcours connexion → espace de travail → déconnexion (puppeteer-core, script déjà écrit pendant le correctif de la beta.4 : à intégrer dans `tests/`) — aurait détecté la régression de la beta.3
 - [ ] Workflow GitHub Actions : `tsc`, lint, tests, `npm audit`, `next build`
 - [ ] Cache mémoire des réglages (TTL court, invalidé dans `updateSetting`)

@@ -214,7 +214,8 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
   ]
 
   // Backups: green within 8 days, red otherwise (or never)
-  const backupOk = lastBackupAt != null && (Date.now() - new Date(lastBackupAt).getTime()) <= 8 * 24 * 60 * 60 * 1000
+  const [now] = useState(() => Date.now()) // fixed at mount: render must stay pure
+  const backupOk = lastBackupAt != null && (now - new Date(lastBackupAt).getTime()) <= 8 * 24 * 60 * 60 * 1000
 
   return (
     <div className="p-4 md:p-8 max-w-[1400px]">

@@ -47,42 +47,41 @@ function SectionLabel({ children }: { children: string }) {
   )
 }
 
-export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+function NavLink({
+  href,
+  icon,
+  label,
+  status,
+}: {
+  href: string
+  icon: string
+  label: string
+  /** Undefined = no status dot; null = check in progress. */
+  status?: boolean | null
+}) {
   const pathname = usePathname()
+  const active = pathname.startsWith(href)
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+        active
+          ? 'bg-primary/10 text-primary font-semibold'
+          : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+      }`}
+    >
+      <span className="material-symbols-outlined text-[1.05rem] leading-none flex-shrink-0" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="flex-1">{label}</span>
+      {status !== undefined && <StatusDot ok={status} />}
+    </Link>
+  )
+}
+
+export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useI18n()
   const svcStatus = useServiceStatus()
-
-  function NavLink({
-    href,
-    icon,
-    label,
-    statusKey,
-    exact = false,
-  }: {
-    href: string
-    icon: string
-    label: string
-    statusKey?: ServiceKey
-    exact?: boolean
-  }) {
-    const active = exact ? pathname === href : pathname.startsWith(href)
-    return (
-      <Link
-        href={href}
-        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-          active
-            ? 'bg-primary/10 text-primary font-semibold'
-            : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
-        }`}
-      >
-        <span className="material-symbols-outlined text-[1.05rem] leading-none flex-shrink-0" aria-hidden="true">
-          {icon}
-        </span>
-        <span className="flex-1">{label}</span>
-        {statusKey !== undefined && <StatusDot ok={svcStatus[statusKey]} />}
-      </Link>
-    )
-  }
 
   return (
     <aside className={`fixed inset-y-0 left-0 z-40 w-56 shrink-0 bg-surface-container-lowest border-r border-outline-variant/10 flex flex-col transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-auto ${open ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -112,9 +111,9 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
         <NavLink href="/admin/settings" icon="settings" label={t.adminSidebar.navSettings} />
 
         <SectionLabel>{t.adminSidebar.navSectionInfrastructure}</SectionLabel>
-        <NavLink href="/admin/services/ai"    icon="smart_toy" label={t.adminSidebar.navServicesAI}    statusKey="ollama" />
-        <NavLink href="/admin/services/db"    icon="storage"   label={t.adminSidebar.navServicesDb}    statusKey="db"     />
-        <NavLink href="/admin/services/caddy" icon="router"    label={t.adminSidebar.navServicesCaddy} statusKey="caddy"  />
+        <NavLink href="/admin/services/ai"    icon="smart_toy" label={t.adminSidebar.navServicesAI}    status={svcStatus.ollama} />
+        <NavLink href="/admin/services/db"    icon="storage"   label={t.adminSidebar.navServicesDb}    status={svcStatus.db} />
+        <NavLink href="/admin/services/caddy" icon="router"    label={t.adminSidebar.navServicesCaddy} status={svcStatus.caddy} />
 
         <SectionLabel>{t.adminSidebar.navSectionManagement}</SectionLabel>
         <NavLink href="/admin/users"    icon="group"          label={t.adminSidebar.navUsers}    />
