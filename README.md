@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0-beta.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.0-beta.3/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -320,17 +320,12 @@ Users switch the UI language instantly with the language selector — the prefer
 
 ## 🎉 What's new
 
-### v1.5.0-beta.2
-- Fix: OCR (image) and document translation could return a 502 error when vLLM was the selected AI engine — TranslateGemma's vision support isn't usable through vLLM's standard OpenAI-compatible API (proprietary image format, no image handling in its packaged chat template)
-- Document translation and Image extraction are now automatically disabled — routes and tabs — whenever the vLLM provider is active, instead of failing; the admin toggle for them shows as unavailable with an explanation, and the stored preference is kept for when a vision-capable setup is used
-
-### v1.5.0-beta.1
-vLLM support, with dedicated TranslateGemma routing.
-- New AI engine option: **vLLM** (renamed from the generic "OpenAI-compatible" provider for clarity — existing installs migrate automatically, no action needed)
-- When the configured model is TranslateGemma served by vLLM, translation, rewrite and OCR now use its dedicated prompt format instead of a generic instruction prompt — quality and reliability should improve noticeably for that specific setup
-- Document translation with a TranslateGemma/vLLM setup now translates the whole document in one pass; structure (tables, headings) is not reconstructed yet in this mode — a deeper rework is planned
-- Admin → Services → AI: "use the same model for everything" now also applies to the OCR model (previously translation + rewrite only)
-- `install.sh`: model selection asks once for "same model for all 3 features" across all AI engine modes (local Ollama, remote Ollama, vLLM)
+### v1.5.0-beta.3
+Rollback of the vLLM / TranslateGemma-specific work from beta.1 and beta.2 — too narrow, and it disabled Document translation and Image extraction.
+- The AI engine options are back to local Ollama, remote Ollama, or a generic **OpenAI-compatible API** (vLLM, LM Studio, llama.cpp…), with the same natural-language prompts for every model
+- Document translation and Image extraction work again with every AI engine (they were turned off whenever vLLM was selected)
+- Installs that ran beta.1/beta.2 are migrated automatically (the `vllm` engine id maps back to the OpenAI-compatible one, in `.env` and in the admin config)
+- Kept from beta.1: `install.sh` asks once whether to use the same model for translation, OCR and rewrite (all AI engine modes), and syncs that choice to the admin panel
 
 ### v1.4.2
 Workspace UI pass: mobile usability, accessibility, and small polish across the four tabs.
