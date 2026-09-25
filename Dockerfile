@@ -14,8 +14,7 @@ COPY package.json package-lock.json ./
 
 # Install all dependencies — devDeps are needed by next build
 # (TypeScript, PostCSS, Tailwind v4, etc.)
-# Using npmmirror as registry fallback (npmjs.org may be unreachable on some networks)
-RUN npm ci --registry https://registry.npmmirror.com
+RUN npm ci
 
 
 # ── Stage 2: Build the Next.js application ───────────────────
