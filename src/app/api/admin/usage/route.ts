@@ -13,17 +13,23 @@ interface UsageRow {
   created_at:  string
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
 export async function GET(req: NextRequest) {
   const session = await getAdminSession()
   if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
 
   const { searchParams } = new URL(req.url)
-  const from   = searchParams.get('from')   // ISO date string
+  const from   = searchParams.get('from')   // YYYY-MM-DD
   const to     = searchParams.get('to')
   const format = searchParams.get('format') // 'csv' | undefined
   const limit  = Math.min(500, Math.max(1, parseInt(searchParams.get('limit') ?? '100', 10))) || 100
 
-  const params: (string | null)[] = []
+  if ((from && !DATE_RE.test(from)) || (to && !DATE_RE.test(to))) {
+    return NextResponse.json({ error: 'Invalid date (expected YYYY-MM-DD).' }, { status: 400 })
+  }
+
+  const params: string[] = []
   const conditions: string[] = []
 
   if (from) { params.push(from); conditions.push(`created_at >= $${params.length}::timestamptz`) }
@@ -31,20 +37,17 @@ export async function GET(req: NextRequest) {
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
-  const result = await query<UsageRow>(
-    `SELECT id, user_email, feature, source_lang, target_lang, model, char_count, created_at
-     FROM usage_log
-     ${where}
-     ORDER BY created_at DESC
-     LIMIT 10000`,
-    params
-  )
-
-  const rows = result.rows
-
   if (format === 'csv') {
+    const result = await query<UsageRow>(
+      `SELECT id, user_email, feature, source_lang, target_lang, model, char_count, created_at
+       FROM usage_log
+       ${where}
+       ORDER BY created_at DESC
+       LIMIT 10000`,
+      params
+    )
     const header = 'date,utilisateur,feature,source_lang,target_lang,model,char_count'
-    const lines = rows.map(r => [
+    const lines = result.rows.map(r => [
       new Date(r.created_at).toISOString(),
       r.user_email,
       r.feature,
@@ -62,16 +65,39 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // Résumé JSON pour le tableau
-  const byFeature: Record<string, number> = {}
-  const byLang: Record<string, number>    = {}
-  const byModel: Record<string, number>   = {}
+  // Résumé JSON pour le tableau : agrégats calculés en SQL sur toute la période, pas sur un échantillon
+  const groupBy = (col: 'feature' | 'target_lang' | 'model') =>
+    query<{ key: string; cnt: number }>(
+      `SELECT ${col} AS key, count(*)::int AS cnt
+       FROM usage_log
+       ${where}${where ? ' AND' : ' WHERE'} ${col} IS NOT NULL
+       GROUP BY ${col}`,
+      params
+    )
 
-  for (const r of rows) {
-    byFeature[r.feature] = (byFeature[r.feature] ?? 0) + 1
-    if (r.target_lang) byLang[r.target_lang]   = (byLang[r.target_lang]   ?? 0) + 1
-    if (r.model)       byModel[r.model]         = (byModel[r.model]        ?? 0) + 1
-  }
+  const [rowsRes, totalRes, featureRes, langRes, modelRes] = await Promise.all([
+    query<UsageRow>(
+      `SELECT id, user_email, feature, source_lang, target_lang, model, char_count, created_at
+       FROM usage_log
+       ${where}
+       ORDER BY created_at DESC
+       LIMIT $${params.length + 1}`,
+      [...params, limit]
+    ),
+    query<{ count: number }>(`SELECT count(*)::int AS count FROM usage_log ${where}`, params),
+    groupBy('feature'),
+    groupBy('target_lang'),
+    groupBy('model'),
+  ])
 
-  return NextResponse.json({ total: rows.length, byFeature, byLang, byModel, rows: rows.slice(0, limit) })
+  const toRecord = (rows: { key: string; cnt: number }[]) =>
+    Object.fromEntries(rows.map(r => [r.key, r.cnt])) as Record<string, number>
+
+  return NextResponse.json({
+    total:     totalRes.rows[0]?.count ?? 0,
+    byFeature: toRecord(featureRes.rows),
+    byLang:    toRecord(langRes.rows),
+    byModel:   toRecord(modelRes.rows),
+    rows:      rowsRes.rows,
+  })
 }

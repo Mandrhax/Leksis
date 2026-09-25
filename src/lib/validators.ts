@@ -21,7 +21,7 @@ export function validateImageSize(bytes: number, maxBytes = IMAGE_MAX_BYTES): st
   return null
 }
 
-const SUPPORTED_DOC_EXTS = ['pdf', 'docx', 'doc', 'txt', 'csv'] as const
+const SUPPORTED_DOC_EXTS = ['pdf', 'docx', 'txt', 'csv'] as const
 
 /** Returns the lowercase extension if valid, or null with the error message set. */
 export function validateFileExtension(filename: string): { ext: string; error: null } | { ext: null; error: string } {

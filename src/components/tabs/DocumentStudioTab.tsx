@@ -61,7 +61,7 @@ function blocksToText(blocks: Block[]): string {
 
 // File type icons using Bootstrap Icons class names (matching Leksis_old)
 const FILE_ICONS: Record<string, string> = {
-  pdf: 'bi-file-earmark-pdf-fill', docx: 'bi-file-earmark-word-fill', doc: 'bi-file-earmark-word-fill',
+  pdf: 'bi-file-earmark-pdf-fill', docx: 'bi-file-earmark-word-fill',
   txt: 'bi-file-earmark-text-fill', csv: 'bi-file-earmark-spreadsheet-fill',
   png: 'bi-file-earmark-image-fill', jpg: 'bi-file-earmark-image-fill',
   jpeg: 'bi-file-earmark-image-fill', webp: 'bi-file-earmark-image-fill',
@@ -307,7 +307,7 @@ export function DocumentStudioTab({ defaultTargetLang }: Props) {
             ref={fileRef}
             type="file"
             className="hidden"
-            accept=".pdf,.docx,.doc,.txt,.csv"
+            accept=".pdf,.docx,.txt,.csv"
             onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]) }}
           />
 

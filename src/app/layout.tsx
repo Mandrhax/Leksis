@@ -6,6 +6,7 @@ import { SessionProvider } from 'next-auth/react'
 import 'bootstrap-icons/font/bootstrap-icons.css'
 import { auth } from '@/auth'
 import { GlobalBanner } from '@/components/GlobalBanner'
+import { MaintenanceScreen } from '@/components/MaintenanceScreen'
 import { buildColorVars } from '@/lib/color-utils'
 import './globals.css'
 
@@ -93,7 +94,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const inMaintenance = general.maintenanceMode && !isAdmin
 
   return (
-    <html lang="fr" className={htmlClass} suppressHydrationWarning>
+    <html lang="en" className={htmlClass} suppressHydrationWarning>
       <head>
         {/* Anti-flash : lit localStorage avant le premier paint pour éviter le scintillement */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var d=localStorage.getItem('leksisDarkMode');if(d!==null){var e=document.documentElement;if(d==='true'){e.classList.add('dark');e.classList.remove('light');}else{e.classList.remove('dark');e.classList.add('light');}}}catch(ex){}})();` }} />
@@ -119,18 +120,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         <SessionProvider>
           {inMaintenance ? (
-            /* Page maintenance pour les visiteurs non-admin */
-            <div className="min-h-screen flex items-center justify-center bg-background text-on-background px-6">
-              <div className="text-center max-w-md space-y-4">
-                <span className="material-symbols-outlined text-5xl text-on-surface-variant" aria-hidden="true">
-                  engineering
-                </span>
-                <h1 className="font-headline font-bold text-2xl text-on-surface">Maintenance en cours</h1>
-                <p className="text-sm text-on-surface-variant leading-relaxed">
-                  {general.maintenanceMessage?.trim() || 'Le site est temporairement en maintenance. Merci de réessayer plus tard.'}
-                </p>
-              </div>
-            </div>
+            <MaintenanceScreen message={general.maintenanceMessage} />
           ) : (
             children
           )}

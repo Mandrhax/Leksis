@@ -4,7 +4,7 @@ import { join }                     from 'node:path'
 import { getAdminSession }           from '@/lib/admin-guard'
 import { updateSetting, getSetting } from '@/lib/settings'
 import { logAudit }                  from '@/lib/audit'
-import { query }                     from '@/lib/db'
+import { withTransaction }            from '@/lib/db'
 
 const ALLOWED_KEYS = [
   'branding',
@@ -129,23 +129,26 @@ export async function POST(req: NextRequest) {
 
   // Importer les glossaires si présents — remplace tous les glossaires existants
   if (Array.isArray(body.glossaries) && body.glossaries.length > 0) {
-    await query('DELETE FROM glossaries')
-    for (const g of body.glossaries) {
-      if (!g.name || typeof g.name !== 'string') continue
-      const res = await query<{ id: number }>(
-        'INSERT INTO glossaries (name, description) VALUES ($1, $2) RETURNING id',
-        [g.name, g.description ?? '']
-      )
-      const glossaryId = res.rows[0]?.id
-      if (!glossaryId || !Array.isArray(g.entries)) continue
-      for (const e of g.entries) {
-        if (!e.source_term || !e.target_term) continue
-        await query(
-          'INSERT INTO glossary_entries (glossary_id, source_term, target_term, source_lang, target_lang) VALUES ($1, $2, $3, $4, $5)',
-          [glossaryId, e.source_term, e.target_term, e.source_lang ?? null, e.target_lang ?? null]
+    // Tout ou rien : un échec en cours d'import ne doit pas laisser les glossaires à moitié remplacés
+    await withTransaction(async tx => {
+      await tx('DELETE FROM glossaries')
+      for (const g of body.glossaries) {
+        if (!g.name || typeof g.name !== 'string') continue
+        const res = await tx<{ id: number }>(
+          'INSERT INTO glossaries (name, description) VALUES ($1, $2) RETURNING id',
+          [g.name, g.description ?? '']
         )
+        const glossaryId = res.rows[0]?.id
+        if (!glossaryId || !Array.isArray(g.entries)) continue
+        for (const e of g.entries) {
+          if (!e.source_term || !e.target_term) continue
+          await tx(
+            'INSERT INTO glossary_entries (glossary_id, source_term, target_term, source_lang, target_lang) VALUES ($1, $2, $3, $4, $5)',
+            [glossaryId, e.source_term, e.target_term, e.source_lang ?? null, e.target_lang ?? null]
+          )
+        }
       }
-    }
+    })
     await logAudit(session.user.id, session.user.email!, 'IMPORT_GLOSSARIES', 'glossaries:all', { count: body.glossaries.length })
     imported.push('glossaries')
   }

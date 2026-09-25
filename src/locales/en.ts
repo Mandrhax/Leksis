@@ -6,6 +6,10 @@ export const messages = {
     tabRewrite:     'AI Rewrite',
     tabsAriaLabel:  'Workspace tabs',
   },
+  maintenance: {
+    title:          'Under maintenance',
+    defaultMessage: 'The site is temporarily under maintenance. Please try again later.',
+  },
   account: {
     accountLabel:   'Account',
     admin:          'Administration',

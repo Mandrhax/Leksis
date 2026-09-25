@@ -39,6 +39,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   }, [])
 
+  // Le serveur ne connaît pas la langue choisie : on aligne <html lang> côté client
+  useEffect(() => { document.documentElement.lang = locale }, [locale])
+
   function setLocale(l: UILocale) {
     setLocaleState(l)
     try { localStorage.setItem(LOCALE_KEY, l) } catch { /* ignore */ }

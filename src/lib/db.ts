@@ -39,3 +39,28 @@ export async function query<T = Record<string, unknown>>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return getPool().query(text, params as any) as any
 }
+
+type TxQuery = <T = Record<string, unknown>>(
+  text: string,
+  params?: unknown[]
+) => Promise<{ rows: T[]; rowCount: number | null }>
+
+/**
+ * Exécute `fn` dans une transaction : COMMIT si elle réussit, ROLLBACK si elle lève.
+ * `fn` reçoit un `query` lié à la connexion de la transaction (ne pas utiliser le `query` global dedans).
+ */
+export async function withTransaction<R>(fn: (q: TxQuery) => Promise<R>): Promise<R> {
+  const client = await getPool().connect()
+  try {
+    await client.query('BEGIN')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await fn((text, params) => client.query(text, params as any) as any)
+    await client.query('COMMIT')
+    return result
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw err
+  } finally {
+    client.release()
+  }
+}

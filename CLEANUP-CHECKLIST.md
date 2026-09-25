@@ -26,18 +26,18 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 
 ## Phase 1 : Bugs confirmés
 
-- [ ] DOCX : ne plus perdre les listes à puces et les titres h3+ (`file-parser.ts`) ; test avec un DOCX à listes
-- [ ] Tons : ajouter `it` au `ToneConfigSchema` (`settings/route.ts`)
-- [ ] Reset : retirer `?v=…` avant `unlink`, ajouter `basename`, inclure `features` dans les défauts
-- [ ] Ollama : supprimer `keep_alive: -1` des requêtes (`ollama-provider.ts`)
-- [ ] Ollama : gérer les lignes `{"error":…}` dans le flux NDJSON
-- [ ] Ollama : définir `num_ctx` (valeur à choisir avec l'utilisateur, selon la VRAM)
-- [ ] `extract/document` : garde de fonctionnalité + `getDynamicLimits()` au lieu de la constante
-- [ ] Supprimer `.doc` : `validators.ts`, `parseFile`, `accept=` dans `DocumentStudioTab`, README
-- [ ] `<html lang>` selon la locale d'interface (au lieu de `fr` en dur)
-- [ ] Écran de maintenance de `layout.tsx` en i18n (et supprimer le doublon avec `app/maintenance/page.tsx` si c'est un doublon)
-- [ ] Page Usage : agrégation en SQL, validation `from`/`to` (400), `parseInt` sur `page` dans l'audit
-- [ ] Import de glossaires dans une transaction
+- [x] DOCX : ne plus perdre les listes à puces et les titres h3+ (`file-parser.ts`) ; test avec un DOCX à listes
+- [x] Tons : ajouter `it` au `ToneConfigSchema` (`settings/route.ts`)
+- [x] Reset : retirer `?v=…` avant `unlink`, ajouter `basename`, inclure `features` dans les défauts
+- [x] Ollama : supprimer `keep_alive: -1` des requêtes (`ollama-provider.ts`)
+- [x] Ollama : gérer les lignes `{"error":…}` dans le flux NDJSON
+- [ ] Ollama : définir `num_ctx` — **en attente de la valeur choisie par l'utilisateur** (selon la VRAM)
+- [x] `extract/document` : garde de fonctionnalité + `getDynamicLimits()` au lieu de la constante
+- [x] Supprimer `.doc` : `validators.ts`, `parseFile`, `accept=` dans `DocumentStudioTab`, README
+- [x] `<html lang>` selon la locale d'interface (au lieu de `fr` en dur)
+- [x] Écran de maintenance en i18n (nouveau `MaintenanceScreen`, namespace `maintenance` dans les 4 locales) ; `app/maintenance/page.tsx` supprimée (route orpheline jamais utilisée)
+- [x] Page Usage : agrégation en SQL, validation `from`/`to` (400), `parseInt` sur `page` dans l'audit
+- [x] Import de glossaires dans une transaction
 
 ## Phase 2 : Sécurité des routes
 
@@ -77,7 +77,7 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 - [ ] Supprimer le type `html` de `Block` et ses branches (file-parser ×3, DocumentStudioTab ×2)
 - [ ] Supprimer le réglage `seo` (PATCH, reset, export)
 - [ ] Factoriser les helpers de parsing de tables HTML (`file-parser` / `pdf-vision`)
-- [ ] Fusionner les routes logo et background dans un helper commun
+- [ ] Fusionner les routes logo et background dans un helper commun (règle aussi les 9 warnings de build « Dynamic filesystem access » : logo, background, export, reset)
 - [ ] Simplifier `fetchGlossaryEntries` (une requête paramétrée, retirer le `JOIN glossaries` inutile)
 - [ ] `getAiPublicConfig` : une seule lecture de base
 - [ ] Corriger les commentaires périmés (`prompts.ts`, `settings.ts`, `file-parser.ts` + `import 'server-only'`)

@@ -8,6 +8,10 @@ export const messages = {
     tabRewrite:     'Réécriture IA',
     tabsAriaLabel:  'Onglets de l\'espace de travail',
   },
+  maintenance: {
+    title:          'Maintenance en cours',
+    defaultMessage: 'Le site est temporairement en maintenance. Merci de réessayer plus tard.',
+  },
   account: {
     accountLabel:   'Compte',
     admin:          'Administration',

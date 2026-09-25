@@ -169,20 +169,46 @@ function htmlToBlocks(html: string): Block[] {
     return ''
   })
 
-  // Walk remaining HTML line by line for headings and paragraphs
-  const tokens = noTables.split(/(?=<h[12]|<p[ >]|__TABLE_)/i)
+  // One token per block-level element. Lists are split at every <ul>/<ol>/<li>, so each
+  // list item (nested ones included) becomes its own paragraph instead of being dropped.
+  const tokens = noTables.split(/(?=<h[1-6][ >]|<p[ >]|<li[ >]|<ul[ >]|<ol[ >]|__TABLE_)/i)
+  let ordered = false
+  let counter = 0
+
   for (const token of tokens) {
     const tableMatch = token.match(/^__TABLE_(\d+)__/)
     if (tableMatch) {
       blocks.push(tables[parseInt(tableMatch[1])])
       continue
     }
-    const h1 = token.match(/^<h1[^>]*>([\s\S]*?)<\/h1>/i)
-    if (h1) { const t = stripInlineTags(h1[1]); if (t) blocks.push({ type: 'heading', level: 1, text: t }); continue }
-    const h2 = token.match(/^<h2[^>]*>([\s\S]*?)<\/h2>/i)
-    if (h2) { const t = stripInlineTags(h2[1]); if (t) blocks.push({ type: 'heading', level: 2, text: t }); continue }
-    const p = token.match(/^<p[^>]*>([\s\S]*?)<\/p>/i)
-    if (p) { const t = stripInlineTags(p[1]); if (t) blocks.push({ type: 'paragraph', text: t }); continue }
+
+    const list = token.match(/^<(ul|ol)[ >]/i)
+    if (list) {
+      ordered = list[1].toLowerCase() === 'ol'
+      counter = 0
+      continue
+    }
+
+    // Heading levels 3–6 are folded into level 2 (the Block model only has two levels)
+    const heading = token.match(/^<h([1-6])[^>]*>([\s\S]*?)(?:<\/h[1-6]>|$)/i)
+    if (heading) {
+      const t = stripInlineTags(heading[2])
+      if (t) blocks.push({ type: 'heading', level: heading[1] === '1' ? 1 : 2, text: t })
+      continue
+    }
+
+    const item = token.match(/^<li[^>]*>([\s\S]*)$/i)
+    if (item) {
+      const t = stripInlineTags(item[1])
+      if (t) blocks.push({ type: 'paragraph', text: `${ordered ? `${++counter}.` : '•'} ${t}` })
+      continue
+    }
+
+    const p = token.match(/^<p[^>]*>([\s\S]*?)(?:<\/p>|$)/i)
+    if (p) {
+      const t = stripInlineTags(p[1])
+      if (t) blocks.push({ type: 'paragraph', text: t })
+    }
   }
 
   return blocks
@@ -206,7 +232,7 @@ export function parseTxt(buffer: Buffer): Block[] {
 export async function parseFile(buffer: Buffer, filename: string): Promise<Block[]> {
   const ext = filename.split('.').pop()?.toLowerCase() ?? ''
   if (ext === 'pdf')              return parsePdf(buffer)
-  if (ext === 'docx' || ext === 'doc') return parseDocx(buffer)
+  if (ext === 'docx')             return parseDocx(buffer)
   if (ext === 'txt' || ext === 'csv')  return parseTxt(buffer)
   throw new Error(`Unsupported file type: .${ext}`)
 }

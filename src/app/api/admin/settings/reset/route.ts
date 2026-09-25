@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { unlink } from 'node:fs/promises'
-import { join }   from 'node:path'
+import { join, basename } from 'node:path'
 import { getAdminSession } from '@/lib/admin-guard'
 import { getSetting, updateSetting } from '@/lib/settings'
 import { DEFAULT_TONES } from '@/lib/tones'
@@ -10,6 +10,11 @@ const DEFAULTS = {
   design:        { buttonRadius: '0.75rem', footerText: '© Leksis', footerLinks: [] },
   general:       { contactEmail: '', globalBanner: '', maintenanceMode: false, maintenanceMessage: '' },
   seo:           { title: 'Leksis', description: '' },
+  features: {
+    tabs:     { text: true, document: true, image: true, rewrite: true },
+    defaults: { sourceLang: 'auto', targetLang: 'en', formality: 'Informal' },
+    limits:   { maxTextChars: 5000, maxDocChars: 12000, maxImageMB: 10 },
+  },
   rewrite_tones: DEFAULT_TONES,
 }
 
@@ -23,10 +28,12 @@ export async function POST() {
     const uploadsDir = process.env.UPLOAD_DIR || '/tmp/uploads'
     for (const url of [branding?.logoUrl, branding?.backgroundImage]) {
       if (!url) continue
-      const newFormat = url.match(/^\/api\/site-assets\/(.+)$/)
+      // L'URL stockée porte un ?v=<timestamp> : il faut l'ôter, et ne garder que le nom de fichier
+      const path      = url.split('?')[0]
+      const newFormat = path.match(/^\/api\/site-assets\/(.+)$/)
       const filePath  = newFormat
-        ? join(uploadsDir, newFormat[1])
-        : join(process.cwd(), 'public', url.replace(/^\//, ''))
+        ? join(uploadsDir, basename(newFormat[1]))
+        : join(process.cwd(), 'public', basename(path))
       await unlink(filePath).catch(() => {})
     }
   } catch {}

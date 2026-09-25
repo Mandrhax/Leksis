@@ -8,6 +8,10 @@ export const messages = {
     tabRewrite:     'KI-Umschreibung',
     tabsAriaLabel:  'Arbeitsbereich-Tabs',
   },
+  maintenance: {
+    title:          'Wartungsarbeiten',
+    defaultMessage: 'Die Website befindet sich vorübergehend in Wartung. Bitte versuchen Sie es später erneut.',
+  },
   account: {
     accountLabel:   'Konto',
     admin:          'Administration',

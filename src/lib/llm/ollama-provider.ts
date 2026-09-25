@@ -14,7 +14,6 @@ export function createOllamaProvider(baseUrl: string): LlmProvider {
       prompt: req.prompt,
       ...(req.system ? { system: req.system } : {}),
       stream,
-      keep_alive: -1,
       ...(req.images?.length ? { images: req.images } : {}),
     })
   }
@@ -59,10 +58,14 @@ export function createOllamaProvider(baseUrl: string): LlmProvider {
               buffer = lines.pop() ?? ''
               for (const line of lines) {
                 if (!line.trim()) continue
-                try {
-                  const obj = JSON.parse(line) as { response?: string }
-                  if (obj.response) controller.enqueue(encoder.encode(obj.response))
-                } catch { /* chunk malformé : ignoré */ }
+                let obj: { response?: string; error?: string }
+                try { obj = JSON.parse(line) } catch { continue } // chunk malformé : ignoré
+                if (obj.error) {
+                  controller.error(new Error(`Ollama: ${obj.error}`))
+                  reader.cancel().catch(() => {})
+                  return
+                }
+                if (obj.response) controller.enqueue(encoder.encode(obj.response))
               }
             }
           } catch (err) {

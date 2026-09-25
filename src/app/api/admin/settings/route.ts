@@ -23,6 +23,7 @@ const ToneConfigSchema = z.object({
     en: z.string().min(1),
     fr: z.string().optional(),
     de: z.string().optional(),
+    it: z.string().optional(),
   }),
   instruction: z.string().min(1),
   enabled:     z.boolean().optional(),

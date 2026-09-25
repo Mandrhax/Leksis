@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { parseFile, parsePdf, isProbablyScanned, countBlockChars } from '@/lib/file-parser'
 import { parsePdfWithVision } from '@/lib/pdf-vision'
 import { getAiOrError } from '@/lib/llm'
-import { DOCUMENT_MAX_CHARS, validateFileExtension } from '@/lib/validators'
+import { getDynamicLimits } from '@/lib/limits'
+import { isFeatureEnabled } from '@/lib/features-guard'
+import { validateFileExtension } from '@/lib/validators'
 
 export async function POST(req: NextRequest) {
+  if (!await isFeatureEnabled('document')) {
+    return NextResponse.json({ error: 'This feature is disabled.' }, { status: 403 })
+  }
   let formData: FormData
   try {
     formData = await req.formData()
@@ -37,10 +42,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `File extraction failed: ${(err as Error).message}` }, { status: 422 })
   }
 
+  const { maxDocChars } = await getDynamicLimits()
   const charCount = countBlockChars(blocks)
-  if (charCount > DOCUMENT_MAX_CHARS) {
+  if (charCount > maxDocChars) {
     return NextResponse.json({
-      error: `Document exceeds the ${DOCUMENT_MAX_CHARS} character limit (${charCount} chars).`,
+      error: `Document exceeds the ${maxDocChars} character limit (${charCount} chars).`,
     }, { status: 400 })
   }
 
