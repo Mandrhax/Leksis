@@ -82,7 +82,7 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 ## Phase 4 ter : Déconnexion renvoyée sur 0.0.0.0
 
 - [x] Cause : le serveur Next écoute sur `HOSTNAME=0.0.0.0` (Docker) et Auth.js en déduit l'adresse du site, même derrière Caddy/proxy → `signOut()` renvoyait `http://0.0.0.0:3000`. Reproduit avec un vrai login/logout.
-- [x] Correctif : callback `redirect` d'Auth.js qui ne renvoie que des chemins relatifs (`auth.config.ts`) + `signOutToSignIn()` (`lib/sign-out.ts`) qui navigue vers `/auth/signin` lui-même
+- [x] Correctif : `signOutToSignIn()` (`lib/sign-out.ts`) se déconnecte puis navigue vers `/auth/signin` lui-même. ⚠️ Une première version ajoutait un callback Auth.js `redirect` renvoyant des chemins relatifs : il cassait la validation du code (`signIn()` fait `new URL(data.url)`, « Invalid URL ») — retiré dans la beta.4. Parcours connexion/déconnexion désormais vérifié dans un vrai navigateur (Edge headless + puppeteer-core)
 
 ## Phase 5 : Code mort et doublons
 
@@ -108,6 +108,7 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 
 - [ ] ESLint (config Next)
 - [ ] Vitest : tests sur `file-parser`, `network.ts`, `caddy-config`, `prompts`, `tones`
+- [ ] Test de bout en bout du parcours connexion → espace de travail → déconnexion (puppeteer-core, script déjà écrit pendant le correctif de la beta.4 : à intégrer dans `tests/`) — aurait détecté la régression de la beta.3
 - [ ] Workflow GitHub Actions : `tsc`, lint, tests, `npm audit`, `next build`
 - [ ] Cache mémoire des réglages (TTL court, invalidé dans `updateSetting`)
 - [ ] Traduction de documents par lots avec contrôle du nombre de `|||` et relance

@@ -15,18 +15,10 @@ export const authConfig: NextAuthConfig = {
     authorized({ auth }) {
       return !!auth?.user
     },
-    // Le serveur Next tourne avec HOSTNAME=0.0.0.0 (Docker) et Auth.js en déduit une adresse « http://0.0.0.0:3000 »,
-    // même derrière Caddy ou un proxy : on ne renvoie donc jamais d'adresse absolue au navigateur, seulement un
-    // chemin du site (relatif à l'adresse que l'utilisateur utilise réellement). Une URL externe est ramenée à son chemin.
-    redirect({ url }) {
-      if (url.startsWith('/') && !url.startsWith('//')) return url
-      try {
-        const u = new URL(url)
-        return `${u.pathname}${u.search}${u.hash}` || '/'
-      } catch {
-        return '/'
-      }
-    },
+    // Pas de callback `redirect` : le client next-auth analyse l'URL renvoyée par signIn() avec `new URL()`, elle doit
+    // donc rester absolue. L'adresse absolue peut être celle du serveur interne (http://0.0.0.0:3000, HOSTNAME du
+    // conteneur) : c'est pourquoi la connexion et la déconnexion naviguent elles-mêmes vers un chemin relatif
+    // (SignInForm.safeCallbackPath, lib/sign-out.ts) au lieu de suivre l'URL du serveur.
   },
   trustHost: true,
 }
