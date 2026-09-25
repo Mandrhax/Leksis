@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.2/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,19 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.5.1-beta.2
+Sessions, audit and settings hardening, on top of beta.1.
+- Security: a role change (demotion) now applies within seconds instead of after 30 days, and a deleted account loses its session
+- Security: sign-in codes use a cryptographic generator and can only be used once even with simultaneous attempts; email addresses are validated
+- Security: purging the audit log or usage statistics is now recorded in the audit log
+- Security: settings (colors, logo/background URLs, footer links, limits, tones) are validated when saved and when a configuration is imported; invalid entries are skipped
+- Security: logo and background uploads are checked by their real content (PNG, JPG, WebP — plus ICO for the logo); **SVG uploads are no longer accepted**. An already-saved SVG logo keeps displaying until replaced
+- Security: HTTP security headers (Content-Security-Policy, frame protection, referrer and permissions policies); the app container runs with `no-new-privileges` and no Linux capabilities
+- Security: the encrypted AI API key is no longer sent to the browser by the settings API
+- Removed: dark mode (user toggle and admin setting)
+- Removed: the *Services → PostgreSQL → Connection* form — it never changed the connection (the app uses `DATABASE_URL`); the page now shows live monitoring only
+- Fix: build no longer prints "dynamic filesystem access" warnings
 
 ### v1.5.1-beta.1
 Security hardening and reliability pass (dependencies, API guards, document handling).
