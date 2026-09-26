@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.9/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -320,80 +320,20 @@ Users switch the UI language instantly with the language selector — the prefer
 
 ## 🎉 What's new
 
-### v1.5.1-beta.9
-Fix for the AI tones, on top of beta.8. No database migration.
-- **Fix**: the Italian name of a rewrite tone (Admin → Settings → AI tones) was lost every time the tones were saved — the field came back empty. It is now kept. The six built-in tones (Professional, Casual, Friendly, Authoritative, Empathetic, Creative) get their Italian name back if it is missing; a tone you renamed is left alone
-
-### v1.5.1-beta.8
-Renamed AI variables, on top of beta.7. No database migration.
-- **Renamed variables**: the app-level `OLLAMA_MODEL`, `OLLAMA_OCR_MODEL` and `OLLAMA_REWRITE_MODEL` are now `AI_MODEL`, `AI_OCR_MODEL` and `AI_REWRITE_MODEL` (the engine is not always Ollama), and `OLLAMA_BASE_URL` is gone (it only duplicated `AI_BASE_URL`). `leksis update` renames them in your `.env` automatically; the old names and the old `LEKSIS_OLLAMA_MODEL` / `_OCR_MODEL` / `_REWRITE_MODEL` answer keys are still accepted. The settings of the Ollama container itself (`OLLAMA_KEEP_ALIVE`, `OLLAMA_SCHED_SPREAD`, `OLLAMA_MAX_LOADED_MODELS`) keep their names
-- If you edit `.env` or `docker-compose.yml` by hand, or run the app outside `install.sh`, use the new names
-
-### v1.5.1-beta.7
-Fixes and a clearer AI engine choice, on top of beta.6. No database migration.
-- **Fix**: with an Ollama server, the **Save** button of Admin → Services → AI stayed disabled (the context-size check rejected every value). Only the OpenAI-compatible API could be saved. This affected every earlier beta
-- **AI engine choice**: three cards — **Ollama (this server)**, **Ollama (another server)** and **OpenAI-compatible API**. Nothing new is stored, so existing installations show the right card automatically. The local card fills in the address of the Ollama container and is greyed out when that container is not there (add it with `leksis config`)
-- Audit log: actions on a user now show the account email instead of its internal id (also in the dashboard's recent activity)
-- Dashboard: a long AI engine version (for example a vLLM development build) wraps instead of overflowing its card, and the provider name is translated
-
-### v1.5.1-beta.6
-Users, documents and maintenance, on top of beta.5. **Database migration** (`users.disabled`) — `leksis update` takes a backup and applies it. Updating from beta.4 or older: run `sudo leksis migrate` once after the update.
-- **Users**: administrators can now disable, re-enable and delete accounts, search them and page through the list. A disabled account cannot sign in and its open sessions end within seconds. At least one active administrator always remains, and nobody can demote, disable or delete their own account. Deleting an account does not keep the person out (a new account is created at their next sign-in) — disable it instead
-- **Document translation**: documents are translated in batches and the number of `|||` separators is checked. When a model merges or drops one, the batch is asked again, then split, so the translation can no longer end up shifted. The server logs `separators not respected by <model>` when that happens
-- **Log retention**: usage statistics older than 365 days and audit entries older than 730 days are deleted automatically (Admin → Settings → General, 0 keeps everything). ⚠️ On update, older entries are removed at the first run
-- **Settings** are cached for a few seconds, which removes several database queries per request
-- Fix: the source language chosen in the AI Rewrite tab was ignored
-- Fix: a hydration error on the Users page; the audit log no longer breaks when the session has expired
-- Translated error messages for sign-in (disabled account, too many attempts), users and logo/background uploads
-- Database updates now use a `schema_migrations` table (applied once each) and a new `leksis migrate` command
-- Internal: ESLint, 144 unit tests, a browser test of sign-in/sign-out and CI on every push
-
-### v1.5.1-beta.5
-Database cleanup (migration) — take a backup first; `leksis update` does it automatically.
-- Removed the unused NextAuth database adapter (sessions were already JWT-only). The `accounts`, `sessions` and `verification_token` tables and the `users.emailVerified` / `users.image` columns are dropped by a new one-time, idempotent migration (`docker/migrations/`) that `leksis update` applies after the update — anything that still holds data is kept and reported
-- The migration also removes the dead `db_config` (it still held an encrypted password), `seo` and legacy `ollama_config` (once `ai_config` exists) settings
-- New installations get the cleaned schema directly
-
-### v1.5.1-beta.4
-- Fix: entering the sign-in code failed with "Invalid URL" in beta.3 (a side effect of the sign-out fix). Sign-in works again; signing out still returns to the sign-in page at the address you use, never `0.0.0.0`
-- The sign-in → workspace → sign-out flow is now verified in a real browser, with no console errors
-
-### v1.5.1-beta.3
-Sign-in/sign-out fixes and internal cleanup, on top of beta.2.
-- Fix: signing out no longer sends the browser to `http://0.0.0.0:3000` — redirects are now relative to the address you actually use (also behind Caddy or a reverse proxy)
-- Fix: React hydration error (#418) logged in the browser console when opening the sign-in page
-- Internal: removed dead code (unused components, the never-produced `html` block type, the unused `seo` setting), merged duplicated HTML-table parsing between DOCX and scanned-PDF handling, simplified the glossary query
-- Internal: PostgreSQL connection pool now has timeouts and an idle-connection error handler (a database restart can no longer crash the app process)
-- Internal: server error messages are now consistently in English
-
-### v1.5.1-beta.2
-Sessions, audit and settings hardening, on top of beta.1.
-- Security: a role change (demotion) now applies within seconds instead of after 30 days, and a deleted account loses its session
-- Security: sign-in codes use a cryptographic generator and can only be used once even with simultaneous attempts; email addresses are validated
-- Security: purging the audit log or usage statistics is now recorded in the audit log
-- Security: settings (colors, logo/background URLs, footer links, limits, tones) are validated when saved and when a configuration is imported; invalid entries are skipped
-- Security: logo and background uploads are checked by their real content (PNG, JPG, WebP — plus ICO for the logo); **SVG uploads are no longer accepted**. An already-saved SVG logo keeps displaying until replaced
-- Security: HTTP security headers (Content-Security-Policy, frame protection, referrer and permissions policies); the app container runs with `no-new-privileges` and no Linux capabilities
-- Security: the encrypted AI API key is no longer sent to the browser by the settings API
-- Removed: dark mode (user toggle and admin setting)
-- Removed: the *Services → PostgreSQL → Connection* form — it never changed the connection (the app uses `DATABASE_URL`); the page now shows live monitoring only
-- Fix: build no longer prints "dynamic filesystem access" warnings
-
-### v1.5.1-beta.1
-Security hardening and reliability pass (dependencies, API guards, document handling).
-- Security: dependencies updated (Next.js 16.3, Auth.js beta.32, mammoth, docx 9) — `npm audit` reports 0 vulnerabilities
-- Security: every user API route now checks the session itself (defence in depth behind the proxy); **maintenance mode now also blocks the API** for non-admin users
-- Security: per-user rate limit on AI calls (default 30 per minute, configurable in *Admin → Settings → Features & limits*, 0 = unlimited) and per-IP / per-email limits on the sign-in code endpoint
-- Security: uploads are refused early when too large (documents 10 MB, images per the admin limit, DOCX export 5 MB, config import 15 MB); Caddy also caps request bodies at 50 MB; scanned PDFs are limited to 20 pages
-- Security: usage CSV export neutralises spreadsheet formulas; error details are no longer sent to the browser; the DOCX export sanitises the file name
-- New: *Admin → Services → AI → Models* has a **context window (`num_ctx`)** setting for Ollama (default 8192, applied to every request and to "Load into VRAM") — previously Ollama's small default could silently truncate long documents
-- Change: Leksis no longer forces `keep_alive` on every Ollama request; the local container keeps models loaded through `OLLAMA_KEEP_ALIVE=-1` (already set in `docker-compose.yml`)
-- Fix: DOCX translation no longer drops bullet/numbered lists and heading levels 3–6
-- Fix: Italian tone labels were never saved; "Reset to defaults" did not delete the logo/background files and did not reset the Features settings
-- Fix: Ollama errors reported in the middle of a stream are now shown instead of ending silently
-- Fix: the maintenance screen and `<html lang>` follow the interface language; usage statistics cover the whole selected period; glossary import is all-or-nothing
-- Removed: legacy `.doc` upload (never worked — only PDF, DOCX, TXT and CSV are supported)
-- Docker: the image now installs npm packages from the default npm registry
+### v1.5.1
+Security hardening, reliability and cleanup (tested through nine betas). Two **database migrations** (see below): `leksis update` takes a backup first and applies them.
+- **Security**: dependencies updated (Next.js 16.3, Auth.js beta.32, mammoth, docx 9) — `npm audit` reports 0 vulnerabilities. Every user API route checks the session itself, and **maintenance mode now also blocks the API** for non-admin users. Per-user rate limit on AI calls (default 30 per minute, *Admin → Settings → Features & limits*, 0 = unlimited) and per-IP / per-email limits on the sign-in code endpoint. Oversized uploads are refused early (documents 10 MB, images per the admin limit, DOCX export 5 MB, config import 15 MB; Caddy caps bodies at 50 MB; scanned PDFs are limited to 20 pages)
+- **Security**: a role change applies within seconds (it used to take up to 30 days) and a deleted account loses its session. Sign-in codes use a cryptographic generator and can only be used once. Settings are validated when saved and when a configuration is imported. Logo and background uploads are checked by their real content (PNG, JPG, WebP — plus ICO for the logo); **SVG uploads are no longer accepted** (an already-saved SVG logo keeps displaying until replaced). HTTP security headers (Content-Security-Policy, frame protection, referrer and permissions policies); the app container runs with `no-new-privileges` and no Linux capabilities. The encrypted AI API key is no longer sent to the browser. Purging the audit log or usage statistics is recorded in the audit log. Usage CSV export neutralises spreadsheet formulas
+- **Users**: administrators can disable, re-enable and delete accounts, search them and page through the list. A disabled account cannot sign in and its open sessions end within seconds. At least one active administrator always remains, and nobody can demote, disable or delete their own account. Deleting an account does not keep the person out (a new account is created at their next sign-in) — disable it instead
+- **AI engine choice**: *Admin → Services → AI* now shows three cards — **Ollama (this server)**, **Ollama (another server)** and **OpenAI-compatible API**. Nothing new is stored, so existing installations show the right card automatically
+- **Document translation**: documents are translated in batches and the number of `|||` separators is checked. When a model merges or drops one, the batch is asked again, then split, so the translation can no longer end up shifted. DOCX translation no longer drops bullet/numbered lists and heading levels 3–6
+- **Log retention**: usage statistics older than 365 days and audit entries older than 730 days are deleted automatically (*Admin → Settings → General*, 0 keeps everything). ⚠️ On update, older entries are removed at the first run
+- **Ollama**: new *context window (`num_ctx`)* setting in *Services → AI → Models* (default 8192, applied to every request and to "Load into VRAM") — Ollama's small default could silently truncate long documents. Leksis no longer forces `keep_alive` on requests (the local container keeps models loaded through `OLLAMA_KEEP_ALIVE=-1`). Errors reported in the middle of a stream are now shown
+- **Renamed variables**: the app-level `OLLAMA_MODEL`, `OLLAMA_OCR_MODEL` and `OLLAMA_REWRITE_MODEL` are now `AI_MODEL`, `AI_OCR_MODEL` and `AI_REWRITE_MODEL` (the engine is not always Ollama), and `OLLAMA_BASE_URL` is gone (it only duplicated `AI_BASE_URL`). `leksis update` renames them in your `.env` automatically; the old names and the old `LEKSIS_OLLAMA_MODEL` / `_OCR_MODEL` / `_REWRITE_MODEL` answer keys are still accepted. The settings of the Ollama container itself (`OLLAMA_KEEP_ALIVE`, `OLLAMA_SCHED_SPREAD`, `OLLAMA_MAX_LOADED_MODELS`) keep their names. If you edit `.env` or `docker-compose.yml` by hand, or run the app outside `install.sh`, use the new names
+- **Database**: the unused NextAuth adapter tables (`accounts`, `sessions`, `verification_token`), the `users.emailVerified` / `users.image` columns and the dead `db_config`, `seo` and legacy `ollama_config` settings are removed by a one-time, idempotent migration — anything that still holds data is kept and reported. A second migration adds `users.disabled`. Migrations are tracked in a `schema_migrations` table and can be re-run with the new `leksis migrate` command. ⚠️ Between the app restart and the migration during `leksis update`, sign-in and the Users page fail for a moment
+- **Removed**: dark mode (user toggle and admin setting); the *Services → PostgreSQL → Connection* form — it never changed the connection (the app uses `DATABASE_URL`), the page now shows live monitoring only; the legacy `.doc` upload (it never worked — only PDF, DOCX, TXT and CSV are supported)
+- **Fixes**: signing out no longer sends the browser to `http://0.0.0.0:3000`; a React hydration error (#418) on the sign-in and Users pages; the source language chosen in the AI Rewrite tab was ignored; the Italian name of a rewrite tone was never saved (the six built-in tones get their Italian name back); with an Ollama server the *Save* button of *Services → AI* could stay disabled; "Reset to defaults" did not delete the logo/background files nor reset the Features settings; the maintenance screen and `<html lang>` follow the interface language; usage statistics cover the whole selected period; glossary import is all-or-nothing; the audit log shows account emails instead of internal ids; a long AI engine version no longer overflows the dashboard card
+- **Docker / internal**: the image installs npm packages from the default registry; PostgreSQL pool timeouts and an idle-connection error handler (a database restart can no longer crash the app); server error messages are in English and the interface shows translated messages for known errors; ESLint, 160 unit tests, a real-browser end-to-end test and CI on every push
 
 ### v1.5.0
 Reliability fixes for OpenAI-compatible AI engines (vLLM, LM Studio, llama.cpp…), and a cleaner AI model setup.

@@ -133,6 +133,6 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 
 ## Livraison
 
-- [ ] Betas `v1.5.1-beta.1` (phases 0-2), `beta.2` (phases 3-4) et `beta.3` (phases 5 + déconnexion + hydratation) , `beta.4` (correctif connexion) `beta.5` (migration base), `beta.6` (phase 7 : utilisateurs, documents par lots, rétention, outillage) et `beta.7` (retours de test : cartes du moteur IA, bouton Enregistrer Ollama, audit, validée sur la VM), `beta.8` (renommage `OLLAMA_*` → `AI_*`, validé sur la VM) et `beta.9` (noms italiens des tons) publiées — **à tester sur une VM séparée** ; beta.4 après les phases 6-7
-- [ ] Bumper `package.json`, `install.sh` et `README.md` ensemble (What's new inclus)
-- [ ] Merger `dev` dans `main` et taguer après validation de la beta
+- [x] Betas `v1.5.1-beta.1` (phases 0-2), `beta.2` (phases 3-4) et `beta.3` (phases 5 + déconnexion + hydratation) , `beta.4` (correctif connexion) `beta.5` (migration base), `beta.6` (phase 7 : utilisateurs, documents par lots, rétention, outillage) et `beta.7` (retours de test : cartes du moteur IA, bouton Enregistrer Ollama, audit, validée sur la VM), `beta.8` (renommage `OLLAMA_*` → `AI_*`, validé sur la VM) et `beta.9` (noms italiens des tons) publiées et validées sur une VM séparée
+- [x] Bumper `package.json`, `install.sh` et `README.md` ensemble (What's new inclus) — v1.5.1 : entrée unique remplaçant les entrées beta
+- [x] Merger `dev` dans `main` et taguer — v1.5.1 publiée (tag sur main)
