@@ -35,7 +35,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
   const activeTones = configuredTones.filter(tn => tn.enabled !== false)
 
   function toneLabel(tn: typeof configuredTones[0]): string {
-    return (tn.labels?.[locale] ?? tn.labels?.en) || tn.id
+    return tn.labels?.[locale]?.trim() || tn.labels?.en || tn.id
   }
 
   const [inputText, setInputText]   = useState('')

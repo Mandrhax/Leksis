@@ -36,6 +36,27 @@ describe('getConfiguredTones', () => {
     expect(await getConfiguredTones()).toEqual([t])
   })
 
+  describe('Italian labels of tones saved before Italian existed', () => {
+    const noItalian = DEFAULT_TONES.map(({ labels: { it: _it, ...labels }, ...tone }) => ({ ...tone, labels }))
+
+    it('restores the Italian label of the six built-in tones', async () => {
+      getSetting.mockResolvedValue(noItalian)
+      expect(await getConfiguredTones()).toEqual(DEFAULT_TONES)
+    })
+
+    it('does not touch a tone the admin renamed, nor an Italian label already set', async () => {
+      const renamed = { id: 'professional', labels: { en: 'Corporate', fr: 'Corporatif' }, instruction: 'i' }
+      const custom  = { id: 'casual', labels: { en: 'Casual', it: 'Alla buona' }, instruction: 'i' }
+      getSetting.mockResolvedValue([renamed, custom])
+      expect(await getConfiguredTones()).toEqual([renamed, custom])
+    })
+
+    it('treats a blank Italian label as missing', async () => {
+      getSetting.mockResolvedValue([{ ...noItalian[0], labels: { ...noItalian[0].labels, it: '  ' } }])
+      expect((await getConfiguredTones())[0].labels.it).toBe('Professionale')
+    })
+  })
+
   it.each([[null], [[]], ['nope']])('falls back to the defaults for %j', async raw => {
     getSetting.mockResolvedValue(raw)
     expect(await getConfiguredTones()).toBe(DEFAULT_TONES)

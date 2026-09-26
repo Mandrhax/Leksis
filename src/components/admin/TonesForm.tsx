@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { ToneConfig } from '@/types/leksis'
 import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
+import { normalizeTones } from '@/lib/tones-defaults'
 
 const MAX_TONES = 6
 
@@ -28,31 +29,10 @@ function ensureUniqueId(base: string, existing: ToneRow[], excludeIdx: number): 
   return `${base}-${i}`
 }
 
-const DEFAULT_SEED: ToneRow[] = [
-  { id: 'professional',  labels: { en: 'Professional',  fr: 'Professionnel', de: 'Professionell'  }, instruction: 'in a professional, formal tone appropriate for business communication' },
-  { id: 'casual',        labels: { en: 'Casual',         fr: 'Décontracté',   de: 'Locker'         }, instruction: 'in a casual, relaxed tone as if talking to a friend' },
-  { id: 'friendly',      labels: { en: 'Friendly',       fr: 'Amical',        de: 'Freundlich'     }, instruction: 'in a warm and friendly tone that feels approachable and welcoming' },
-  { id: 'authoritative', labels: { en: 'Authoritative',  fr: 'Autoritaire',   de: 'Autoritativ'    }, instruction: 'in an authoritative, confident tone that conveys expertise and credibility' },
-  { id: 'empathetic',    labels: { en: 'Empathetic',     fr: 'Empathique',    de: 'Einfühlsam'     }, instruction: 'in an empathetic, compassionate tone that acknowledges feelings and builds connection' },
-  { id: 'creative',      labels: { en: 'Creative',       fr: 'Créatif',       de: 'Kreativ'        }, instruction: 'in a creative, expressive tone that uses vivid language and original phrasing' },
-]
-
-function migrateRow(tc: ToneConfig): ToneRow {
-  const raw = tc as ToneConfig & { label?: string }
-  if (raw.label && !tc.labels) {
-    return { ...tc, labels: { en: raw.label } }
-  }
-  return { ...tc }
-}
-
 export function TonesForm({ initial, onToast }: Props) {
   const { t } = useI18n()
 
-  const seed: ToneRow[] = initial.length > 0
-    ? initial.map(migrateRow)
-    : DEFAULT_SEED
-
-  const [tones, setTones]   = useState<ToneRow[]>(seed)
+  const [tones, setTones]   = useState<ToneRow[]>(() => normalizeTones(initial).map(tn => ({ ...tn })))
   const [errors, setErrors] = useState<FieldErrors>({})
   const [saving, setSaving] = useState(false)
 
@@ -99,7 +79,7 @@ export function TonesForm({ initial, onToast }: Props) {
 
   function addTone() {
     if (tones.length >= MAX_TONES) return
-    setTones(prev => [...prev, { id: 'new-tone', labels: { en: '', fr: '', de: '' }, instruction: '', enabled: true, isNew: true }])
+    setTones(prev => [...prev, { id: 'new-tone', labels: { en: '', fr: '', de: '', it: '' }, instruction: '', enabled: true, isNew: true }])
   }
 
   function removeTone(idx: number) {
@@ -171,6 +151,7 @@ export function TonesForm({ initial, onToast }: Props) {
           en: tc.labels.en,
           ...(tc.labels.fr?.trim() ? { fr: tc.labels.fr.trim() } : {}),
           ...(tc.labels.de?.trim() ? { de: tc.labels.de.trim() } : {}),
+          ...(tc.labels.it?.trim() ? { it: tc.labels.it.trim() } : {}),
         },
       }))
       const res = await fetch('/api/admin/settings', {

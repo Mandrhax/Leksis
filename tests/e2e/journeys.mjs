@@ -328,6 +328,36 @@ try {
   engine = await cards()
   check('going back to "another server" selects that card again', engine[1]?.checked === true, JSON.stringify(engine.map(c => c.checked)))
 
+  // ── Settings → AI tones: Italian labels (tones saved before Italian existed have none) ──
+  const tonesNoItalian = [
+    { id: 'professional', labels: { en: 'Professional', fr: 'Professionnel', de: 'Professionell' }, instruction: 'in a professional tone' },
+    { id: 'casual', labels: { en: 'Casual', fr: 'Décontracté', de: 'Locker' }, instruction: 'in a casual tone' },
+  ]
+  await db.query("INSERT INTO site_settings (key, value) VALUES ('rewrite_tones', $1::jsonb) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [JSON.stringify(tonesNoItalian)])
+  const openTonesTab = async () => {
+    await adminPage.goto(BASE + '/admin/settings', { waitUntil: 'networkidle0' })
+    await adminPage.evaluate(() => [...document.querySelectorAll('button')].find(b => b.innerText.includes('AI tones')).click())
+    await adminPage.waitForFunction(() => [...document.querySelectorAll('span')].some(s => s.textContent === 'IT'), { timeout: 5000 })
+  }
+  const italianFields = () => adminPage.evaluate(() => [...document.querySelectorAll('span')].filter(s => s.textContent === 'IT').map(s => s.nextElementSibling.value))
+  await openTonesTab()
+  let it = await italianFields()
+  check('a built-in tone saved without Italian shows its Italian name', it[0] === 'Professionale', JSON.stringify(it))
+  const casualIt = await adminPage.evaluateHandle(() => [...document.querySelectorAll('span')].filter(s => s.textContent === 'IT')[1].nextElementSibling)
+  await casualIt.click()
+  await adminPage.keyboard.down('Control'); await adminPage.keyboard.press('KeyA'); await adminPage.keyboard.up('Control')
+  await casualIt.type('Alla buona')
+  await adminPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.offsetParent !== null && b.innerText.includes('Save')).click())
+  let savedTones = null
+  for (let i = 0; i < 20 && !savedTones?.[1]?.labels?.it; i++) {
+    savedTones = (await db.query("SELECT value FROM site_settings WHERE key = 'rewrite_tones'")).rows[0]?.value ?? null
+    if (!savedTones?.[1]?.labels?.it) await new Promise(r => setTimeout(r, 500))
+  }
+  check('saving the tones stores the Italian names', savedTones?.[0]?.labels?.it === 'Professionale' && savedTones?.[1]?.labels?.it === 'Alla buona', JSON.stringify(savedTones))
+  await openTonesTab()
+  it = await italianFields()
+  check('the Italian names are still there after leaving the page and coming back', it[0] === 'Professionale' && it[1] === 'Alla buona', JSON.stringify(it))
+
   check('no browser console errors on the admin pages', adminProblems.length === 0, adminProblems.join(' | '))
 
   check('no browser console errors or uncaught exceptions (e.g. hydration #418)', problems.length === 0, problems.join(' | '))

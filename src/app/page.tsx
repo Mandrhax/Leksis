@@ -1,6 +1,6 @@
 import { HomeClient } from '@/components/ui/HomeClient'
-import type { ToneConfig, Formality } from '@/types/leksis'
-import { DEFAULT_TONES } from '@/lib/tones'
+import type { Formality } from '@/types/leksis'
+import { DEFAULT_TONES, normalizeTones } from '@/lib/tones-defaults'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,16 +28,7 @@ async function loadPageSettings() {
       rewrite:  features.tabs?.rewrite  !== false,
     }
 
-    const rawTones = settings.rewrite_tones
-    const configuredTones: ToneConfig[] = Array.isArray(rawTones) && rawTones.length > 0
-      ? (rawTones as Array<ToneConfig & { label?: string }>).map(t => {
-          if (t.label && !t.labels) {
-            const { label, ...rest } = t
-            return { ...rest, labels: { en: label } }
-          }
-          return t as ToneConfig
-        })
-      : DEFAULT_TONES
+    const configuredTones = normalizeTones(settings.rewrite_tones)
 
     return {
       logoUrl:           branding.logoUrl  ?? null,
