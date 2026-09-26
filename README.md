@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.6.0-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,13 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.6.0-beta.1
+Beta — **Privacy policy and Usage policy pages**. No database migration.
+- **Public pages** `/legal/privacy` and `/legal/usage`, readable without signing in, linked from the workspace footer (now always shown) and from the sign-in page. The text is in English only for now
+- **Generated from your real configuration**: whether content stays on this server, on your private network or goes to an external AI service (with a warning), the log retention periods, the enabled features and the usage limits
+- **Editable by the administrator** in *Admin → Settings → Legal*: organisation name, privacy contact and extra text for each page. Included in the configuration export / import and in "Reset to defaults"
+- These pages are a starting point, not legal advice: have them reviewed for your organisation
 
 ### v1.5.1
 Security hardening, reliability and cleanup (tested through nine betas). Two **database migrations** (see below): `leksis update` takes a backup first and applies them. ⚠️ **Updating from 1.5.0 or older: run `sudo leksis migrate` once right after `leksis update`** — the update step of those older versions cannot apply migrations. Until you do, sign-in fails with "code generation error" (HTTP 503 on `/api/auth/otp`) because the `users.disabled` column is missing.
