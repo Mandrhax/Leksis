@@ -50,6 +50,17 @@ export const GeneralSchema = z.object({
   auditRetentionDays: z.number().int().min(0).max(RETENTION_MAX_DAYS),
 }).partial()
 
+/**
+ * Pages « Privacy » et « Usage policy » (/legal/*) : la partie factuelle vient de la configuration réelle
+ * (lib/legal-content.ts), ces champs ne servent qu'à la compléter. Texte brut : jamais interprété comme du HTML.
+ */
+export const LegalSchema = z.object({
+  organization: z.string().max(120),
+  contact:      z.string().max(254),
+  privacyNotes: z.string().max(5000),
+  usageRules:   z.string().max(5000),
+}).partial()
+
 const langCode = z.string().regex(/^(auto|[A-Za-z0-9-]{1,20})$/, 'Invalid language code')
 
 export const FeaturesSchema = z.object({
@@ -104,6 +115,7 @@ export const SETTING_DEFAULTS = {
   branding: { siteName: 'Leksis', primaryColor: '#565e74', secondaryColor: '#506076', headerLogoSize: '32' },
   design:   { buttonRadius: '0.75rem', footerText: '© Leksis', footerLinks: [] },
   general:  { contactEmail: '', globalBanner: '', maintenanceMode: false, maintenanceMessage: '', ...RETENTION_DEFAULTS },
+  legal:    { organization: '', contact: '', privacyNotes: '', usageRules: '' },
   features: {
     tabs:     { text: true, document: true, image: true, rewrite: true },
     defaults: { sourceLang: 'auto', targetLang: 'en', formality: 'Informal' },
@@ -121,6 +133,7 @@ export const SETTING_SCHEMAS = {
   branding:      BrandingSchema,
   design:        DesignSchema,
   general:       GeneralSchema,
+  legal:         LegalSchema,
   features:      FeaturesSchema,
   rewrite_tones: TonesSchema,
 } as const

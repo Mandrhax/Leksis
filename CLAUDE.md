@@ -116,6 +116,7 @@ src/
 │
 ├── app/
 │   ├── page.tsx, layout.tsx, globals.css, settings/page.tsx, auth/signin/page.tsx
+│   ├── legal/[doc]/page.tsx              Pages publiques Privacy policy / Usage policy (`privacy` | `usage`, sinon 404)
 │   ├── api/
 │   │   ├── translate/route.ts            Traduction texte (streaming)
 │   │   ├── translate/document/route.ts   Traduction document (JSON blocks, par lots — voir « Documents »)
@@ -134,9 +135,9 @@ src/
 ├── components/
 │   ├── GlobalBanner.tsx, MaintenanceScreen.tsx
 │   ├── tabs/    TextTranslationTab, DocumentStudioTab, ImageExtractionTab, AIRewriteTab
-│   ├── ui/      HomeClient, AccountMenu, SignInForm, UILanguageSwitcher, LanguageDropdown, HelpModal
+│   ├── ui/      HomeClient, AccountMenu, SignInForm, UILanguageSwitcher, LanguageDropdown, HelpModal, LegalDocumentView, LegalLinks
 │   └── admin/   AdminClientLayout, AdminSidebar, AdminPageHeader, AdminToast, ServiceTabBar, SettingsTabs, AdminDashboard,
-│                *Form (Branding, Design, Features, Tones, General, AiService, CaddyService, ExportImport), OllamaModelSelect,
+│                *Form (Branding, Design, Features, Tones, General, Legal, AiService, CaddyService, ExportImport), OllamaModelSelect,
 │                *ServicesLayout (Ollama, Caddy), *Metrics (Ollama, Db, Caddy), GlossaryAdmin, UserList, UsagePanel, AuditTable, PurgeButton, PinnedUrlNotice
 │
 ├── hooks/       useCopyToClipboard, useOllamaPull
@@ -156,6 +157,7 @@ src/
 │   ├── rate-limit.ts, otp.ts, audit.ts, usage.ts, retention.ts
 │   ├── site-assets.ts       Upload logo / fond : magic bytes, taille, erreurs à code
 │   ├── caddy-config.ts (client-safe), caddy.ts, caddy-tls.ts
+│   ├── legal-content.ts (pur : textes Privacy / Usage), legal.ts (server-only : lit la config réelle)
 │   ├── glossary.ts, tones.ts, limits.ts, features-guard.ts, validators.ts, languages.ts, i18n.tsx, sign-out.ts, crypto.ts, db.ts, color-utils.ts, relative-time.ts
 │
 └── types/       leksis.ts, next-auth.d.ts
@@ -216,7 +218,7 @@ Un namespace par composant ou page (`home`, `textTab`, `docTab`, `imgTab`, `rewr
 ### Pages admin — conventions de mise en page
 
 - Wrapper page : `p-8 max-w-[1400px]`
-- **Pages Services (Ollama/Caddy) et Réglages** utilisent le même pattern d'onglets soulignés via le composant partagé `ServiceTabBar` (générique `<T extends string>`, style `.tab-btn` du workspace principal) — plus de grille 2 colonnes ni d'accordéon. Ollama : Connection/Models/Monitoring. Caddy : Access/Monitoring. **PostgreSQL : Monitoring seul** (le formulaire de connexion a été supprimé, la connexion vient de `DATABASE_URL`). Réglages (`SettingsTabs`) : Identity/Appearance/Features & limits/AI tones/General
+- **Pages Services (Ollama/Caddy) et Réglages** utilisent le même pattern d'onglets soulignés via le composant partagé `ServiceTabBar` (générique `<T extends string>`, style `.tab-btn` du workspace principal) — plus de grille 2 colonnes ni d'accordéon. Ollama : Connection/Models/Monitoring. Caddy : Access/Monitoring. **PostgreSQL : Monitoring seul** (le formulaire de connexion a été supprimé, la connexion vient de `DATABASE_URL`). Réglages (`SettingsTabs`) : Identity/Appearance/Features & limits/AI tones/General/Legal
 - **Formulaires + panneaux d'un onglet restent montés en permanence**, visibilité pilotée par `hidden` (CSS) ou par un prop `activeTab` lu en interne (cas d'`AiServiceForm`, dont Connection et Models partagent le même state et la même barre d'actions Save) — jamais de démontage/remontage au changement d'onglet, pour ne pas perdre une saisie non sauvegardée
 - **Page Réglages** (`SettingsTabs`) : bouton "Reset to defaults" au-dessus de la barre d'onglets (reset global, pas par onglet)
 - **Onglet Access/Caddy** : 2 colonnes (`grid-cols-1 lg:grid-cols-2`) — réglages d'accès à gauche, aperçu du Caddyfile généré à droite (`lg:sticky lg:top-6`)
@@ -457,6 +459,13 @@ Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git e
 - Tonalité par défaut : `features.defaults.formality` (`Informal` par défaut), pré-remplit `TextTranslationTab`
 - **Conservation des journaux** : `general.usageRetentionDays` (365) et `auditRetentionDays` (730), 0 = garder. `lib/retention.ts` supprime par lots de 10 000, lancé par `instrumentation.ts` 2 min après le démarrage puis toutes les 6 h (`LEKSIS_RETENTION_DELAY_SEC` pour les tests), et s'inscrit à l'audit (`AUTO_PURGE_*`, utilisateur `system`)
 - `headerLogoSize` est dans `branding` (repli de lecture sur `design`) ; le fond du site est une couleur **ou** une image (`BrandingForm` supprime l'image en passant en mode Couleur)
+
+### Pages légales (Privacy / Usage policy)
+
+- `/legal/privacy` et `/legal/usage` : **publiques** (exclues du matcher de `proxy.ts`, lisibles avant la connexion), `force-dynamic`. Liens **toujours affichés** dans le footer de `HomeClient` (le footer n'est plus conditionné à un texte / des liens personnalisés) et sous le formulaire de `SignInForm`, via `LegalLinks`
+- **Texte en anglais uniquement, volontairement** (hors `locales/`) : `lib/legal-content.ts`, fonctions pures `buildPrivacyPolicy(ctx)` / `buildUsagePolicy(ctx)`. Seuls les libellés d'interface (`legal`, `legalForm`, `settingsTabs.tabLegal`) sont dans les 4 locales. Changer le texte de référence → bumper `LEGAL_TEMPLATE_VERSION`
+- **Partie factuelle générée depuis la configuration réelle** (`lib/legal.ts`, `loadLegalContext()`) : emplacement du moteur IA (`aiScope` : `local` = conteneur Ollama, `private` = réseau privé, `external` = `allowExternal` + hôte hors réseau privé → encadré d'avertissement, en cas de doute DNS on annonce `external`), durées de conservation, fonctions activées, limites. **Toute affirmation des textes doit rester vraie vis-à-vis du code** (contenu jamais stocké, `usage_log` sans texte, OTP affiché et non envoyé, suppression de compte ≠ blocage) : la relire quand on touche aux journaux, à l'auth ou au stockage
+- Clé `legal` (`site_settings`, schéma `LegalSchema` + défaut dans `settings-schema.ts`, donc export / import / reset) : `organization`, `contact` (repli : `general.contactEmail`), `privacyNotes`, `usageRules`. Texte brut affiché par React (jamais interprété comme du HTML). Onglet Réglages → Legal (`LegalForm`)
 
 ### Comptes et sessions
 

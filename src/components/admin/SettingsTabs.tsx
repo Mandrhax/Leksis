@@ -6,6 +6,7 @@ import { DesignForm }    from './DesignForm'
 import { GeneralForm }   from './GeneralForm'
 import { FeaturesForm }  from './FeaturesForm'
 import { TonesForm }     from './TonesForm'
+import { LegalForm }     from './LegalForm'
 import type { ToneConfig } from '@/types/leksis'
 import { AdminToast }    from './AdminToast'
 import type { ToastState } from './AdminToast'
@@ -16,7 +17,7 @@ interface Props {
   settings: Record<string, unknown>
 }
 
-type Tab = 'identity' | 'appearance' | 'features' | 'tones' | 'general'
+type Tab = 'identity' | 'appearance' | 'features' | 'tones' | 'general' | 'legal'
 
 export function SettingsTabs({ settings }: Props) {
   const { t } = useI18n()
@@ -93,6 +94,7 @@ export function SettingsTabs({ settings }: Props) {
           { id: 'features',   label: st.tabFeatures,   icon: 'tune'           },
           { id: 'tones',      label: st.tabTones,      icon: 'auto_fix_high' },
           { id: 'general',    label: st.tabGeneral,    icon: 'info'           },
+          { id: 'legal',      label: st.tabLegal,      icon: 'gavel'          },
         ]}
       />
 
@@ -111,6 +113,9 @@ export function SettingsTabs({ settings }: Props) {
       </div>
       <div className={tab === 'general' ? '' : 'hidden'}>
         <GeneralForm initial={settings.general as never ?? {}} onToast={setToast} />
+      </div>
+      <div className={tab === 'legal' ? '' : 'hidden'}>
+        <LegalForm initial={(settings.legal as Record<string, string> | undefined) ?? {}} onToast={setToast} />
       </div>
 
       <AdminToast toast={toast} onDismiss={() => setToast(null)} />

@@ -278,6 +278,28 @@ try {
   const retentionFields = await adminPage.evaluate(() => [...document.querySelectorAll('input[type=number]')].map(i => i.value))
   check('the settings page shows the default retention (365 / 730 days)', retentionFields.includes('365') && retentionFields.includes('730'), retentionFields.join(','))
 
+  // ── Legal pages: public, generated from the real configuration ──
+  const anon = (path) => fetch(BASE + path, { redirect: 'manual' }).then(async r => ({ status: r.status, text: await r.text() }))
+  const privacy = await anon('/legal/privacy')
+  check('the privacy policy is readable without signing in', privacy.status === 200 && privacy.text.includes('Privacy policy'), String(privacy.status))
+  const usagePolicy = await anon('/legal/usage')
+  check('the usage policy is readable without signing in', usagePolicy.status === 200 && usagePolicy.text.includes('Usage policy'), String(usagePolicy.status))
+  check('an unknown legal page is a 404', (await anon('/legal/nope')).status === 404)
+  check('the privacy policy reflects the AI server (private network here) and the retention', privacy.text.includes('inside the private network') && privacy.text.includes('365 days'))
+  const signinHtml = (await anon('/auth/signin')).text
+  check('the sign-in page links to both policies', signinHtml.includes('href="/legal/privacy"') && signinHtml.includes('href="/legal/usage"'))
+  const legalSave = await adminPage.evaluate(() => fetch('/api/admin/settings', {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: 'legal', value: { organization: 'Acme SA', contact: 'privacy@acme.ch', privacyNotes: '<b>Note</b>', usageRules: '' } }),
+  }).then(r => r.status))
+  check('an admin can save the legal settings', legalSave === 200, String(legalSave))
+  await new Promise(r => setTimeout(r, 5500)) // the page and the API route may not share the settings cache (5 s TTL)
+  const privacy2 = await anon('/legal/privacy')
+  check('the saved organisation and contact appear on the public page', privacy2.text.includes('Acme SA') && privacy2.text.includes('privacy@acme.ch'))
+  check('admin text is shown as text, never as HTML', privacy2.text.includes('&lt;b&gt;Note&lt;/b&gt;') && !privacy2.text.includes('<b>Note</b>'))
+  const legalTab = await adminPage.evaluate(() => [...document.querySelectorAll('button')].some(b => b.innerText.includes('Legal')))
+  check('the settings page has a Legal tab', legalTab)
+
   // ── Upload refused: the server sends a code, not text to display ──
   const badLogo = await adminPage.evaluate(async () => {
     const form = new FormData()
@@ -292,7 +314,7 @@ try {
   check('an admin can reset the settings to their defaults', reset === 200, String(reset))
   const stored = Object.fromEntries((await db.query('SELECT key, value FROM site_settings')).rows.map(r => [r.key, r.value]))
   check('every setting was written with its default', stored.branding?.siteName === 'Leksis' && stored.general?.usageRetentionDays === 365
-    && stored.features?.limits?.maxDocChars === 12000 && stored.features?.limits?.maxImageMB === 10 && stored.rewrite_tones?.length === 6, JSON.stringify(Object.keys(stored)))
+    && stored.features?.limits?.maxDocChars === 12000 && stored.features?.limits?.maxImageMB === 10 && stored.rewrite_tones?.length === 6 && stored.legal?.organization === '', JSON.stringify(Object.keys(stored)))
 
   // ── Services → AI: engine cards and saving an Ollama server ─────
   await adminPage.goto(BASE + '/admin/services/ai', { waitUntil: 'networkidle0' })

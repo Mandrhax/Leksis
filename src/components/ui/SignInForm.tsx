@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { signIn } from 'next-auth/react'
 import { useI18n } from '@/lib/i18n'
 import { UILanguageSwitcher } from '@/components/ui/UILanguageSwitcher'
+import { LegalLinks } from '@/components/ui/LegalLinks'
 
 type Step = 'email' | 'otp'
 
@@ -205,6 +206,10 @@ export function SignInForm({ siteName }: { siteName: string }) {
             </form>
           )}
         </div>
+
+        <nav className="mt-6 flex items-center justify-center gap-4">
+          <LegalLinks className="text-xs text-on-surface-variant hover:text-on-surface transition-colors" />
+        </nav>
       </div>
     </div>
   )

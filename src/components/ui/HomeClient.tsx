@@ -8,6 +8,7 @@ import { AIRewriteTab }         from '@/components/tabs/AIRewriteTab'
 import { AccountMenu }          from '@/components/ui/AccountMenu'
 import { UILanguageSwitcher }   from '@/components/ui/UILanguageSwitcher'
 import { HelpModal }            from '@/components/ui/HelpModal'
+import { LegalLinks }           from '@/components/ui/LegalLinks'
 import { I18nProvider, useI18n } from '@/lib/i18n'
 import type { ToneConfig, Formality } from '@/types/leksis'
 
@@ -154,36 +155,37 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} activeTab={safeActiveTab} />
 
       {/* ── Footer ── */}
-      {(footerText || footerLinks.length > 0) && (
-        <footer className="border-t border-outline-variant/10 px-6 md:px-8 py-4">
-          <div className="flex flex-wrap items-center gap-3">
-            {footerText && (
-              <span
-                className="text-xs text-on-surface-variant"
+      {/* Toujours affiché : les liens vers les politiques (Privacy / Usage) doivent rester accessibles */}
+      <footer className="border-t border-outline-variant/10 px-6 md:px-8 py-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {footerText && (
+            <span
+              className="text-xs text-on-surface-variant"
+              style={footerTextColor ? { color: footerTextColor } : undefined}
+            >
+              {footerText}
+            </span>
+          )}
+          <nav className="flex flex-wrap items-center gap-x-4 gap-y-1 ml-auto">
+            {footerLinks.map((link, i) => (
+              <a
+                key={i}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-on-surface-variant hover:text-on-surface transition-colors"
                 style={footerTextColor ? { color: footerTextColor } : undefined}
               >
-                {footerText}
-              </span>
-            )}
-            {footerLinks.length > 0 && (
-              <nav className="flex items-center gap-4 ml-auto">
-                {footerLinks.map((link, i) => (
-                  <a
-                    key={i}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-on-surface-variant hover:text-on-surface transition-colors"
-                    style={footerTextColor ? { color: footerTextColor } : undefined}
-                  >
-                    {link.label}
-                  </a>
-                ))}
-              </nav>
-            )}
-          </div>
-        </footer>
-      )}
+                {link.label}
+              </a>
+            ))}
+            <LegalLinks
+              className="text-xs text-on-surface-variant hover:text-on-surface transition-colors"
+              style={footerTextColor ? { color: footerTextColor } : undefined}
+            />
+          </nav>
+        </div>
+      </footer>
 
     </div>
   )
