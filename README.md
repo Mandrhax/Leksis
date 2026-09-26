@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.7/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.8/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,11 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.5.1-beta.8
+Renamed AI variables, on top of beta.7. No database migration.
+- **Renamed variables**: the app-level `OLLAMA_MODEL`, `OLLAMA_OCR_MODEL` and `OLLAMA_REWRITE_MODEL` are now `AI_MODEL`, `AI_OCR_MODEL` and `AI_REWRITE_MODEL` (the engine is not always Ollama), and `OLLAMA_BASE_URL` is gone (it only duplicated `AI_BASE_URL`). `leksis update` renames them in your `.env` automatically; the old names and the old `LEKSIS_OLLAMA_MODEL` / `_OCR_MODEL` / `_REWRITE_MODEL` answer keys are still accepted. The settings of the Ollama container itself (`OLLAMA_KEEP_ALIVE`, `OLLAMA_SCHED_SPREAD`, `OLLAMA_MAX_LOADED_MODELS`) keep their names
+- If you edit `.env` or `docker-compose.yml` by hand, or run the app outside `install.sh`, use the new names
 
 ### v1.5.1-beta.7
 Fixes and a clearer AI engine choice, on top of beta.6. No database migration.
