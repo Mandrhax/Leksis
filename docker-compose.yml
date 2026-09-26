@@ -27,7 +27,7 @@ services:
   # ── Ollama (LLM inference, GPU-accelerated) ─────────────────
   # Optional: only started when COMPOSE_PROFILES contains "ollama" (set in .env
   # by install.sh). Leave it out to use an Ollama server running elsewhere —
-  # then point OLLAMA_BASE_URL at it.
+  # then point AI_BASE_URL at it.
   ollama:
     profiles: ["ollama"]
     image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
@@ -72,7 +72,7 @@ services:
     cap_drop:
       - ALL
     # Lets the app reach an Ollama running on the Docker host itself
-    # (OLLAMA_BASE_URL=http://host.docker.internal:11434).
+    # (AI_BASE_URL=http://host.docker.internal:11434).
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -91,16 +91,17 @@ services:
       # Encryption key (AES-256-GCM, 64 hex chars)
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
 
-      # Ollama — internal container by default, or a remote server (see .env).
+      # AI engine: "ollama" (internal container or remote server, see .env) or "openai" (any
+      # OpenAI-compatible API — vLLM, LM Studio, llama.cpp, OpenAI…).
       # The admin panel (Services → AI) overrides this once saved.
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
-      # AI engine: "ollama" or "openai" (any OpenAI-compatible API — vLLM, LM Studio, llama.cpp, OpenAI…)
+      # The OLLAMA_BASE_URL / OLLAMA_*MODEL fallbacks cover a .env written before AI_* existed
+      # (during `leksis update` the old install.sh is still running when the new compose file is used).
       AI_PROVIDER: ${AI_PROVIDER:-ollama}
       AI_BASE_URL: ${AI_BASE_URL:-${OLLAMA_BASE_URL:-http://ollama:11434}}
       AI_API_KEY: ${AI_API_KEY:-}
-      OLLAMA_MODEL: ${OLLAMA_MODEL}
-      OLLAMA_OCR_MODEL: ${OLLAMA_OCR_MODEL}
-      OLLAMA_REWRITE_MODEL: ${OLLAMA_REWRITE_MODEL}
+      AI_MODEL: ${AI_MODEL:-${OLLAMA_MODEL:-}}
+      AI_OCR_MODEL: ${AI_OCR_MODEL:-${OLLAMA_OCR_MODEL:-}}
+      AI_REWRITE_MODEL: ${AI_REWRITE_MODEL:-${OLLAMA_REWRITE_MODEL:-}}
       # Upload directory for logo and background images (outside /app/ to avoid permission issues)
       UPLOAD_DIR: /data/uploads
     volumes:

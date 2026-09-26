@@ -126,6 +126,11 @@ Avant chaque commit : `npx tsc --noEmit` et `npm run build`.
 - [x] Services → AI : trois cartes **Ollama (ce serveur) / Ollama (autre serveur) / API compatible OpenAI** (le mode se déduit de fournisseur + adresse, rien de nouveau en base). Carte locale grisée si le conteneur ne répond pas (`GET /api/admin/services/ai/local`)
 - [x] **Bug corrigé, présent de la beta.1 à la beta.6** : `/^d+$/` (antislash perdu) rendait le contexte Ollama toujours invalide → bouton Enregistrer de Services → AI désactivé pour un serveur Ollama (invisible avec l'API OpenAI). Règle extraite dans `isValidNumCtx` avec test, vérifiée en navigateur. Aucune autre occurrence trouvée dans `src`
 
+## Après la beta.7 : renommage des variables `OLLAMA_*` → `AI_*`
+
+- [x] `OLLAMA_MODEL` / `OLLAMA_OCR_MODEL` / `OLLAMA_REWRITE_MODEL` → `AI_MODEL` / `AI_OCR_MODEL` / `AI_REWRITE_MODEL` (`.env`, compose, `config.ts`, `install.sh`, README, e2e) ; `OLLAMA_BASE_URL` supprimée (copie de `AI_BASE_URL`). Variables internes de `install.sh` : `OLLAMA_MODE` / `OLLAMA_URL` / `OLLAMA_URL_HOSTSIDE` / `OLLAMA_URL_RAW` → `AI_*`. Restent tels quels : `OLLAMA_KEEP_ALIVE`, `OLLAMA_SCHED_SPREAD`, `OLLAMA_MAX_LOADED_MODELS`, `OLLAMA_IMAGE` (réglages du conteneur Ollama)
+- [x] Compatibilité : `config.ts` et le compose lisent encore les anciens noms en repli (nécessaire pendant `update`, où l'ancien `install.sh` tourne avec le nouveau compose) ; `migrate_env` renomme le `.env` (une fois, idempotent) ; les clés de réponse `LEKSIS_OLLAMA_MODEL` / `_OCR_MODEL` / `_REWRITE_MODEL` restent acceptées. Testé : `migrate_env` sur 2 `.env` d'anciennes versions + relance, `load_config_from_env`, alias, `.env` généré dans les 3 modes ; `tests/unit/llm-config.test.ts` (échoue si le repli est cassé). **Reste à vérifier sur la VM : `leksis update` depuis la beta.7**
+
 ## Livraison
 
 - [ ] Betas `v1.5.1-beta.1` (phases 0-2), `beta.2` (phases 3-4) et `beta.3` (phases 5 + déconnexion + hydratation) , `beta.4` (correctif connexion) `beta.5` (migration base), `beta.6` (phase 7 : utilisateurs, documents par lots, rétention, outillage) et `beta.7` (retours de test : cartes du moteur IA, bouton Enregistrer Ollama, audit) publiées — **à tester sur une VM séparée** ; beta.4 après les phases 6-7

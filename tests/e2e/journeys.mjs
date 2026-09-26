@@ -98,10 +98,10 @@ const env = {
   LEKSIS_RETENTION_DELAY_SEC: '2', // the real default is 120 s
   AUTH_URL: '',
   AI_PROVIDER: 'ollama',
-  OLLAMA_BASE_URL: `http://127.0.0.1:${AI_PORT}`,
-  OLLAMA_MODEL: 'fake-model',
-  OLLAMA_OCR_MODEL: 'fake-model',
-  OLLAMA_REWRITE_MODEL: 'fake-model',
+  AI_BASE_URL: `http://127.0.0.1:${AI_PORT}`,
+  AI_MODEL: 'fake-model',
+  AI_OCR_MODEL: 'fake-model',
+  AI_REWRITE_MODEL: 'fake-model',
 }
 const app = spawn(process.execPath, [standalone], { env, stdio: ['ignore', 'pipe', 'pipe'] })
 let appLog = ''

@@ -77,9 +77,10 @@ function resolveAiConfig({ raw, fromLegacy }: { raw: Record<string, unknown>; fr
     // recours : un défaut arbitraire (ex. un modèle non installé sur le serveur configuré)
     // échouerait silencieusement de toute façon — mieux vaut une chaîne vide explicite,
     // que l'admin comble depuis la liste réelle des modèles du serveur.
-    translationModel: str(raw.translationModel) || str(raw.model) || process.env.OLLAMA_MODEL         || '',
-    ocrModel:         str(raw.ocrModel)         || process.env.OLLAMA_OCR_MODEL                        || '',
-    rewriteModel:     str(raw.rewriteModel)     || process.env.OLLAMA_REWRITE_MODEL                    || '',
+    // AI_*_MODEL : noms actuels ; OLLAMA_*_MODEL : anciens noms, encore lus pour les installations non migrées
+    translationModel: str(raw.translationModel) || str(raw.model) || process.env.AI_MODEL         || process.env.OLLAMA_MODEL         || '',
+    ocrModel:         str(raw.ocrModel)         || process.env.AI_OCR_MODEL                        || process.env.OLLAMA_OCR_MODEL     || '',
+    rewriteModel:     str(raw.rewriteModel)     || process.env.AI_REWRITE_MODEL                    || process.env.OLLAMA_REWRITE_MODEL || '',
     allowExternal:    raw.allowExternal === true,
     numCtx:           typeof raw.numCtx === 'number' && Number.isInteger(raw.numCtx) && raw.numCtx > 0 ? raw.numCtx : DEFAULT_NUM_CTX,
   }

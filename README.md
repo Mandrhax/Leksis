@@ -171,7 +171,7 @@ EOF
 sudo ./install.sh --yes --answers answers.env install
 ```
 
-Every question has an answer key (`LEKSIS_<KEY>`): `INSTALL_DIR`, `REPO_URL`, `APP_HOST`, `ADMIN_EMAIL`, `ADMIN_NAME`, `AI_MODE`, `AI_URL`, `AI_API_KEY`, `GPU_VENDOR`, `OLLAMA_MODEL`, `OLLAMA_OCR_MODEL`, `OLLAMA_REWRITE_MODEL`, `POSTGRES_PASSWORD`, … — see `./install.sh --help`. Destructive commands still require their typed confirmation (`LEKSIS_CONFIRM_DELETE=DELETE`, `LEKSIS_CONFIRM_RESTORE=RESTORE`). The install log is written to `/var/log/leksis-install.log`.
+Every question has an answer key (`LEKSIS_<KEY>`): `INSTALL_DIR`, `REPO_URL`, `APP_HOST`, `ADMIN_EMAIL`, `ADMIN_NAME`, `AI_MODE`, `AI_URL`, `AI_API_KEY`, `GPU_VENDOR`, `AI_MODEL`, `AI_OCR_MODEL`, `AI_REWRITE_MODEL`, `POSTGRES_PASSWORD`, … — see `./install.sh --help` (the former `LEKSIS_OLLAMA_MODEL` / `_OCR_MODEL` / `_REWRITE_MODEL` keys are still accepted). Destructive commands still require their typed confirmation (`LEKSIS_CONFIRM_DELETE=DELETE`, `LEKSIS_CONFIRM_RESTORE=RESTORE`). The install log is written to `/var/log/leksis-install.log`.
 
 ### GPU support
 
@@ -197,7 +197,7 @@ docker compose -f docker-compose.yml -f docker-compose.amd.yml up -d      # AMD 
 | `CADDY_HOST` | `:80` = HTTP or behind a reverse proxy; a domain name = HTTPS via Let's Encrypt (managed from the admin / `leksis config`) |
 | `ENCRYPTION_KEY` | AES-256-GCM key, 64 hex characters (`openssl rand -hex 32`) — needed to read encrypted settings, **keep it in your backups** |
 | `AI_PROVIDER` / `AI_BASE_URL` / `AI_API_KEY` | AI engine: `ollama` or `openai`, server URL, optional API key |
-| `OLLAMA_MODEL` / `OLLAMA_OCR_MODEL` / `OLLAMA_REWRITE_MODEL` | The three model ids (whatever the engine) |
+| `AI_MODEL` / `AI_OCR_MODEL` / `AI_REWRITE_MODEL` | The three model ids (whatever the engine). Formerly `OLLAMA_MODEL` / `OLLAMA_OCR_MODEL` / `OLLAMA_REWRITE_MODEL` — `leksis update` renames them in your `.env` |
 | `OLLAMA_IMAGE` / `OLLAMA_KEEP_ALIVE` / `OLLAMA_SCHED_SPREAD` / `OLLAMA_MAX_LOADED_MODELS` | Local Ollama container only (`-1` / `true` / `3` by default) |
 
 Everything else — branding, features, limits, tones, glossaries, Caddy host, `NEXTAUTH_URL`, and the AI engine itself — is managed from the **Admin panel** at `/admin`. Once you save the AI engine in the admin, the admin's settings take precedence over the `.env` values (`leksis config` keeps both in sync).
