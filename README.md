@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.8/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.5.1-beta.9/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,10 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.5.1-beta.9
+Fix for the AI tones, on top of beta.8. No database migration.
+- **Fix**: the Italian name of a rewrite tone (Admin → Settings → AI tones) was lost every time the tones were saved — the field came back empty. It is now kept. The six built-in tones (Professional, Casual, Friendly, Authoritative, Empathetic, Creative) get their Italian name back if it is missing; a tone you renamed is left alone
 
 ### v1.5.1-beta.8
 Renamed AI variables, on top of beta.7. No database migration.
