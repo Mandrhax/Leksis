@@ -48,7 +48,9 @@ export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, 
   const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as string) as typeof import('pdfjs-dist')
   const { createCanvas } = await import('@napi-rs/canvas')
 
-  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise
+  // pdfjs-dist v6 : destroy() est sur la tâche de chargement, plus sur le document résolu
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+  const pdf = await loadingTask.promise
 
   try {
     // Une page = un appel au modèle vision, l'un après l'autre : on plafonne avant de commencer
@@ -84,6 +86,6 @@ export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, 
 
     return allBlocks
   } finally {
-    await pdf.destroy().catch(() => {})
+    await loadingTask.destroy().catch(() => {})
   }
 }
