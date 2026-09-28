@@ -419,7 +419,7 @@ Sans argument : menu interactif (`show_menu`, chaque commande dans un sous-shell
 ## 🧪 Développement, qualité et tests
 
 ```bash
-npm run dev        # → http://localhost:3000  (ne pas le lancer depuis Claude Code : il ajoute un bloc à CLAUDE.md)
+npm run dev        # → http://localhost:3000  (AGENTS.md porte le bloc d'agent de `next dev` — voir « Fichier AGENTS.md » ci-dessous, CLAUDE.md n'est plus modifié)
 npm run build      # build de production (à faire avant le e2e)
 npm run typecheck  # tsc --noEmit
 npm run lint       # ESLint (eslint.config.mjs) — doit rester à 0 erreur, 0 avertissement
@@ -427,6 +427,7 @@ npm test           # Vitest : tests/unit/**/*.test.ts
 npm run test:e2e   # tests/e2e/journeys.mjs : navigateur réel, base PGlite en mémoire, faux serveur Ollama
 ```
 
+- **Fichier `AGENTS.md`** : Next.js 16 (`next dev`) écrit un bloc d'avertissement générique dans `AGENTS.md` (ou, en son absence, dans `CLAUDE.md`) dès qu'il détecte un agent IA (`node_modules/next/dist/server/lib/generate-agent-files.js`). `AGENTS.md` contient déjà ce bloc, à l'identique de ce que `next dev` écrirait : il ne le réécrit donc jamais et **ne touche plus `CLAUDE.md`** — `npm run dev` peut être lancé sans risque depuis Claude Code. Ne pas supprimer `AGENTS.md`, sous peine de voir le bloc revenir dans `CLAUDE.md`
 - **Avant chaque commit** : `typecheck`, `lint`, `test`, `build`. La CI (`.github/workflows/ci.yml`, push sur `main`/`dev` + PR, Node 22, `ubuntu-24.04`) enchaîne typecheck, lint, tests, `npm audit --omit=dev --audit-level=high`, build et e2e
 - **Tests unitaires** : les modules qui touchent la base sont testés avec un vrai PostgreSQL en mémoire (**PGlite** chargé avec `docker/init-schema.sql`, `@/lib/db` remplacé par un adaptateur — voir `tests/unit/users.test.ts`). `server-only` est remplacé par un stub (`vitest.config.mts`). Piège : `beforeEach(() => mock.mockReset())` renvoie le mock, que Vitest prend pour une fonction de nettoyage → toujours des accolades
 - **Test e2e** : serveur Next `standalone` sur `0.0.0.0` **sans** `NEXTAUTH_URL` (comme Docker — c'est ce qui a causé deux régressions de connexion/déconnexion). Couvre connexion → espace de travail → déconnexion, désactivation d'un utilisateur par un admin, traduction de documents face à un modèle qui fusionne les `|||`, nettoyage des journaux, réinitialisation des réglages, refus d'un logo SVG. Chaque nouvelle fonctionnalité qui touche l'authentification, les pages admin ou la chaîne IA doit y ajouter un scénario
