@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.6.0-beta.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.6.0-beta.2/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,12 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.6.0-beta.2
+Beta — **Legal pages in 4 languages, and downloadable as PDF**. No database migration.
+- The privacy policy and usage policy text now follows the interface language selector (English, German, French, Italian), switching instantly like the rest of the app
+- Each page has a **Download PDF** button, in the language currently displayed
+- Organisation name, privacy contact and the administrator's extra text stay in whichever single language they were entered in *Admin → Settings → Legal*
 
 ### v1.6.0-beta.1
 Beta — **Privacy policy and Usage policy pages**. No database migration.
