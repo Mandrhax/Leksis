@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 300 // 5 min — needed for large model cold-start + long texts
-import { getAiOrError } from '@/lib/llm'
+import { getAiOrError, gateStream } from '@/lib/llm'
 import { buildTranslationPrompt, buildMarkdownTranslationPrompt } from '@/lib/prompts'
 import { validateTextInput, isValidLangName, isValidLangCode } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
@@ -93,7 +93,8 @@ export async function POST(req: NextRequest) {
     charCount: text.length,
   })
 
-  const stream = provider.stream({ prompt, signal: req.signal, model: cfg.translationModel })
+  const stream = gateStream(cfg.maxConcurrentAiRequests, req.signal, () =>
+    provider.stream({ prompt, signal: req.signal, model: cfg.translationModel }))
 
   return new Response(stream, {
     headers: {

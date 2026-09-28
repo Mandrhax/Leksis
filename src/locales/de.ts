@@ -442,6 +442,8 @@ export const messages = {
     apiKeyWillRemove:       'Der gespeicherte Schlüssel wird beim Speichern entfernt.',
     externalLabel:          'Server außerhalb des privaten Netzwerks erlauben',
     externalDesc:           'Standardmäßig blockiert. Bei einem externen Anbieter verlassen die Texte Ihrer Benutzer Ihr Netzwerk.',
+    concurrencyLabel:       'Maximal gleichzeitige KI-Anfragen',
+    concurrencyHint:        'Weitere Anfragen warten, statt den Server zu überlasten. 0 = unbegrenzt.',
     externalBlocked:        'Dieser Server liegt außerhalb Ihres privaten Netzwerks. Aktivieren Sie „Server außerhalb des privaten Netzwerks erlauben“, um ihn zu verwenden.',
     modelNotListed:         'Vom Server nicht aufgeführt',
     testOk:                 'Verbindung erfolgreich — {0} Modell(e) verfügbar',

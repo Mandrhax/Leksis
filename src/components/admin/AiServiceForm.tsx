@@ -5,7 +5,7 @@ import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
 import { useOllamaMetrics } from './OllamaMetrics'
 import { OllamaModelSelect, type ModelSuggestion, type InstalledModel } from './OllamaModelSelect'
-import { aiModeOf, DEFAULT_NUM_CTX, isValidNumCtx, LOCAL_OLLAMA_URL, type AiMode, type AiPublicConfig, type AiProviderId } from '@/lib/llm/types'
+import { aiModeOf, DEFAULT_NUM_CTX, isValidNumCtx, isValidConcurrency, LOCAL_OLLAMA_URL, type AiMode, type AiPublicConfig, type AiProviderId } from '@/lib/llm/types'
 
 // Approximate download sizes, shown next to Ollama models that are not installed yet
 const TRANSLATION_SUGGESTIONS: ModelSuggestion[] = [
@@ -63,6 +63,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
   const [clearApiKey,   setClearApiKey]   = useState(false)
   const [allowExternal, setAllowExternal] = useState(initial.allowExternal)
   const [numCtx,        setNumCtx]        = useState(String(initial.numCtx ?? DEFAULT_NUM_CTX))
+  const [maxConcurrent, setMaxConcurrent] = useState(String(initial.maxConcurrentAiRequests ?? 0))
   const [data, setData] = useState<ModelsData>({
     translationModel: initial.translationModel,
     ocrModel:         initial.ocrModel,
@@ -78,6 +79,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
 
   const currentKey = `${provider}|${trimSlash(baseUrl)}`
   const numCtxValid = isValidNumCtx(numCtx)
+  const maxConcurrentValid = isValidConcurrency(maxConcurrent)
 
   // Modèles du serveur : métriques du serveur enregistré, ou résultat du dernier test pour ce serveur
   let installed: InstalledModel[] | null = null
@@ -167,6 +169,8 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
         allowExternal,
         // Contexte Ollama : ignoré (et non envoyé) avec une API OpenAI-compatible ; valeur invalide → défaut serveur
         ...(provider === 'ollama' && numCtxValid ? { numCtx: Number(numCtx) } : {}),
+        // S'applique aux deux fournisseurs (charge du moteur, pas une option Ollama)
+        ...(maxConcurrentValid ? { maxConcurrentAiRequests: Number(maxConcurrent) } : {}),
       }
       const res = await fetch('/api/admin/services', {
         method: 'PATCH',
@@ -400,6 +404,21 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
             </span>
           </label>}
 
+          {/* Concurrence — s'applique aux deux fournisseurs, contrairement au contexte Ollama */}
+          <div>
+            <label htmlFor="ai-max-concurrent" className="block text-sm text-on-surface mb-1.5">{of.concurrencyLabel}</label>
+            <input
+              id="ai-max-concurrent"
+              type="number"
+              min={0}
+              max={50}
+              value={maxConcurrent}
+              onChange={e => setMaxConcurrent(e.target.value)}
+              className={`${inputCls} sm:w-1/3 ${maxConcurrentValid ? '' : 'border-error/60'}`}
+            />
+            <p className="mt-1 text-xs text-on-surface-variant">{of.concurrencyHint}</p>
+          </div>
+
           {/* Résultat du test */}
           {result && (
             <div className={`flex items-start gap-2.5 p-3 rounded-lg text-sm ${
@@ -522,7 +541,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
           </button>
         )}
         <div className="flex-1" />
-        <button onClick={() => handleSave()} disabled={saving || !baseUrl || (provider === 'ollama' && !numCtxValid)} className="action-btn disabled:opacity-40">
+        <button onClick={() => handleSave()} disabled={saving || !baseUrl || (provider === 'ollama' && !numCtxValid) || !maxConcurrentValid} className="action-btn disabled:opacity-40">
           {saving ? spinner : (
             <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>
           )}

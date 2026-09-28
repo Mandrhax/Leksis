@@ -70,4 +70,11 @@ describe('AiConfigImportSchema', () => {
     expect(AiConfigImportSchema.safeParse({ ...base, baseUrl: 'http://ollama:11434' }).success).toBe(true)
     expect(AiConfigImportSchema.safeParse({ ...base, baseUrl: 'file:///etc/passwd' }).success).toBe(false)
   })
+  it('accepts a valid maxConcurrentAiRequests and refuses an out-of-range one', () => {
+    const base = { provider: 'ollama', baseUrl: 'http://ollama:11434', translationModel: 'm', ocrModel: 'm', rewriteModel: 'm' }
+    expect(AiConfigImportSchema.safeParse({ ...base, maxConcurrentAiRequests: 0 }).success).toBe(true)
+    expect(AiConfigImportSchema.safeParse({ ...base, maxConcurrentAiRequests: 5 }).success).toBe(true)
+    expect(AiConfigImportSchema.safeParse({ ...base, maxConcurrentAiRequests: -1 }).success).toBe(false)
+    expect(AiConfigImportSchema.safeParse({ ...base, maxConcurrentAiRequests: 51 }).success).toBe(false)
+  })
 })

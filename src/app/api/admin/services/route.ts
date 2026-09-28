@@ -5,7 +5,7 @@ import { updateSetting, getSetting } from '@/lib/settings'
 import { encrypt } from '@/lib/crypto'
 import { generateCaddyfile, normalizeCaddyConfig, reloadCaddy } from '@/lib/caddy'
 import { getAiConfig, getAiPublicConfig, isExternalUrl } from '@/lib/llm'
-import { NUM_CTX_MAX, NUM_CTX_MIN } from '@/lib/llm/types'
+import { NUM_CTX_MAX, NUM_CTX_MIN, MAX_CONCURRENT_AI_REQUESTS_MAX } from '@/lib/llm/types'
 
 const AiSchema = z.object({
   service:          z.literal('ai'),
@@ -19,6 +19,7 @@ const AiSchema = z.object({
   sameModelForAll:  z.boolean().optional(),
   allowExternal:    z.boolean().optional(),
   numCtx:           z.number().int().min(NUM_CTX_MIN).max(NUM_CTX_MAX).optional(),  // Ollama : contexte en tokens
+  maxConcurrentAiRequests: z.number().int().min(0).max(MAX_CONCURRENT_AI_REQUESTS_MAX).optional(),  // 0 = illimité
 })
 
 const CaddySchema = z.object({
@@ -82,6 +83,7 @@ export async function PATCH(req: NextRequest) {
       sameModelForAll:  data.sameModelForAll ?? false,
       allowExternal,
       numCtx:           data.numCtx ?? current.numCtx,
+      maxConcurrentAiRequests: data.maxConcurrentAiRequests ?? current.maxConcurrentAiRequests,
     }
     // Le journal d'audit ne reçoit jamais la clé, même chiffrée
     await updateSetting('ai_config', value, session.user.id, session.user.email!, {
@@ -92,6 +94,7 @@ export async function PATCH(req: NextRequest) {
       rewriteModel:     value.rewriteModel,
       allowExternal,
       numCtx:           value.numCtx,
+      maxConcurrentAiRequests: value.maxConcurrentAiRequests,
       hasApiKey:        apiKeyEnc !== '',
     })
   } else {

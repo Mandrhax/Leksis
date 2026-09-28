@@ -440,6 +440,8 @@ export const messages = {
     apiKeyWillRemove:       'The saved key will be removed when you save.',
     externalLabel:          'Allow servers outside the private network',
     externalDesc:           'Blocked by default. With an external provider, your users’ texts leave your network.',
+    concurrencyLabel:       'Maximum simultaneous AI requests',
+    concurrencyHint:        'Extra requests wait their turn instead of overloading the server. 0 = unlimited.',
     externalBlocked:        'This server is outside your private network. Tick “Allow servers outside the private network” to use it.',
     modelNotListed:         'Not listed by the server',
     testOk:                 'Connection successful — {0} model(s) available',

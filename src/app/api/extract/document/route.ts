@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       if (isProbablyScanned(blocks)) {
         const ai = await getAiOrError()
         if (ai.error) return ai.error
-        blocks = await parsePdfWithVision(buffer, ai.ai.provider, ai.ai.cfg.ocrModel, req.signal)
+        blocks = await parsePdfWithVision(buffer, ai.ai.provider, ai.ai.cfg.ocrModel, ai.ai.cfg.maxConcurrentAiRequests, req.signal)
       }
     } else {
       blocks = await parseFile(buffer, file.name)

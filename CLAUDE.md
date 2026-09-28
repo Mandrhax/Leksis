@@ -280,7 +280,7 @@ Un **seul fournisseur** pour les 3 fonctions (traduction, réécriture, OCR) —
 - `network.ts` — `isExternalUrl()` : IP/nom hors réseau privé (RFC1918, loopback, link-local, CGNAT, `.local/.lan/.internal`, noms sans point) ; un nom public est résolu en DNS (fail closed)
 - `index.ts` — point d'entrée unique : **les routes n'importent que `@/lib/llm`** (plus de `src/lib/ollama.ts`)
 
-Usage dans une route : `const ai = await getAiOrError(); if (ai.error) return ai.error; const { cfg, provider } = ai.ai` puis `provider.stream({ prompt, system?, images?, model: cfg.translationModel, signal })` (streaming) ou `provider.complete(...)` (traduction document, OCR PDF via `parsePdfWithVision(buffer, provider, model, signal)`).
+Usage dans une route : `const ai = await getAiOrError(); if (ai.error) return ai.error; const { cfg, provider } = ai.ai` puis `provider.stream({ prompt, system?, images?, model: cfg.translationModel, signal })` (streaming, à passer dans `gateStream(cfg.maxConcurrentAiRequests, signal, () => provider.stream(...))`) ou `provider.complete(...)` (traduction document, OCR PDF via `parsePdfWithVision(buffer, provider, model, maxConcurrent, signal)` — à passer dans `withAiSlot(cfg.maxConcurrentAiRequests, () => provider.complete(...), signal)`). `src/lib/llm/concurrency.ts` (`withAiSlot` / `gateStream`, exportés par `@/lib/llm`) fait attendre les requêtes en trop plutôt que de saturer le moteur — limite `ai_config.maxConcurrentAiRequests` (0 = illimité), réglable dans Services → AI. En mémoire, une seule instance (comme `rate-limit.ts`) : pas de magasin partagé nécessaire.
 
 ### Configuration
 

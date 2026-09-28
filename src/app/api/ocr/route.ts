@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAiOrError } from '@/lib/llm'
+import { getAiOrError, gateStream } from '@/lib/llm'
 import { buildOcrPrompt } from '@/lib/prompts'
 
 export const maxDuration = 300
@@ -58,7 +58,8 @@ export async function POST(req: NextRequest) {
   })
 
   const prompt = buildOcrPrompt()
-  const stream = provider.stream({ prompt, images: [base64], signal: req.signal, model: cfg.ocrModel })
+  const stream = gateStream(cfg.maxConcurrentAiRequests, req.signal, () =>
+    provider.stream({ prompt, images: [base64], signal: req.signal, model: cfg.ocrModel }))
 
   return new Response(stream, {
     headers: {

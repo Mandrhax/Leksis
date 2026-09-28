@@ -442,6 +442,8 @@ export const messages = {
     apiKeyWillRemove:       'La chiave salvata verrà rimossa al salvataggio.',
     externalLabel:          'Consenti server fuori dalla rete privata',
     externalDesc:           'Bloccato per impostazione predefinita. Con un provider esterno, i testi dei tuoi utenti lasciano la tua rete.',
+    concurrencyLabel:       'Richieste IA simultanee massime',
+    concurrencyHint:        'Le richieste in eccesso attendono il loro turno invece di sovraccaricare il server. 0 = illimitato.',
     externalBlocked:        'Questo server è fuori dalla tua rete privata. Seleziona «Consenti server fuori dalla rete privata» per usarlo.',
     modelNotListed:         'Non elencato dal server',
     testOk:                 'Connessione riuscita — {0} modello/i disponibile/i',

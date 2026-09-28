@@ -3,6 +3,7 @@
 // LightOnOCR-2 retourne du texte/Markdown avec des tableaux en HTML — on parse les deux
 
 import type { LlmProvider } from '@/lib/llm/types'
+import { withAiSlot } from '@/lib/llm/concurrency'
 import { buildOcrPrompt } from '@/lib/prompts'
 import { textToBlocks, parseHtmlTable } from '@/lib/file-parser'
 import { OCR_MAX_PDF_PAGES } from '@/lib/validators'
@@ -42,7 +43,7 @@ export class PdfPageLimitError extends Error {
   }
 }
 
-export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, model: string, signal?: AbortSignal): Promise<Block[]> {
+export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, model: string, maxConcurrent: number, signal?: AbortSignal): Promise<Block[]> {
   // Import dynamique pour éviter les problèmes de bundling côté client
   const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as string) as typeof import('pdfjs-dist')
   const { createCanvas } = await import('@napi-rs/canvas')
@@ -68,12 +69,12 @@ export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, 
       const base64 = canvas.toBuffer('image/png').toString('base64')
       page.cleanup()
 
-      const pageOutput = await provider.complete({
+      const pageOutput = await withAiSlot(maxConcurrent, () => provider.complete({
         prompt: buildOcrPrompt(),
         images: [base64],
         signal,
         model,
-      })
+      }), signal)
 
       if (pageOutput.trim()) {
         if (allBlocks.length > 0) allBlocks.push({ type: 'page-break' })

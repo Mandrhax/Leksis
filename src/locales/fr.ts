@@ -442,6 +442,8 @@ export const messages = {
     apiKeyWillRemove:       "La clé enregistrée sera supprimée à l'enregistrement.",
     externalLabel:          'Autoriser les serveurs hors du réseau privé',
     externalDesc:           'Bloqué par défaut. Avec un fournisseur externe, les textes de vos utilisateurs quittent votre réseau.',
+    concurrencyLabel:       'Requêtes IA simultanées au maximum',
+    concurrencyHint:        'Les requêtes en trop attendent leur tour plutôt que de surcharger le serveur. 0 = illimité.',
     externalBlocked:        "Ce serveur est hors de votre réseau privé. Cochez « Autoriser les serveurs hors du réseau privé » pour l'utiliser.",
     modelNotListed:         'Non listé par le serveur',
     testOk:                 'Connexion réussie — {0} modèle(s) disponible(s)',

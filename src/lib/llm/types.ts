@@ -8,6 +8,9 @@ export const DEFAULT_NUM_CTX = 8192
 export const NUM_CTX_MIN = 2048
 export const NUM_CTX_MAX = 262144
 
+/** Plafond du nombre de requêtes IA simultanées qu'un admin peut configurer (0 = illimité). */
+export const MAX_CONCURRENT_AI_REQUESTS_MAX = 50
+
 /** Adresse du conteneur Ollama installé avec Leksis (profil compose `ollama`), vue depuis le conteneur de l'application. */
 export const LOCAL_OLLAMA_URL = 'http://ollama:11434'
 
@@ -22,6 +25,11 @@ export function aiModeOf(provider: AiProviderId, baseUrl: string): AiMode {
 /** Valeur saisie pour le contexte Ollama : entier entre NUM_CTX_MIN et NUM_CTX_MAX (aussi vérifié côté serveur). */
 export function isValidNumCtx(value: string): boolean {
   return /^\d+$/.test(value) && Number(value) >= NUM_CTX_MIN && Number(value) <= NUM_CTX_MAX
+}
+
+/** Valeur saisie pour la limite de concurrence : entier entre 0 (illimité) et MAX_CONCURRENT_AI_REQUESTS_MAX. */
+export function isValidConcurrency(value: string): boolean {
+  return /^\d+$/.test(value) && Number(value) <= MAX_CONCURRENT_AI_REQUESTS_MAX
 }
 
 export interface LlmRequest {
@@ -88,4 +96,6 @@ export interface AiPublicConfig {
   hasApiKey:        boolean
   /** Contexte Ollama en tokens (ignoré par les API OpenAI-compatibles) */
   numCtx:           number
+  /** Requêtes IA simultanées au maximum, tous utilisateurs confondus (0 = illimité) */
+  maxConcurrentAiRequests: number
 }

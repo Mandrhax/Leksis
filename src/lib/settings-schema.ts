@@ -102,6 +102,7 @@ export const AiConfigImportSchema = z.object({
   rewriteModel:     z.string().max(200),
   sameModelForAll:  z.boolean().optional(),
   numCtx:           z.number().int().min(2048).max(262144).optional(),
+  maxConcurrentAiRequests: z.number().int().min(0).max(50).optional(),
 })
 
 export const TonesSchema = z.array(ToneSchema).min(1).max(6)

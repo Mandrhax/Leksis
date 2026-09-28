@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAiOrError } from '@/lib/llm'
+import { getAiOrError, gateStream } from '@/lib/llm'
 import { buildRewritePrompt, buildCorrectPrompt, buildLangClause } from '@/lib/prompts'
 
 export const maxDuration = 300
@@ -100,7 +100,8 @@ export async function POST(req: NextRequest) {
     charCount: text.length,
   })
 
-  const stream = provider.stream({ system, prompt, signal: req.signal, model: cfg.rewriteModel })
+  const stream = gateStream(cfg.maxConcurrentAiRequests, req.signal, () =>
+    provider.stream({ system, prompt, signal: req.signal, model: cfg.rewriteModel }))
 
   return new Response(stream, {
     headers: {

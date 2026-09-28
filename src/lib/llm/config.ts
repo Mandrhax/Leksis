@@ -18,6 +18,8 @@ export interface AiConfig {
   allowExternal:    boolean
   /** Fenêtre de contexte Ollama (tokens) — sans effet avec une API OpenAI-compatible */
   numCtx:           number
+  /** Requêtes IA simultanées au maximum, tous utilisateurs confondus (0 = illimité) */
+  maxConcurrentAiRequests: number
 }
 
 export class AiConfigError extends Error {
@@ -83,6 +85,11 @@ function resolveAiConfig({ raw, fromLegacy }: { raw: Record<string, unknown>; fr
     rewriteModel:     str(raw.rewriteModel)     || process.env.AI_REWRITE_MODEL                    || process.env.OLLAMA_REWRITE_MODEL || '',
     allowExternal:    raw.allowExternal === true,
     numCtx:           typeof raw.numCtx === 'number' && Number.isInteger(raw.numCtx) && raw.numCtx > 0 ? raw.numCtx : DEFAULT_NUM_CTX,
+    // Contrairement à numCtx, 0 est la seule valeur par défaut sûre : une installation existante qui
+    // met à jour ne doit pas se retrouver avec une limite de concurrence surgie de nulle part.
+    maxConcurrentAiRequests: typeof raw.maxConcurrentAiRequests === 'number' && Number.isInteger(raw.maxConcurrentAiRequests) && raw.maxConcurrentAiRequests >= 0
+      ? raw.maxConcurrentAiRequests
+      : 0,
   }
 }
 
@@ -101,6 +108,7 @@ export async function getAiPublicConfig(): Promise<AiPublicConfig> {
     allowExternal:    cfg.allowExternal,
     hasApiKey:        cfg.apiKey !== '',
     numCtx:           cfg.numCtx,
+    maxConcurrentAiRequests: cfg.maxConcurrentAiRequests,
   }
 }
 

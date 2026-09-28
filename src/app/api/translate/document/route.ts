@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAiOrError } from '@/lib/llm'
+import { getAiOrError, withAiSlot } from '@/lib/llm'
 import { buildDocumentTranslationPrompt } from '@/lib/prompts'
 
 export const maxDuration = 300
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     if (ext === 'pdf') {
       blocks = await parsePdf(buffer)
       if (isProbablyScanned(blocks)) {
-        blocks = await parsePdfWithVision(buffer, provider, cfg.ocrModel, req.signal)
+        blocks = await parsePdfWithVision(buffer, provider, cfg.ocrModel, cfg.maxConcurrentAiRequests, req.signal)
       }
     } else {
       blocks = await parseFile(buffer, file.name)
@@ -89,11 +89,11 @@ export async function POST(req: NextRequest) {
   try {
     const { segments, stats } = await translateSegments(
       blocksToSegments(blocks),
-      (joined, count) => provider.complete({
+      (joined, count) => withAiSlot(cfg.maxConcurrentAiRequests, () => provider.complete({
         prompt: buildDocumentTranslationPrompt({ segments: joined, segmentCount: count, sourceLang: sourceLang || 'Auto', targetLang }),
         signal: req.signal,
         model: cfg.translationModel,
-      }),
+      }), req.signal),
     )
     translatedSegments = segments
     // Le modèle a mal respecté les séparateurs : à savoir pour choisir ou régler le modèle

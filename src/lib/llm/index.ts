@@ -4,4 +4,5 @@ export { getAi, getAiOrError, getAiConfig, getAiPublicConfig, createProvider, as
 export type { AiConfig } from './config'
 export { fetchAiMetrics, sameModelName } from './service'
 export { isExternalUrl } from './network'
+export { withAiSlot, gateStream } from './concurrency'
 export type { LlmProvider, LlmRequest, LlmModel, LlmCapabilities, AiProviderId, AiMetricsResult, AiPublicConfig } from './types'
