@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.6.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.7.0-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,12 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.7.0-beta.1
+Beta — **AI request concurrency limit, sign-in codes by email, and voice dictation**. No database migration.
+- **Concurrency limit**: cap how many AI requests run at once (*Services → AI*, 0 = unlimited, default) — extra requests wait their turn instead of overloading a single Ollama/vLLM server when several people translate at the same time
+- **Sign-in code by email**: configure your own SMTP relay (*Settings → General*) so the code is emailed instead of shown on screen. Off by default — nothing changes unless you configure it; if sending fails, sign-in is refused rather than silently falling back to showing the code
+- **Voice dictation**: an optional microphone button in Text Translation and AI Rewrite lets you dictate instead of typing. Requires an OpenAI-compatible engine with an audio-capable model (*Services → AI → Models* → "Voice dictation model") — Ollama has no audio input support
 
 ### v1.6.0
 **Privacy policy and Usage policy pages, in 4 languages and downloadable as PDF**. No database migration.
