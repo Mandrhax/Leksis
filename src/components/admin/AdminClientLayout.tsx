@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { I18nProvider } from '@/lib/i18n'
 import { UILanguageSwitcher } from '@/components/ui/UILanguageSwitcher'
+import { AccountMenu } from '@/components/ui/AccountMenu'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 
 function AdminShell({ children }: { children: React.ReactNode }) {
@@ -21,7 +22,10 @@ function AdminShell({ children }: { children: React.ReactNode }) {
           <span className="material-symbols-outlined text-[1.3rem] leading-none" aria-hidden="true">menu</span>
         </button>
         <span className="font-headline font-bold text-sm text-on-surface flex-1">Admin</span>
-        <UILanguageSwitcher />
+        <div className="flex items-center gap-1">
+          <UILanguageSwitcher />
+          <AccountMenu />
+        </div>
       </header>
 
       {/* Overlay (mobile only) */}
@@ -39,9 +43,10 @@ function AdminShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Desktop language switcher */}
-      <div className="hidden md:block absolute right-4 top-4 z-50">
+      {/* Desktop controls */}
+      <div className="hidden md:flex items-center gap-1 absolute right-4 top-4 z-50">
         <UILanguageSwitcher />
+        <AccountMenu />
       </div>
     </div>
   )
