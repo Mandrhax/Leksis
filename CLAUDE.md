@@ -155,7 +155,7 @@ src/
 │   ├── users.ts             Rôle relu en base, liste paginée, changeUser / removeUser (garde-fous)
 │   ├── user-guard.ts        requireUser() : 401, mode maintenance, limite de débit
 │   ├── admin-guard.ts       requireAdmin() / getAdminSession()
-│   ├── rate-limit.ts, otp.ts, audit.ts, usage.ts, retention.ts
+│   ├── rate-limit.ts, otp.ts, smtp.ts, audit.ts, usage.ts, retention.ts
 │   ├── site-assets.ts       Upload logo / fond : magic bytes, taille, erreurs à code
 │   ├── caddy-config.ts (client-safe), caddy.ts, caddy-tls.ts
 │   ├── legal-content.ts (dispatcher pur EN/DE/FR/IT → legal-content-{en,de,fr,it}.ts), legal.ts (server-only : lit la config réelle), legal-pdf.ts (export PDF, pdf-lib)
@@ -328,7 +328,7 @@ Tous les prompts sont dans `src/lib/prompts.ts` :
 - **Toute page et route admin** commence par `requireAdmin()` / `getAdminSession()`
 - Entrées : `validators.ts` (tailles, extensions, noms de langue avant les prompts) + zod. Plafonds de taille **avant** de lire le corps (`requestTooLarge`) ; Caddy limite aussi le corps (`max_size 50MB`)
 - **Erreurs d'API** : messages en anglais, jamais `err.message` renvoyé au client (journalisé côté serveur). Quand l'interface doit afficher un texte, la route renvoie un `code` stable (+ valeurs utiles) que le composant traduit : `UserList` (`self`, `last_admin`, `not_found`), `SignInForm` (`account_disabled`, `rate_limited`), `BrandingForm` (`too_large`, `unsupported_format`)
-- Authentification OTP : le code est renvoyé au client pour affichage immédiat (choix assumé : démo + comptes simples, pas d'envoi d'email, aucune mitigation supplémentaire pour l'admin)
+- Authentification OTP : par défaut le code est renvoyé au client pour affichage immédiat (choix assumé : démo + comptes simples, aucune mitigation supplémentaire pour l'admin). **Relais SMTP optionnel** (`src/lib/smtp.ts`, réglage `site_settings.smtp_config` — Réglages → General) : si configuré (host + adresse d'expédition), `/api/auth/otp` envoie le code par email au lieu de le renvoyer (`{ emailSent: true }`, jamais le code dans la réponse) ; un envoi qui échoue **refuse la connexion** (503 `email_failed`) plutôt que d'afficher le code en repli silencieux, pour ne pas annuler sans le dire la protection activée par l'admin. Mot de passe SMTP chiffré AES-256-GCM comme la clé API IA, jamais renvoyé au client ni journalisé. `smtp_config` n'est lu que par ses propres fonctions (`getSmtpPublicConfig()`), jamais via `getAllSettings()` (RSC → client), comme `ai_config`/`caddy_config`
 - Secrets en base chiffrés AES-256-GCM (`crypto.ts`) : clé API du moteur IA, jamais renvoyée au navigateur, ni exportée, ni journalisée
 - Uploads d'images (logo, fond, import) : **magic bytes** + taille ; **SVG refusé** (c'est du code) ; servis avec `Content-Security-Policy: sandbox` et `nosniff`
 - En-têtes (`next.config.mjs`, CSP seulement en production) : CSP avec `unsafe-inline` (choix assumé) mais `frame-ancestors 'none'`, `object-src 'none'`, X-Frame-Options, Referrer-Policy, Permissions-Policy. **HSTS non posé** (à ajouter côté Caddy en mode HTTPS seulement)

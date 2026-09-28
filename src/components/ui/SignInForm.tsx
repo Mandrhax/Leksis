@@ -26,6 +26,7 @@ export function SignInForm({ siteName }: { siteName: string }) {
   const [step, setStep]       = useState<Step>('email')
   const [email, setEmail]     = useState('')
   const [otpCode, setOtpCode] = useState('')
+  const [emailSent, setEmailSent] = useState(false)
   const [input, setInput]     = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
@@ -49,12 +50,14 @@ export function SignInForm({ siteName }: { siteName: string }) {
         setError(
           data.code === 'account_disabled' ? t.signIn.errorDisabled
           : data.code === 'rate_limited'   ? t.signIn.errorRateLimited
+          : data.code === 'email_failed'   ? t.signIn.errorEmailFailed
           : t.signIn.errorGeneric,
         )
         return
       }
 
-      setOtpCode(data.code)
+      setOtpCode(data.code ?? '')
+      setEmailSent(data.emailSent === true)
       setStep('otp')
       setTimeout(() => inputRef.current?.focus(), 50)
     } finally {
@@ -149,18 +152,25 @@ export function SignInForm({ siteName }: { siteName: string }) {
           ) : (
             <form onSubmit={handleVerify} className="space-y-5">
 
-              {/* OTP display */}
-              <div className="rounded-lg bg-primary-container/30 border border-primary/20 p-4 text-center">
-                <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
-                  {t.signIn.yourCode}
-                </p>
-                <p className="font-headline text-3xl font-bold tracking-[0.25em] text-primary select-all">
-                  {otpCode}
-                </p>
-                <p className="text-xs text-on-surface-variant mt-1">
-                  {t.signIn.codeValid}
-                </p>
-              </div>
+              {/* OTP display, or "check your email" when the code was sent instead */}
+              {emailSent ? (
+                <div className="rounded-lg bg-primary-container/30 border border-primary/20 p-4 text-center">
+                  <p className="text-sm text-on-surface">{t.signIn.codeSentToEmail.replace('{0}', email)}</p>
+                  <p className="text-xs text-on-surface-variant mt-1">{t.signIn.codeValid}</p>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-primary-container/30 border border-primary/20 p-4 text-center">
+                  <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
+                    {t.signIn.yourCode}
+                  </p>
+                  <p className="font-headline text-3xl font-bold tracking-[0.25em] text-primary select-all">
+                    {otpCode}
+                  </p>
+                  <p className="text-xs text-on-surface-variant mt-1">
+                    {t.signIn.codeValid}
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label htmlFor="otp" className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2">
@@ -198,7 +208,7 @@ export function SignInForm({ siteName }: { siteName: string }) {
 
               <button
                 type="button"
-                onClick={() => { setStep('email'); setError(''); setInput(''); setOtpCode('') }}
+                onClick={() => { setStep('email'); setError(''); setInput(''); setOtpCode(''); setEmailSent(false) }}
                 className="w-full text-center text-xs text-on-surface-variant hover:text-on-surface transition-colors"
               >
                 {t.signIn.useOther}

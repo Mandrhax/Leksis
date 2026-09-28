@@ -6,6 +6,8 @@ import { encrypt } from '@/lib/crypto'
 import { generateCaddyfile, normalizeCaddyConfig, reloadCaddy } from '@/lib/caddy'
 import { getAiConfig, getAiPublicConfig, isExternalUrl } from '@/lib/llm'
 import { NUM_CTX_MAX, NUM_CTX_MIN, MAX_CONCURRENT_AI_REQUESTS_MAX } from '@/lib/llm/types'
+import { getSmtpPublicConfig } from '@/lib/smtp'
+import { isValidEmail } from '@/lib/validators'
 
 const AiSchema = z.object({
   service:          z.literal('ai'),
@@ -30,7 +32,19 @@ const CaddySchema = z.object({
   trustedProxies:   z.string().optional(),       // mode proxy : adresses hors réseau privé
 })
 
-const Schema = z.discriminatedUnion('service', [AiSchema, CaddySchema])
+const SmtpSchema = z.object({
+  service:         z.literal('smtp'),
+  host:            z.string().max(255),
+  port:            z.number().int().min(1).max(65535),
+  secure:          z.boolean().optional(),
+  user:            z.string().max(255).optional(),
+  password:        z.string().max(500).optional(),  // vide = ne pas modifier
+  clearPassword:   z.boolean().optional(),
+  fromAddress:     z.string().max(254).refine(isValidEmail, 'Invalid email'),
+  fromName:        z.string().max(120).optional(),
+})
+
+const Schema = z.discriminatedUnion('service', [AiSchema, CaddySchema, SmtpSchema])
 
 export async function GET() {
   const session = await getAdminSession()
@@ -38,8 +52,9 @@ export async function GET() {
 
   const ai     = await getAiPublicConfig()
   const caddy  = await getSetting<Record<string, unknown>>('caddy_config')
+  const smtp   = await getSmtpPublicConfig()
 
-  return NextResponse.json({ ai, caddy })
+  return NextResponse.json({ ai, caddy, smtp })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -96,6 +111,28 @@ export async function PATCH(req: NextRequest) {
       numCtx:           value.numCtx,
       maxConcurrentAiRequests: value.maxConcurrentAiRequests,
       hasApiKey:        apiKeyEnc !== '',
+    })
+  } else if (data.service === 'smtp') {
+    const existing = await getSetting<Record<string, unknown>>('smtp_config')
+    const passEnc = data.clearPassword
+      ? ''
+      : data.password
+        ? encrypt(data.password)
+        : ((existing.passEnc as string | undefined) ?? '')
+
+    const value = {
+      host:        data.host,
+      port:        data.port,
+      secure:      data.secure ?? false,
+      user:        data.user ?? '',
+      passEnc,
+      fromAddress: data.fromAddress,
+      fromName:    data.fromName ?? '',
+    }
+    // Le journal d'audit ne reçoit jamais le mot de passe, même chiffré
+    await updateSetting('smtp_config', value, session.user.id, session.user.email!, {
+      host: value.host, port: value.port, secure: value.secure, user: value.user,
+      fromAddress: value.fromAddress, fromName: value.fromName, hasPassword: passEnc !== '',
     })
   } else {
     const normalized = normalizeCaddyConfig(data)

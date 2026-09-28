@@ -4,10 +4,12 @@ import { useState } from 'react'
 import { BrandingForm }  from './BrandingForm'
 import { DesignForm }    from './DesignForm'
 import { GeneralForm }   from './GeneralForm'
+import { SmtpForm }      from './SmtpForm'
 import { FeaturesForm }  from './FeaturesForm'
 import { TonesForm }     from './TonesForm'
 import { LegalForm }     from './LegalForm'
 import type { ToneConfig } from '@/types/leksis'
+import type { SmtpPublicConfig } from '@/lib/smtp'
 import { AdminToast }    from './AdminToast'
 import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
@@ -15,11 +17,12 @@ import { ServiceTabBar } from './ServiceTabBar'
 
 interface Props {
   settings: Record<string, unknown>
+  smtp: SmtpPublicConfig
 }
 
 type Tab = 'identity' | 'appearance' | 'features' | 'tones' | 'general' | 'legal'
 
-export function SettingsTabs({ settings }: Props) {
+export function SettingsTabs({ settings, smtp }: Props) {
   const { t } = useI18n()
   const st = t.settingsTabs
   const [tab, setTab]               = useState<Tab>('identity')
@@ -113,6 +116,9 @@ export function SettingsTabs({ settings }: Props) {
       </div>
       <div className={tab === 'general' ? '' : 'hidden'}>
         <GeneralForm initial={settings.general as never ?? {}} onToast={setToast} />
+        <div className="mt-3">
+          <SmtpForm initial={smtp} onToast={setToast} />
+        </div>
       </div>
       <div className={tab === 'legal' ? '' : 'hidden'}>
         <LegalForm initial={(settings.legal as Record<string, string> | undefined) ?? {}} onToast={setToast} />
