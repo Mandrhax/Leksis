@@ -79,7 +79,7 @@ Cette fonctionnalité **n'est pas une traduction**, mais une transformation du t
 - Tailwind CSS v4 (configuration CSS-first avec `@theme`) ; fonts Manrope (headlines) + Inter (body) via `next/font/google`
 - Material Symbols Outlined : **self-hébergé** — woff2 dans `public/fonts/material-symbols/`, `@font-face` + classe `.material-symbols-outlined` dans `globals.css`. Bootstrap Icons (icônes fichiers du Document Studio) : **self-hébergé** via le paquet npm `bootstrap-icons`, importé dans `layout.tsx`
 - **next-auth v5** — authentification OTP par email, sessions **JWT sans adaptateur** (`src/auth.ts`, `src/auth.config.ts`, `src/proxy.ts` — le « middleware » de Next 16)
-- **pg** (PostgreSQL, `src/lib/db.ts`), **zod** (validation), **@napi-rs/canvas** (PDF → PNG pour l'OCR), **server-only**
+- **pg** (PostgreSQL, `src/lib/db.ts`), **zod** (validation), **@napi-rs/canvas** (PDF → PNG pour l'OCR), **pdf-lib** (génération PDF des pages légales, pas de navigateur headless), **server-only**
 - **Caddy v2** (reverse proxy, container `caddy:2-alpine`, ports 80/443, admin API interne sur `0.0.0.0:2019`) ; Docker / Docker Compose (appliance on-premise)
 - Qualité : **ESLint** (`eslint-config-next`), **Vitest** (tests unitaires), **puppeteer-core** + **PGlite** (test de bout en bout), **GitHub Actions** — voir « Développement, qualité et tests »
 
@@ -125,6 +125,7 @@ src/
 │   │   ├── extract/document/route.ts     Extraction sans traduction
 │   │   ├── export/docx/route.ts          Export du résultat en DOCX
 │   │   ├── site-assets/[filename]/       Sert logo et fond (CSP sandbox + nosniff)
+│   │   ├── legal/[doc]/pdf/route.ts      Export PDF des pages légales (public, ?lang=en|de|fr|it)
 │   │   ├── auth/otp/route.ts, auth/[...nextauth]/route.ts
 │   │   ├── user/glossary-prefs/route.ts  Préférences glossaires de l'utilisateur
 │   │   └── admin/                        audit(+purge), background, logo, glossary/**, usage(+purge), users(+[id]),
@@ -157,7 +158,7 @@ src/
 │   ├── rate-limit.ts, otp.ts, audit.ts, usage.ts, retention.ts
 │   ├── site-assets.ts       Upload logo / fond : magic bytes, taille, erreurs à code
 │   ├── caddy-config.ts (client-safe), caddy.ts, caddy-tls.ts
-│   ├── legal-content.ts (pur : textes Privacy / Usage), legal.ts (server-only : lit la config réelle)
+│   ├── legal-content.ts (dispatcher pur EN/DE/FR/IT → legal-content-{en,de,fr,it}.ts), legal.ts (server-only : lit la config réelle), legal-pdf.ts (export PDF, pdf-lib)
 │   ├── glossary.ts, tones.ts, limits.ts, features-guard.ts, validators.ts, languages.ts, i18n.tsx, sign-out.ts, crypto.ts, db.ts, color-utils.ts, relative-time.ts
 │
 └── types/       leksis.ts, next-auth.d.ts
@@ -463,9 +464,10 @@ Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git e
 ### Pages légales (Privacy / Usage policy)
 
 - `/legal/privacy` et `/legal/usage` : **publiques** (exclues du matcher de `proxy.ts`, lisibles avant la connexion), `force-dynamic`. Liens **toujours affichés** dans le footer de `HomeClient` (le footer n'est plus conditionné à un texte / des liens personnalisés) et sous le formulaire de `SignInForm`, via `LegalLinks`
-- **Texte en anglais uniquement, volontairement** (hors `locales/`) : `lib/legal-content.ts`, fonctions pures `buildPrivacyPolicy(ctx)` / `buildUsagePolicy(ctx)`. Seuls les libellés d'interface (`legal`, `legalForm`, `settingsTabs.tabLegal`) sont dans les 4 locales. Changer le texte de référence → bumper `LEGAL_TEMPLATE_VERSION`
-- **Partie factuelle générée depuis la configuration réelle** (`lib/legal.ts`, `loadLegalContext()`) : emplacement du moteur IA (`aiScope` : `local` = conteneur Ollama, `private` = réseau privé, `external` = `allowExternal` + hôte hors réseau privé → encadré d'avertissement, en cas de doute DNS on annonce `external`), durées de conservation, fonctions activées, limites. **Toute affirmation des textes doit rester vraie vis-à-vis du code** (contenu jamais stocké, `usage_log` sans texte, OTP affiché et non envoyé, suppression de compte ≠ blocage) : la relire quand on touche aux journaux, à l'auth ou au stockage
-- Clé `legal` (`site_settings`, schéma `LegalSchema` + défaut dans `settings-schema.ts`, donc export / import / reset) : `organization`, `contact` (repli : `general.contactEmail`), `privacyNotes`, `usageRules`. Texte brut affiché par React (jamais interprété comme du HTML). Onglet Réglages → Legal (`LegalForm`)
+- **Texte disponible en EN/DE/FR/IT**, suit le sélecteur de langue de l'interface (`useI18n().locale`), instantanément et sans rechargement — comme le reste de l'appli. `lib/legal-content.ts` est un dispatcher pur (`buildPrivacyPolicy(ctx, locale?)` / `buildUsagePolicy(ctx, locale?)`, défaut `'en'`) vers `lib/legal-content-{en,de,fr,it}.ts` (un fichier par langue, mêmes ids de section, même logique conditionnelle — seul le texte change). La page serveur (`app/legal/[doc]/page.tsx`) construit les 4 langues d'un coup (texte pur, pas d'I/O) et les passe à `LegalDocumentView`, qui pioche `content[locale]`. Changer le texte de référence (une langue ou plus) → bumper `LEGAL_TEMPLATE_VERSION`
+- **Export PDF** : bouton « Download PDF » sur chaque page (i18n `legal.downloadPdf`), vers `GET /api/legal/[doc]/pdf?lang=xx` (public, exclu de `proxy.ts` comme `api/site-assets`). `lib/legal-pdf.ts` (`generateLegalPdf(doc, { siteName, version, locale })`) génère le PDF avec **pdf-lib** (pas de navigateur headless — cohérent avec l'appliance on-premise), police standard Helvetica (encodage WinAnsi, couvre les accents FR/DE/IT), pagination manuelle par mesure de largeur de texte. Les encadrés d'avertissement n'ont pas de fond coloré (mise en page texte simple) : un préfixe traduit (« Warning »/« Attention »/« Achtung »/« Attenzione ») les signale
+- **Partie factuelle générée depuis la configuration réelle** (`lib/legal.ts`, `loadLegalContext()`) : emplacement du moteur IA (`aiScope` : `local` = conteneur Ollama, `private` = réseau privé, `external` = `allowExternal` + hôte hors réseau privé → encadré d'avertissement, en cas de doute DNS on annonce `external`), durées de conservation, fonctions activées, limites. **Toute affirmation des textes doit rester vraie vis-à-vis du code** (contenu jamais stocké, `usage_log` sans texte, OTP affiché et non envoyé, suppression de compte ≠ blocage) : la relire quand on touche aux journaux, à l'auth ou au stockage — et répercuter tout changement de formulation dans les 4 fichiers `legal-content-*.ts`
+- Clé `legal` (`site_settings`, schéma `LegalSchema` + défaut dans `settings-schema.ts`, donc export / import / reset) : `organization`, `contact` (repli : `general.contactEmail`), `privacyNotes`, `usageRules`. **Ces 4 champs restent en texte libre, une seule langue** (celle saisie par l'admin) : ils ne sont pas traduits automatiquement, contrairement au reste du texte de la page. Texte brut affiché par React (jamais interprété comme du HTML). Onglet Réglages → Legal (`LegalForm`)
 
 ### Comptes et sessions
 

@@ -640,6 +640,7 @@ export const messages = {
     usageLink:      'Usage policy',
     back:           'Back',
     version:        'Template version {0}',
+    downloadPdf:    'Download PDF',
   },
   legalForm: {
     sectionOrg:               'Organisation',
@@ -653,7 +654,7 @@ export const messages = {
     usageRulesLabel:          'Additional usage rules',
     notesHint:                'Plain text, added at the end of the page. Separate paragraphs with a blank line.',
     sectionPublished:         'Published pages',
-    publishedHint:            'The rest of each page is generated from this installation’s settings (AI server location, log retention, enabled features and limits). The text of these pages is in English only.',
+    publishedHint:            'The rest of each page is generated from this installation’s settings (AI server location, log retention, enabled features and limits), available in English, German, French and Italian.',
     disclaimer:               'These pages are a starting point, not legal advice. Have them reviewed for your organisation.',
     save:                     'Save',
     toastSaved:               'Legal settings saved.',

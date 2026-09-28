@@ -642,6 +642,7 @@ export const messages = {
     usageLink:      'Condizioni d’uso',
     back:           'Indietro',
     version:        'Versione del modello {0}',
+    downloadPdf:    'Scarica in PDF',
   },
   legalForm: {
     sectionOrg:               'Organizzazione',
@@ -655,7 +656,7 @@ export const messages = {
     usageRulesLabel:          'Regole d’uso aggiuntive',
     notesHint:                'Testo semplice, aggiunto alla fine della pagina. Separare i paragrafi con una riga vuota.',
     sectionPublished:         'Pagine pubblicate',
-    publishedHint:            'Il resto di ogni pagina è generato dalle impostazioni di questa installazione (posizione del server IA, conservazione dei log, funzioni attive e limiti). Il testo di queste pagine è disponibile solo in inglese.',
+    publishedHint:            'Il resto di ogni pagina è generato dalle impostazioni di questa installazione (posizione del server IA, conservazione dei log, funzioni attive e limiti), disponibile in inglese, tedesco, francese e italiano.',
     disclaimer:               'Queste pagine sono un punto di partenza, non una consulenza legale. Fatele verificare per la vostra organizzazione.',
     save:                     'Salva',
     toastSaved:               'Impostazioni legali salvate.',

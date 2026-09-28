@@ -642,6 +642,7 @@ export const messages = {
     usageLink:      'Nutzungsbedingungen',
     back:           'Zurück',
     version:        'Vorlagenversion {0}',
+    downloadPdf:    'Als PDF herunterladen',
   },
   legalForm: {
     sectionOrg:               'Organisation',
@@ -655,7 +656,7 @@ export const messages = {
     usageRulesLabel:          'Zusätzliche Nutzungsregeln',
     notesHint:                'Reiner Text, am Ende der Seite angefügt. Absätze durch eine Leerzeile trennen.',
     sectionPublished:         'Veröffentlichte Seiten',
-    publishedHint:            'Der Rest jeder Seite wird aus den Einstellungen dieser Installation erzeugt (Standort des KI-Servers, Aufbewahrung der Protokolle, aktivierte Funktionen und Limits). Der Text dieser Seiten ist nur auf Englisch verfügbar.',
+    publishedHint:            'Der Rest jeder Seite wird aus den Einstellungen dieser Installation erzeugt (Standort des KI-Servers, Aufbewahrung der Protokolle, aktivierte Funktionen und Limits) und ist auf Englisch, Deutsch, Französisch und Italienisch verfügbar.',
     disclaimer:               'Diese Seiten sind eine Ausgangsbasis und keine Rechtsberatung. Lassen Sie sie für Ihre Organisation prüfen.',
     save:                     'Speichern',
     toastSaved:               'Rechtliche Einstellungen gespeichert.',

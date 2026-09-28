@@ -156,6 +156,38 @@ describe('generated documents', () => {
   })
 })
 
+describe('legal content — locales', () => {
+  const LOCALES = ['en', 'de', 'fr', 'it'] as const
+
+  it.each(LOCALES)('builds both documents in %s with the same section ids as English', locale => {
+    for (const build of [buildPrivacyPolicy, buildUsagePolicy]) {
+      const en = build(ctx(), 'en')
+      const translated = build(ctx(), locale)
+      expect(translated.sections.map(s => s.id)).toEqual(en.sections.map(s => s.id))
+      expect(translated.title).not.toBe('')
+      expect(translated.intro).toContain(BASE.siteName)
+    }
+  })
+
+  it.each(LOCALES.filter(l => l !== 'en'))('translates the body text in %s (does not fall back to English)', locale => {
+    const text = flat(buildPrivacyPolicy(ctx(), locale))
+    expect(text).not.toContain('Who is responsible for your data')
+    expect(text).not.toContain('the organisation that operates this service')
+  })
+
+  it.each(LOCALES)('still warns about the external AI server in %s', locale => {
+    const privacy = section(buildPrivacyPolicy(ctx({ aiScope: 'external' }), locale), 'ai-processing')!
+    const usage = section(buildUsagePolicy(ctx({ aiScope: 'external' }), locale), 'confidentiality')!
+    expect(privacy.warning).toBe(true)
+    expect(usage.warning).toBe(true)
+  })
+
+  it.each(LOCALES)('formats the configured limits as numbers in %s', locale => {
+    const items = section(buildUsagePolicy(ctx({ limits: { ...BASE.limits, maxTextChars: 8000 } }), locale), 'limits')!.items!.join('\n')
+    expect(items).toMatch(/8[.,\s  ]?000/)
+  })
+})
+
 describe('textToParagraphs', () => {
   it('splits on blank lines and joins the lines of a paragraph', () => {
     expect(textToParagraphs('a\nb\n\n\nc')).toEqual(['a b', 'c'])

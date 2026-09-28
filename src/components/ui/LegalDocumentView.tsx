@@ -1,14 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { I18nProvider, useI18n } from '@/lib/i18n'
+import { I18nProvider, useI18n, type UILocale } from '@/lib/i18n'
 import { UILanguageSwitcher } from '@/components/ui/UILanguageSwitcher'
 import type { LegalDocument } from '@/lib/legal-content'
 
 interface Props {
   siteName: string
   doc:      'privacy' | 'usage'
-  content:  LegalDocument
+  content:  Record<UILocale, LegalDocument>
   version:  string
 }
 
@@ -21,10 +21,11 @@ export function LegalDocumentView(props: Props) {
 }
 
 function LegalDocumentBody({ siteName, doc, content, version }: Props) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const other = doc === 'privacy'
     ? { href: '/legal/usage',   label: t.legal.usageLink }
     : { href: '/legal/privacy', label: t.legal.privacyLink }
+  const body = content[locale]
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,12 +38,23 @@ function LegalDocumentBody({ siteName, doc, content, version }: Props) {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 md:px-8 py-10">
-        <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{siteName}</p>
-        <h1 className="font-headline text-3xl font-bold text-on-surface tracking-tight mt-1">{content.title}</h1>
-        <p className="text-sm text-on-surface-variant mt-3">{content.intro}</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{siteName}</p>
+            <h1 className="font-headline text-3xl font-bold text-on-surface tracking-tight mt-1">{body.title}</h1>
+          </div>
+          <a
+            href={`/api/legal/${doc}/pdf?lang=${locale}`}
+            className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface hover:border-outline-variant/60 border border-outline-variant/30 rounded-lg px-3 py-2 transition-colors"
+          >
+            <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">download</span>
+            {t.legal.downloadPdf}
+          </a>
+        </div>
+        <p className="text-sm text-on-surface-variant mt-3">{body.intro}</p>
 
         <div className="mt-8 flex flex-col gap-4">
-          {content.sections.map(section => (
+          {body.sections.map(section => (
             <section
               key={section.id}
               id={section.id}
