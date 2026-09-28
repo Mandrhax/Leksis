@@ -5,6 +5,7 @@ import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import { LANGUAGES, detectLanguage } from '@/lib/languages'
 import { TEXT_MAX_CHARS } from '@/lib/validators'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
+import { MicButton } from '@/components/ui/MicButton'
 import { useI18n } from '@/lib/i18n'
 import type { Language, Formality } from '@/types/leksis'
 
@@ -28,9 +29,10 @@ interface Props {
   defaultTargetLang?: string
   maxTextChars?:      number
   defaultFormality?:  Formality
+  voiceInputEnabled?: boolean
 }
 
-export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_CHARS, defaultFormality = 'Informal' }: Props) {
+export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_CHARS, defaultFormality = 'Informal', voiceInputEnabled = false }: Props) {
   const { t } = useI18n()
 
   const [sourceText, setSourceText]     = useState('')
@@ -143,6 +145,10 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
     }
   }
 
+  const handleDictated = (text: string) => {
+    handleTextChange(sourceText.trim() ? `${sourceText.trim()} ${text}` : text)
+  }
+
   const handleSourceLangChange = (lang: Language) => {
     const isAuto = lang.code === 'auto'
     setSourceLang(isAuto ? null : lang)
@@ -226,17 +232,22 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
             spellCheck={false}
           />
           <div className="mt-4 flex items-center justify-between">
-            <button
-              onClick={() => { if (sourceText.trim()) runTranslation(sourceText, sourceLang, detectedLang, targetLang, formality) }}
-              disabled={isLoading || !sourceText.trim() || sourceText.length > maxTextChars}
-              className="action-btn"
-            >
-              {isLoading
-                ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-                : <span className="material-symbols-outlined text-sm">translate</span>
-              }
-              <span>{t.textTab.translate}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {voiceInputEnabled && (
+                <MicButton feature="text" onTranscript={handleDictated} disabled={isLoading} />
+              )}
+              <button
+                onClick={() => { if (sourceText.trim()) runTranslation(sourceText, sourceLang, detectedLang, targetLang, formality) }}
+                disabled={isLoading || !sourceText.trim() || sourceText.length > maxTextChars}
+                className="action-btn"
+              >
+                {isLoading
+                  ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                  : <span className="material-symbols-outlined text-sm">translate</span>
+                }
+                <span>{t.textTab.translate}</span>
+              </button>
+            </div>
             <span className={`text-xs font-medium ${
               sourceText.length >= maxTextChars ? 'text-error' : sourceText.length >= maxTextChars * 0.9 ? 'text-amber-600' : 'text-outline'
             }`}>{sourceText.length} / {maxTextChars}</span>

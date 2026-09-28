@@ -79,6 +79,19 @@ export function buildOcrPrompt(): string {
   )
 }
 
+// ── Dictée vocale ────────────────────────────────────────────────
+
+export function buildTranscribePrompt(): string {
+  return (
+    `Transcribe the audio exactly as spoken.\n` +
+    `Rules:\n` +
+    `- Output only the raw transcript text, nothing else\n` +
+    `- Write it in the language spoken in the audio\n` +
+    `- Do not translate, summarize, or add commentary\n` +
+    `- Do not add timestamps, speaker labels, or any formatting`
+  )
+}
+
 // ── Traduction Markdown (post-OCR image / PDF scanné) ───────────
 
 type MarkdownTranslationPromptOptions = {

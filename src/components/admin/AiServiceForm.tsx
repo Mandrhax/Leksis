@@ -27,6 +27,7 @@ interface ModelsData {
   translationModel: string
   ocrModel:         string
   rewriteModel:     string
+  voiceModel:       string
   sameModelForAll:  boolean
 }
 
@@ -68,6 +69,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
     translationModel: initial.translationModel,
     ocrModel:         initial.ocrModel,
     rewriteModel:     initial.rewriteModel,
+    voiceModel:       initial.voiceModel,
     sameModelForAll:  initial.sameModelForAll,
   })
   const [savedKey, setSavedKey] = useState(`${initial.provider}|${trimSlash(initial.baseUrl)}`)
@@ -165,6 +167,8 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
         translationModel: data.translationModel,
         ocrModel:         data.ocrModel,
         rewriteModel:     data.sameModelForAll ? data.translationModel : data.rewriteModel,
+        // Vide si l'admin l'a effacé, ou si le fournisseur n'est pas OpenAI-compatible (le champ n'est alors pas affiché)
+        voiceModel:       provider === 'openai' ? data.voiceModel : '',
         sameModelForAll:  data.sameModelForAll,
         allowExternal,
         // Contexte Ollama : ignoré (et non envoyé) avec une API OpenAI-compatible ; valeur invalide → défaut serveur
@@ -493,6 +497,20 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
                 {...selectProps}
               />
             </div>
+          )}
+
+          {/* Dictée vocale — API OpenAI-compatible uniquement, indépendant de sameModelForAll */}
+          {provider === 'openai' && (
+            <OllamaModelSelect
+              label={of.voiceModelLabel}
+              value={data.voiceModel}
+              onChange={v => setField('voiceModel', v)}
+              suggestions={[]}
+              {...selectProps}
+            />
+          )}
+          {provider === 'openai' && (
+            <p className="text-xs text-on-surface-variant -mt-2">{of.voiceModelHint}</p>
           )}
 
           {/* Contexte Ollama */}

@@ -20,6 +20,7 @@ Toute évolution du produit doit s'inscrire dans l'un de ces périmètres.
 - Gestion du ton si la source est anglaise (tu/vous — Informal/Formal)
 - Résultat modifiable et réutilisable
 - Swap source ↔ target avec re-traduction automatique
+- **Dictée vocale optionnelle** (bouton micro) : méthode de saisie alternative, pas une fonctionnalité à part — voir « Dictée vocale » sous « Moteur IA »
 
 ---
 
@@ -67,6 +68,7 @@ L'OCR et la traduction sont **deux étapes distinctes**, mais peuvent être ench
 - Chaque ton peut être activé/désactivé sans suppression
 - Longueur : Shorter / Keep / Longer
 - Intégration du glossaire
+- **Dictée vocale optionnelle** (bouton micro), même mécanisme que dans l'onglet Traduction de texte
 
 Cette fonctionnalité **n'est pas une traduction**, mais une transformation du texte source.
 
@@ -122,6 +124,7 @@ src/
 │   │   ├── translate/document/route.ts   Traduction document (JSON blocks, par lots — voir « Documents »)
 │   │   ├── rewrite/route.ts              Réécriture (streaming)
 │   │   ├── ocr/route.ts                  OCR image (streaming)
+│   │   ├── dictate/route.ts              Dictée vocale → transcript (API OpenAI-compatible uniquement)
 │   │   ├── extract/document/route.ts     Extraction sans traduction
 │   │   ├── export/docx/route.ts          Export du résultat en DOCX
 │   │   ├── site-assets/[filename]/       Sert logo et fond (CSP sandbox + nosniff)
@@ -136,12 +139,12 @@ src/
 ├── components/
 │   ├── GlobalBanner.tsx, MaintenanceScreen.tsx
 │   ├── tabs/    TextTranslationTab, DocumentStudioTab, ImageExtractionTab, AIRewriteTab
-│   ├── ui/      HomeClient, AccountMenu, SignInForm, UILanguageSwitcher, LanguageDropdown, HelpModal, LegalDocumentView, LegalLinks
+│   ├── ui/      HomeClient, AccountMenu, SignInForm, UILanguageSwitcher, LanguageDropdown, HelpModal, LegalDocumentView, LegalLinks, MicButton
 │   └── admin/   AdminClientLayout, AdminSidebar, AdminPageHeader, AdminToast, ServiceTabBar, SettingsTabs, AdminDashboard,
 │                *Form (Branding, Design, Features, Tones, General, Legal, AiService, CaddyService, ExportImport), OllamaModelSelect,
 │                *ServicesLayout (Ollama, Caddy), *Metrics (Ollama, Db, Caddy), GlossaryAdmin, UserList, UsagePanel, AuditTable, PurgeButton, PinnedUrlNotice
 │
-├── hooks/       useCopyToClipboard, useOllamaPull
+├── hooks/       useCopyToClipboard, useOllamaPull, useAudioRecorder
 ├── locales/     en.ts (source du type Messages), de.ts, fr.ts, it.ts (`satisfies Messages`)
 │
 ├── lib/
@@ -284,10 +287,17 @@ Usage dans une route : `const ai = await getAiOrError(); if (ai.error) return ai
 
 ### Configuration
 
-- Base `site_settings.ai_config` : `{ provider, baseUrl, apiKeyEnc, translationModel, ocrModel, rewriteModel, sameModelForAll, allowExternal }`. **La clé API est chiffrée AES-256-GCM (`crypto.ts`), jamais renvoyée au client** (`hasApiKey`), jamais dans le journal d'audit (`updateSetting(..., auditValue)`), jamais exportée ni importée (export/import strippent `apiKeyEnc`, l'import conserve aussi `allowExternal` existant)
+- Base `site_settings.ai_config` : `{ provider, baseUrl, apiKeyEnc, translationModel, ocrModel, rewriteModel, voiceModel, sameModelForAll, allowExternal }`. **La clé API est chiffrée AES-256-GCM (`crypto.ts`), jamais renvoyée au client** (`hasApiKey`), jamais dans le journal d'audit (`updateSetting(..., auditValue)`), jamais exportée ni importée (export/import strippent `apiKeyEnc`, l'import conserve aussi `allowExternal` existant)
 - Précédence : `ai_config` (base) → `ollama_config` (ancienne clé, lecture seule) → variables d'environnement `AI_PROVIDER`, `AI_BASE_URL`, `AI_API_KEY` ; les 3 modèles sont `AI_MODEL` / `AI_OCR_MODEL` / `AI_REWRITE_MODEL` (quel que soit le fournisseur). Les anciens noms `OLLAMA_BASE_URL` / `OLLAMA_MODEL` / `OLLAMA_OCR_MODEL` / `OLLAMA_REWRITE_MODEL` (avant 1.5.1) sont encore lus en repli par `config.ts` et le compose, et renommés dans le `.env` par `migrate_env` (tests : `tests/unit/llm-config.test.ts`). Les `OLLAMA_*` restants (`KEEP_ALIVE`, `SCHED_SPREAD`, `MAX_LOADED_MODELS`, `IMAGE`, `HOST`) sont de vrais réglages du conteneur Ollama : ne pas les renommer. La clé enregistrée ne suit pas un changement d'URL/fournisseur (PATCH et test)
 - **Serveurs externes bloqués par défaut** : tant que `allowExternal` n'est pas coché (Admin → Services → AI : « Autoriser les serveurs hors du réseau privé »), toute requête vers un hôte hors réseau privé est refusée (403 `external_blocked`) et la sauvegarde d'une telle URL est rejetée. Les textes des utilisateurs quittent alors le réseau : c'est un choix explicite de l'admin
-- Capacités (`capabilities`) : seul Ollama sait `pull`, `delete`, `warmup` (VRAM), `unload`, `running`. Les routes `services/ollama/{pull,delete,warmup,unload}` répondent 400 pour un autre fournisseur ; l'UI masque ces blocs
+- Capacités (`capabilities`) : seul Ollama sait `pull`, `delete`, `warmup` (VRAM), `unload`, `running`. Les routes `services/ollama/{pull,delete,warmup,unload}` répondent 400 pour un autre fournisseur ; l'UI masque ces blocs. `transcribe` est l'inverse : `true` seulement pour `openai` (`capabilities.transcribe`), sert de marqueur de cohérence mais pas de garde réelle — la garde réelle est `cfg.voiceModel` vide ou non
+
+### Dictée vocale (bouton micro, Tabs Texte et Réécriture)
+
+- **Méthode de saisie, pas une 5ᵉ fonctionnalité** : un clic enregistre l'audio du micro (`MediaRecorder` natif, `src/hooks/useAudioRecorder.ts`), l'envoie à `POST /api/dictate`, et le texte renvoyé remplit le champ de saisie existant — comme si l'utilisateur l'avait tapé. Composant partagé `src/components/ui/MicButton.tsx`, monté dans `TextTranslationTab`/`AIRewriteTab` seulement si `voiceInputEnabled` (calculé côté serveur dans `src/app/page.tsx`, propagé via `HomeClient`)
+- **API OpenAI-compatible uniquement** : Ollama n'a aucun champ audio dans son API native. Le modèle est envoyé en entrée du **chat completion** (bloc `input_audio`), comme l'image de l'OCR (`image_url`) — pas un endpoint de transcription séparé façon Whisper. Réglage dédié `ai_config.voiceModel` (Services → AI, onglet Models, uniquement si `provider === 'openai'`), toujours indépendant de `sameModelForAll` ; vide = fonctionnalité masquée
+- **Le format audio envoyé au serveur (webm/opus, mp4…) dépend du navigateur** (`MediaRecorder.mimeType`) et n'est jamais transcodé côté client ni serveur. Que le fournisseur OpenAI-compatible accepte ce format n'est pas garanti (OpenAI ne documente officiellement que `wav`/`mp3` pour `input_audio.format`) — à valider par modèle/serveur, comme pour l'OCR (l'appli ne vérifie jamais que `ocrModel`/`voiceModel` savent réellement traiter des images/de l'audio)
+- Journalisée dans `usage_log` sous le `feature` de l'onglet appelant (`text` ou `rewrite`, jamais une valeur `voice` séparée) : cohérent avec « méthode de saisie, pas fonctionnalité »
 
 ### Choix du moteur dans l'admin (Services → AI)
 

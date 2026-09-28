@@ -2,6 +2,7 @@
 export const TEXT_MAX_CHARS     = 5000
 export const DOCUMENT_MAX_CHARS = 12000
 export const IMAGE_MAX_BYTES    = 10 * 1024 * 1024 // 10 MB
+export const AUDIO_MAX_BYTES    = 15 * 1024 * 1024 // 15 MB — dictée vocale
 export const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024 // 10 MB — taille du fichier envoyé (PDF, DOCX…)
 export const RATE_LIMIT_PER_MIN = 30               // appels IA / minute / utilisateur
 export const OCR_MAX_PDF_PAGES  = 20               // pages d'un PDF scanné passées à l'OCR
@@ -15,6 +16,12 @@ export function validateTextInput(text: string, maxChars = TEXT_MAX_CHARS): stri
 export function validateImageSize(bytes: number, maxBytes = IMAGE_MAX_BYTES): string | null {
   const maxMB = Math.round(maxBytes / (1024 * 1024))
   if (bytes > maxBytes) return `Image exceeds the ${maxMB} MB size limit.`
+  return null
+}
+
+export function validateAudioSize(bytes: number, maxBytes = AUDIO_MAX_BYTES): string | null {
+  const maxMB = Math.round(maxBytes / (1024 * 1024))
+  if (bytes > maxBytes) return `Audio exceeds the ${maxMB} MB size limit.`
   return null
 }
 

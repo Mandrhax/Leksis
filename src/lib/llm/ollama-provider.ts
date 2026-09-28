@@ -22,7 +22,7 @@ export function createOllamaProvider(baseUrl: string, numCtx = DEFAULT_NUM_CTX):
 
   return {
     id: 'ollama',
-    capabilities: { pull: true, delete: true, warmup: true, unload: true, running: true },
+    capabilities: { pull: true, delete: true, warmup: true, unload: true, running: true, transcribe: false },
 
     stream(req) {
       const encoder = new TextEncoder()

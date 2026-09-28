@@ -37,6 +37,10 @@ export interface LlmRequest {
   system?: string
   /** Images en base64 (sans préfixe data:) — modèles vision uniquement */
   images?: string[]
+  /** Audio en base64 (sans préfixe data:) — modèles multimodaux audio uniquement (API OpenAI-compatible) */
+  audio?:         string
+  /** Type MIME du clip audio (ex. "audio/webm") — ne peut pas être déduit du contenu comme les images */
+  audioMimeType?: string
   model:   string
   signal?: AbortSignal
 }
@@ -49,11 +53,13 @@ export interface LlmModel {
 
 /** Ce que le serveur sait faire au-delà de générer du texte (actions admin). */
 export interface LlmCapabilities {
-  pull:    boolean
-  delete:  boolean
-  warmup:  boolean
-  unload:  boolean
-  running: boolean
+  pull:       boolean
+  delete:     boolean
+  warmup:     boolean
+  unload:     boolean
+  running:    boolean
+  /** Le fournisseur accepte-t-il un clip audio en entrée d'un chat completion ? (API OpenAI-compatible uniquement) */
+  transcribe: boolean
 }
 
 export interface LlmProvider {
@@ -91,6 +97,8 @@ export interface AiPublicConfig {
   translationModel: string
   ocrModel:         string
   rewriteModel:     string
+  /** Modèle de dictée vocale — vide = fonctionnalité désactivée. Toujours indépendant de sameModelForAll. */
+  voiceModel:       string
   sameModelForAll:  boolean
   allowExternal:    boolean
   hasApiKey:        boolean

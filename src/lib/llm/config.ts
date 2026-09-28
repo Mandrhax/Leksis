@@ -14,6 +14,8 @@ export interface AiConfig {
   translationModel: string
   ocrModel:         string
   rewriteModel:     string
+  /** Modèle de dictée vocale — vide = fonctionnalité désactivée. API OpenAI-compatible uniquement. */
+  voiceModel:       string
   /** Autorise un serveur IA hors réseau privé (les textes quittent le réseau) */
   allowExternal:    boolean
   /** Fenêtre de contexte Ollama (tokens) — sans effet avec une API OpenAI-compatible */
@@ -83,6 +85,8 @@ function resolveAiConfig({ raw, fromLegacy }: { raw: Record<string, unknown>; fr
     translationModel: str(raw.translationModel) || str(raw.model) || process.env.AI_MODEL         || process.env.OLLAMA_MODEL         || '',
     ocrModel:         str(raw.ocrModel)         || process.env.AI_OCR_MODEL                        || process.env.OLLAMA_OCR_MODEL     || '',
     rewriteModel:     str(raw.rewriteModel)     || process.env.AI_REWRITE_MODEL                    || process.env.OLLAMA_REWRITE_MODEL || '',
+    // Pas de repli sur une variable d'environnement : réglage admin-only, ajouté après coup (pas de rétrocompatibilité à assurer)
+    voiceModel:       str(raw.voiceModel),
     allowExternal:    raw.allowExternal === true,
     numCtx:           typeof raw.numCtx === 'number' && Number.isInteger(raw.numCtx) && raw.numCtx > 0 ? raw.numCtx : DEFAULT_NUM_CTX,
     // Contrairement à numCtx, 0 est la seule valeur par défaut sûre : une installation existante qui
@@ -104,6 +108,7 @@ export async function getAiPublicConfig(): Promise<AiPublicConfig> {
     translationModel: cfg.translationModel,
     ocrModel:         cfg.ocrModel,
     rewriteModel:     cfg.rewriteModel,
+    voiceModel:       cfg.voiceModel,
     sameModelForAll:  raw.sameModelForAll === true,
     allowExternal:    cfg.allowExternal,
     hasApiKey:        cfg.apiKey !== '',

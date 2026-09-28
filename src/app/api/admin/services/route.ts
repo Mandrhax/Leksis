@@ -18,6 +18,7 @@ const AiSchema = z.object({
   translationModel: z.string().min(1),
   ocrModel:         z.string().min(1),
   rewriteModel:     z.string().min(1),
+  voiceModel:       z.string().optional(),  // dictée vocale — vide = désactivée, jamais requis
   sameModelForAll:  z.boolean().optional(),
   allowExternal:    z.boolean().optional(),
   numCtx:           z.number().int().min(NUM_CTX_MIN).max(NUM_CTX_MAX).optional(),  // Ollama : contexte en tokens
@@ -95,6 +96,7 @@ export async function PATCH(req: NextRequest) {
       translationModel: data.translationModel,
       ocrModel:         data.ocrModel,
       rewriteModel:     data.sameModelForAll ? data.translationModel : data.rewriteModel,
+      voiceModel:       data.voiceModel ?? current.voiceModel,
       sameModelForAll:  data.sameModelForAll ?? false,
       allowExternal,
       numCtx:           data.numCtx ?? current.numCtx,
@@ -107,6 +109,7 @@ export async function PATCH(req: NextRequest) {
       translationModel: value.translationModel,
       ocrModel:         value.ocrModel,
       rewriteModel:     value.rewriteModel,
+      voiceModel:       value.voiceModel,
       allowExternal,
       numCtx:           value.numCtx,
       maxConcurrentAiRequests: value.maxConcurrentAiRequests,

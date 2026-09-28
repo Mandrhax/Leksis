@@ -26,7 +26,7 @@ export function normalizeOpenAiBase(baseUrl: string): string {
  * de l'entrée (les images — OCR — ont un prompt court mais une sortie potentiellement longue).
  */
 function estimateMaxTokens(req: LlmRequest): number {
-  if (req.images?.length) return 8192
+  if (req.images?.length || req.audio) return 8192
   const inputChars = (req.system?.length ?? 0) + req.prompt.length
   const estimated = Math.ceil((inputChars / 3) * 1.5)
   return Math.min(8192, Math.max(1024, estimated))
@@ -42,18 +42,28 @@ function imageMime(b64: string): string {
 
 type ChatMessage = { role: 'system' | 'user'; content: string | unknown[] }
 
+/** Format court attendu par `input_audio.format` — dérivé du type MIME donné par le client (pas de sniffing possible comme pour les images). */
+function audioFormat(mimeType: string): string {
+  const type = mimeType.split(';')[0].trim().toLowerCase()
+  return type.split('/')[1] || 'webm'
+}
+
 function buildMessages(req: LlmRequest): ChatMessage[] {
   const messages: ChatMessage[] = []
   if (req.system) messages.push({ role: 'system', content: req.system })
-  if (req.images?.length) {
+  if (req.images?.length || req.audio) {
     messages.push({
       role: 'user',
       content: [
         { type: 'text', text: req.prompt },
-        ...req.images.map(b64 => ({
+        ...(req.images ?? []).map(b64 => ({
           type: 'image_url',
           image_url: { url: `data:${imageMime(b64)};base64,${b64}` },
         })),
+        ...(req.audio ? [{
+          type: 'input_audio',
+          input_audio: { data: req.audio, format: audioFormat(req.audioMimeType ?? '') },
+        }] : []),
       ],
     })
   } else {
@@ -93,7 +103,7 @@ export function createOpenAiProvider(baseUrl: string, apiKey = ''): LlmProvider 
 
   return {
     id: 'openai',
-    capabilities: { pull: false, delete: false, warmup: false, unload: false, running: false },
+    capabilities: { pull: false, delete: false, warmup: false, unload: false, running: false, transcribe: true },
 
     stream(req) {
       const encoder = new TextEncoder()

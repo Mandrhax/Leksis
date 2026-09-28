@@ -4,7 +4,7 @@ import {
   type ValidatedSettingKey,
 } from '@/lib/settings-schema'
 import { DEFAULT_TONES } from '@/lib/tones'
-import { DOCUMENT_MAX_CHARS, IMAGE_MAX_BYTES, RATE_LIMIT_PER_MIN, TEXT_MAX_CHARS } from '@/lib/validators'
+import { AUDIO_MAX_BYTES, DOCUMENT_MAX_CHARS, IMAGE_MAX_BYTES, RATE_LIMIT_PER_MIN, TEXT_MAX_CHARS } from '@/lib/validators'
 
 describe('SETTING_DEFAULTS', () => {
   it.each(Object.keys(SETTING_DEFAULTS) as (keyof typeof SETTING_DEFAULTS)[])('the default of "%s" passes its own schema unchanged', key => {
@@ -27,6 +27,7 @@ describe('SETTING_DEFAULTS', () => {
       maxTextChars: TEXT_MAX_CHARS,
       maxDocChars: DOCUMENT_MAX_CHARS,
       maxImageMB: IMAGE_MAX_BYTES / (1024 * 1024),
+      maxAudioMB: AUDIO_MAX_BYTES / (1024 * 1024),
       rateLimitPerMin: RATE_LIMIT_PER_MIN,
     })
   })

@@ -30,6 +30,10 @@ async function loadPageSettings() {
 
     const configuredTones = normalizeTones(settings.rewrite_tones)
 
+    const { getAiConfig } = await import('@/lib/llm')
+    const aiCfg = await getAiConfig()
+    const voiceInputEnabled = aiCfg.provider === 'openai' && aiCfg.voiceModel !== ''
+
     return {
       logoUrl:           branding.logoUrl  ?? null,
       // headerLogoSize moved from `design` to `branding` — fall back to the old key for installs that haven't re-saved yet
@@ -44,6 +48,7 @@ async function loadPageSettings() {
       defaultFormality:  features.defaults?.formality  ?? 'Informal',
       maxTextChars:      features.limits?.maxTextChars  ?? 5000,
       configuredTones,
+      voiceInputEnabled,
     }
   } catch {
     return {
@@ -59,6 +64,7 @@ async function loadPageSettings() {
       defaultFormality:  'Informal' as Formality,
       maxTextChars:      5000,
       configuredTones:   DEFAULT_TONES,
+      voiceInputEnabled: false,
     }
   }
 }

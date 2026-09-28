@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DOCUMENT_MAX_CHARS, IMAGE_MAX_BYTES, RATE_LIMIT_PER_MIN, TEXT_MAX_CHARS } from '@/lib/validators'
+import { AUDIO_MAX_BYTES, DOCUMENT_MAX_CHARS, IMAGE_MAX_BYTES, RATE_LIMIT_PER_MIN, TEXT_MAX_CHARS } from '@/lib/validators'
 
 // Schémas des réglages du site (site_settings), utilisés à l'enregistrement ET à l'import d'une configuration.
 // Ces valeurs finissent dans du CSS (<style>, url('…')), dans des attributs href ou dans des prompts :
@@ -77,6 +77,7 @@ export const FeaturesSchema = z.object({
     maxTextChars:    z.number().int().min(100).max(200_000).optional(),
     maxDocChars:     z.number().int().min(100).max(500_000).optional(),
     maxImageMB:      z.number().int().min(1).max(50).optional(),
+    maxAudioMB:      z.number().int().min(1).max(50).optional(),
     rateLimitPerMin: z.number().int().min(0).max(10_000).optional(),
   }).optional(),
 })
@@ -124,6 +125,7 @@ export const SETTING_DEFAULTS = {
       maxTextChars:    TEXT_MAX_CHARS,
       maxDocChars:     DOCUMENT_MAX_CHARS,
       maxImageMB:      IMAGE_MAX_BYTES / (1024 * 1024),
+      maxAudioMB:      AUDIO_MAX_BYTES / (1024 * 1024),
       rateLimitPerMin: RATE_LIMIT_PER_MIN,
     },
   },

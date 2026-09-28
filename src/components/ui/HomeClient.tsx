@@ -34,6 +34,7 @@ interface Props {
   defaultFormality:  Formality
   maxTextChars:      number
   configuredTones:   ToneConfig[]
+  voiceInputEnabled: boolean
 }
 
 export function HomeClient(props: Props) {
@@ -44,7 +45,7 @@ export function HomeClient(props: Props) {
   )
 }
 
-function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, defaultFormality, maxTextChars, configuredTones }: Props) {
+function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, defaultFormality, maxTextChars, configuredTones, voiceInputEnabled }: Props) {
   const { t } = useI18n()
 
   const ALL_TABS: { id: TabId; label: string; icon: string }[] = [
@@ -145,10 +146,10 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
       {/* ── Main workspace ── */}
       <main className="flex-grow flex flex-col items-center px-6 md:px-8 pb-6 pt-6">
         <div className="w-full max-w-[1440px]">
-          {safeActiveTab === 'text'     && <TextTranslationTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} defaultFormality={defaultFormality} maxTextChars={maxTextChars} />}
+          {safeActiveTab === 'text'     && <TextTranslationTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} defaultFormality={defaultFormality} maxTextChars={maxTextChars} voiceInputEnabled={voiceInputEnabled} />}
           {safeActiveTab === 'document' && <DocumentStudioTab  defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} />}
           {safeActiveTab === 'image'    && <ImageExtractionTab defaultTargetLang={defaultTargetLang} />}
-          {safeActiveTab === 'rewrite'  && <AIRewriteTab maxTextChars={maxTextChars} configuredTones={configuredTones} />}
+          {safeActiveTab === 'rewrite'  && <AIRewriteTab maxTextChars={maxTextChars} configuredTones={configuredTones} voiceInputEnabled={voiceInputEnabled} />}
         </div>
       </main>
 

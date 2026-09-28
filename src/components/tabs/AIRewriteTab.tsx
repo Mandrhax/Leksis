@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { detectLanguage } from '@/lib/languages'
 import { TEXT_MAX_CHARS } from '@/lib/validators'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
+import { MicButton } from '@/components/ui/MicButton'
 import { useI18n } from '@/lib/i18n'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import type { Messages } from '@/locales/en'
@@ -20,15 +21,16 @@ const LENGTH_LABELS: Record<RewriteLength, keyof RewriteTabMessages> = {
 }
 
 interface Props {
-  maxTextChars?:    number
-  configuredTones?: ToneConfig[]
+  maxTextChars?:      number
+  configuredTones?:   ToneConfig[]
+  voiceInputEnabled?: boolean
 }
 
 const DEFAULT_TONES_FALLBACK: ToneConfig[] = [
   { id: 'professional', labels: { en: 'Professional' }, instruction: 'in a professional, formal tone appropriate for business communication' },
 ]
 
-export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = DEFAULT_TONES_FALLBACK }: Props) {
+export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = DEFAULT_TONES_FALLBACK, voiceInputEnabled = false }: Props) {
   const { t } = useI18n()
 
   const { locale } = useI18n()
@@ -116,6 +118,10 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
     }
   }, [abort, sourceLang])
 
+  const handleDictated = (text: string) => {
+    setInputText(prev => prev.trim() ? `${prev.trim()} ${text}` : text)
+  }
+
   const handleClearInput  = () => { abort(); setInputText(''); setOutputText(''); setError(null); setAppliedMode(null) }
   const handleClearOutput = () => { setOutputText(''); setAppliedMode(null) }
   const [copied, copy] = useCopyToClipboard()
@@ -144,17 +150,22 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
             spellCheck={false}
           />
           <div className="mt-4 flex items-center justify-between">
-            <button
-              onClick={() => run(inputText, mode, tone, length)}
-              disabled={isLoading || !inputText.trim() || inputText.length > maxTextChars}
-              className="action-btn"
-            >
-              {isLoading
-                ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-                : <span className="material-symbols-outlined text-sm">auto_fix_high</span>
-              }
-              <span id="rewriteBtnLabel">{mode === 'correct' ? t.rewriteTab.correct : t.rewriteTab.rewrite}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {voiceInputEnabled && (
+                <MicButton feature="rewrite" onTranscript={handleDictated} disabled={isLoading} />
+              )}
+              <button
+                onClick={() => run(inputText, mode, tone, length)}
+                disabled={isLoading || !inputText.trim() || inputText.length > maxTextChars}
+                className="action-btn"
+              >
+                {isLoading
+                  ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                  : <span className="material-symbols-outlined text-sm">auto_fix_high</span>
+                }
+                <span id="rewriteBtnLabel">{mode === 'correct' ? t.rewriteTab.correct : t.rewriteTab.rewrite}</span>
+              </button>
+            </div>
             <span className={`text-xs font-medium ${
               inputText.length >= maxTextChars ? 'text-error' : inputText.length >= maxTextChars * 0.9 ? 'text-amber-600' : 'text-outline'
             }`}>{inputText.length} / {maxTextChars}</span>
