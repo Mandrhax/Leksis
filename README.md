@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.7.0-beta.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.7.0-beta.3/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,11 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.7.0-beta.3
+Beta — **Fix: voice dictation now clearly shows it's recording**. No database migration.
+- A pulsing red dot on the microphone button and a live `mm:ss` counter next to it, so it's obvious the microphone is actually capturing — the icon swap alone wasn't a strong enough signal
+- A transcription failure now shows a persistent inline message instead of only a hover tooltip
 
 ### v1.7.0-beta.2
 Beta — **Fix: the microphone permissions policy was blocking voice dictation**. No database migration.
