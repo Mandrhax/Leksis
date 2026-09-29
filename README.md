@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.7.0-beta.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.7.0-beta.2/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,11 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.7.0-beta.2
+Beta — **Fix: the microphone permissions policy was blocking voice dictation**. No database migration.
+- The server's `Permissions-Policy` header disabled `microphone` entirely (set before this feature existed) — the browser refused to even prompt for microphone access. Voice dictation in Text Translation and AI Rewrite now works
+- Also fixes an `npm ci` failure (dependency resolution conflict) and a high-severity `pdfjs-dist` advisory found while regenerating the lockfile — both only affected building the app, not runtime behavior
 
 ### v1.7.0-beta.1
 Beta — **AI request concurrency limit, sign-in codes by email, and voice dictation**. No database migration.
