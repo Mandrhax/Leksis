@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.1-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,10 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.1-beta.1
+Beta — **New technical documentation page in the admin panel**. No database migration.
+- **Admin → Docs** (new "Reference" section in the sidebar): a single-page technical reference covering architecture, installation, environment variables, the site settings stored in the database, authentication methods, AI engine setup, Docker services, access modes, CLI commands, backup/restore/update behaviour, the security model and troubleshooting. English only, aimed at whoever operates the instance rather than end users
 
 ### v1.8.0
 Configurable sign-in methods (OTP, password, single sign-on), self-service and admin password management, an AI request concurrency limit, sign-in codes by email, and voice dictation (tested through four betas). **Database migration** (see below).
