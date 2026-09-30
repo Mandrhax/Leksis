@@ -61,6 +61,18 @@ export const LegalSchema = z.object({
   usageRules:   z.string().max(5000),
 }).partial()
 
+/**
+ * Méthode de connexion active (Réglages → Connexion) : une seule à la fois. `auth_config` reste hors du PATCH
+ * générique (src/app/api/admin/settings) — changer de méthode a besoin de vérifications croisées (SMTP/OIDC
+ * configurés ?) que ce schéma seul ne peut pas faire ; c'est src/app/api/admin/services qui l'édite.
+ */
+export const AUTH_METHODS = ['otp_display', 'otp_email', 'password_admin_approval', 'password_email_verify', 'sso_oidc'] as const
+export type AuthMethod = typeof AUTH_METHODS[number]
+
+export const AuthConfigSchema = z.object({
+  method: z.enum(AUTH_METHODS),
+})
+
 const langCode = z.string().regex(/^(auto|[A-Za-z0-9-]{1,20})$/, 'Invalid language code')
 
 export const FeaturesSchema = z.object({
@@ -114,10 +126,11 @@ export const TonesSchema = z.array(ToneSchema).min(1).max(6)
  * (DEFAULT_TONES, réservé au serveur).
  */
 export const SETTING_DEFAULTS = {
-  branding: { siteName: 'Leksis', primaryColor: '#565e74', secondaryColor: '#506076', headerLogoSize: '32' },
-  design:   { buttonRadius: '0.75rem', footerText: '© Leksis', footerLinks: [] },
-  general:  { contactEmail: '', globalBanner: '', maintenanceMode: false, maintenanceMessage: '', ...RETENTION_DEFAULTS },
-  legal:    { organization: '', contact: '', privacyNotes: '', usageRules: '' },
+  branding:    { siteName: 'Leksis', primaryColor: '#565e74', secondaryColor: '#506076', headerLogoSize: '32' },
+  design:      { buttonRadius: '0.75rem', footerText: '© Leksis', footerLinks: [] },
+  general:     { contactEmail: '', globalBanner: '', maintenanceMode: false, maintenanceMessage: '', ...RETENTION_DEFAULTS },
+  legal:       { organization: '', contact: '', privacyNotes: '', usageRules: '' },
+  auth_config: { method: 'otp_display' as AuthMethod },
   features: {
     tabs:     { text: true, document: true, image: true, rewrite: true },
     defaults: { sourceLang: 'auto', targetLang: 'en', formality: 'Informal' },
@@ -139,6 +152,7 @@ export const SETTING_SCHEMAS = {
   legal:         LegalSchema,
   features:      FeaturesSchema,
   rewrite_tones: TonesSchema,
+  auth_config:   AuthConfigSchema,
 } as const
 
 export type ValidatedSettingKey = keyof typeof SETTING_SCHEMAS

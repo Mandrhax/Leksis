@@ -380,6 +380,77 @@ try {
   it = await italianFields()
   check('the Italian names are still there after leaving the page and coming back', it[0] === 'Professionale' && it[1] === 'Alla buona', JSON.stringify(it))
 
+  // ── Sign-in method: switch to password + admin approval via the Connexion tab, sign up, approve, sign in ──
+  await adminPage.goto(BASE + '/admin/settings', { waitUntil: 'networkidle0' })
+  await adminPage.evaluate(() => [...document.querySelectorAll('button')].find(b => b.innerText.includes('Sign-in'))?.click())
+  await adminPage.waitForFunction(() => [...document.querySelectorAll('button[role=radio]')].some(b => b.innerText.includes('admin approval')), { timeout: 10000 })
+  await adminPage.evaluate(() => [...document.querySelectorAll('button[role=radio]')].find(b => b.innerText.includes('admin approval'))?.click())
+  await adminPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.offsetParent !== null && b.innerText.includes('Save'))?.click())
+  let authConfig = null
+  for (let i = 0; i < 20 && authConfig?.method !== 'password_admin_approval'; i++) {
+    authConfig = (await db.query("SELECT value FROM site_settings WHERE key = 'auth_config'")).rows[0]?.value ?? null
+    if (authConfig?.method !== 'password_admin_approval') await new Promise(r => setTimeout(r, 500))
+  }
+  check('the admin can switch the sign-in method to password + admin approval via the Connexion tab', authConfig?.method === 'password_admin_approval', JSON.stringify(authConfig))
+
+  // /auth/signup redirects away until the server-rendered sign-in page itself reflects the new method
+  // (force-dynamic avoids an indefinite cache, but the very next request or two can still race the write)
+  let signupReachable = false
+  for (let i = 0; i < 20 && !signupReachable; i++) {
+    const res = await fetch(BASE + '/auth/signup', { redirect: 'manual' })
+    signupReachable = res.status === 200
+    if (!signupReachable) await new Promise(r => setTimeout(r, 300))
+  }
+  check('the sign-up page stops redirecting once the server reflects the new method', signupReachable)
+
+  const signupCtx = await browser.createBrowserContext()
+  const signupPage = await signupCtx.newPage()
+  await signupPage.goto(BASE + '/auth/signup', { waitUntil: 'networkidle0' })
+  check('the sign-up page is reachable once password sign-up is active', new URL(signupPage.url()).pathname === '/auth/signup', signupPage.url())
+
+  const newEmail = 'newbie@example.com'
+  await signupPage.type('#email', newEmail)
+  await signupPage.type('#password', 'a very long password 123')
+  await signupPage.type('#confirm', 'a very long password 123')
+  await Promise.all([
+    signupPage.waitForFunction(() => document.body.innerText.includes('Request received'), { timeout: 10000 }),
+    signupPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.innerText.includes('Create account'))?.click()),
+  ])
+  check('signing up shows the pending-approval confirmation', true)
+
+  let newUser = null
+  for (let i = 0; i < 20 && !newUser; i++) {
+    newUser = (await db.query('SELECT status, password_hash FROM users WHERE email = $1', [newEmail])).rows[0] ?? null
+    if (!newUser) await new Promise(r => setTimeout(r, 500))
+  }
+  check('the new account is pending_approval with a password hash set', newUser?.status === 'pending_approval' && !!newUser?.password_hash, JSON.stringify(newUser))
+
+  await adminPage.goto(BASE + '/admin/users', { waitUntil: 'networkidle0' })
+  await adminPage.type('input[type=search]', 'newbie')
+  await adminPage.waitForFunction(() => document.body.innerText.includes('Pending approval'), { timeout: 10000 })
+  check('the pending signup shows a "Pending approval" badge in the admin Users page', true)
+
+  await adminPage.evaluate(email => {
+    const row = [...document.querySelectorAll('tbody tr')].find(r => r.innerText.includes(email))
+    ;[...row.querySelectorAll('button')].find(b => b.innerText.trim() === 'Approve')?.click()
+  }, newEmail)
+  let approved = null
+  for (let i = 0; i < 20 && approved?.status !== 'active'; i++) {
+    approved = (await db.query('SELECT status FROM users WHERE email = $1', [newEmail])).rows[0] ?? null
+    if (approved?.status !== 'active') await new Promise(r => setTimeout(r, 500))
+  }
+  check('approving the account activates it', approved?.status === 'active', JSON.stringify(approved))
+
+  await signupPage.goto(BASE + '/auth/signin', { waitUntil: 'networkidle0' })
+  await signupPage.type('#email', newEmail)
+  await signupPage.type('#password', 'a very long password 123')
+  await Promise.all([
+    signupPage.waitForFunction(() => !location.pathname.startsWith('/auth/signin'), { timeout: 15000 }),
+    signupPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.innerText.includes('Sign in'))?.click()),
+  ])
+  const newSession = await sessionOf(signupPage)
+  check('the approved account can sign in with its password', newSession?.user?.email === newEmail, JSON.stringify(newSession))
+
   check('no browser console errors on the admin pages', adminProblems.length === 0, adminProblems.join(' | '))
 
   check('no browser console errors or uncaught exceptions (e.g. hydration #418)', problems.length === 0, problems.join(' | '))

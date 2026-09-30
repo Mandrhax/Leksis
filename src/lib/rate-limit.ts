@@ -39,6 +39,19 @@ export function getClientIp(req: Request): string {
   return req.headers.get('x-real-ip')?.trim() || 'unknown'
 }
 
+/**
+ * Origine publique de la requête (schéma + hôte), à partir de X-Forwarded-* (Caddy, trusted_proxies) —
+ * jamais de NEXTAUTH_URL ni de l'URL interne de la requête : le serveur standalone tourne en
+ * HOSTNAME=0.0.0.0 et ne voit que du HTTP en interne même quand Caddy termine le HTTPS en façade. Utilisée
+ * pour construire des liens absolus envoyés hors du navigateur (email de vérification, redirections).
+ */
+export function getRequestOrigin(req: Request): string {
+  const url = new URL(req.url)
+  const proto = req.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '')
+  const host  = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? url.host
+  return `${proto}://${host}`
+}
+
 export function rateLimitResponse(retryAfterSec: number): Response {
   return new Response(JSON.stringify({ error: 'Too many requests. Please wait a moment and try again.', code: 'rate_limited' }), {
     status: 429,

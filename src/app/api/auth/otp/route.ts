@@ -4,6 +4,7 @@ import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit
 import { isValidEmail } from '@/lib/validators'
 import { getSmtpConfig, isSmtpConfigured, sendOtpEmail } from '@/lib/smtp'
 import { getSetting } from '@/lib/settings'
+import { getAuthMethod } from '@/lib/auth-methods'
 
 const OTP_PER_IP_PER_MIN    = 20
 const OTP_PER_EMAIL_PER_MIN = 5
@@ -12,6 +13,14 @@ const OTP_PER_EMAIL_PER_MIN = 5
 export const maxDuration = 30
 
 export async function POST(req: NextRequest) {
+  // Défense en profondeur : buildProviders() (auth.ts) n'enregistre déjà plus le fournisseur OTP si une
+  // autre méthode est active, donc une session ne peut pas en sortir — mais cette route resterait sinon
+  // utilisable pour générer/envoyer des codes qui ne mènent jamais à une connexion.
+  const method = await getAuthMethod()
+  if (method !== 'otp_display' && method !== 'otp_email') {
+    return NextResponse.json({ error: 'OTP sign-in is not the active method.', code: 'method_disabled' }, { status: 403 })
+  }
+
   // Chaque appel peut créer un compte : on freine les rafales (par adresse IP et par email)
   const ip = getClientIp(req)
   const ipLimit = ip === 'unknown' ? { ok: true as const } : checkRateLimit(`otp-ip:${ip}`, OTP_PER_IP_PER_MIN)

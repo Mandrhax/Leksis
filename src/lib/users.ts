@@ -36,6 +36,7 @@ export interface UserRow {
   name: string | null
   role: string
   disabled: boolean
+  status: 'active' | 'pending_approval' | 'pending_verification'
   created_at: string
 }
 
@@ -60,7 +61,7 @@ export async function listUsers(opts: { page?: number; pageSize?: number; q?: st
   const page = Math.min(Math.max(Math.trunc(opts.page ?? 1) || 1, 1), lastPage)
 
   const rows = await query<UserRow>(
-    `SELECT id, email, name, role, disabled, created_at
+    `SELECT id, email, name, role, disabled, status, created_at
      FROM users
      WHERE $1 = '' OR email ILIKE $2 OR COALESCE(name, '') ILIKE $2
      ORDER BY created_at DESC, id
@@ -70,7 +71,7 @@ export async function listUsers(opts: { page?: number; pageSize?: number; q?: st
   return { users: rows.rows, total, page, pageSize }
 }
 
-export type UserChangeError = 'not_found' | 'self' | 'last_admin'
+export type UserChangeError = 'not_found' | 'self' | 'last_admin' | 'not_pending'
 export type UserChangeResult = { ok: true; user: UserRow } | { ok: false; error: UserChangeError }
 
 // Clé du verrou qui sérialise les changements pouvant retirer un administrateur actif
@@ -85,13 +86,14 @@ const ADMIN_LOCK = 'leksis:admin-changes'
 async function mutateUser(
   actorId: string,
   id: string,
-  apply: (q: Parameters<Parameters<typeof withTransaction>[0]>[0], target: UserRow) => Promise<void>,
+  // `apply` peut refuser (ex. approveUser sur un compte qui n'est déjà plus en attente) en renvoyant un code
+  apply: (q: Parameters<Parameters<typeof withTransaction>[0]>[0], target: UserRow) => Promise<UserChangeError | void>,
   removesAdmin: (target: UserRow) => boolean,
 ): Promise<UserChangeResult> {
   const result = await withTransaction<UserChangeResult>(async q => {
     await q('SELECT pg_advisory_xact_lock(hashtext($1))', [ADMIN_LOCK])
     const found = await q<UserRow>(
-      'SELECT id, email, name, role, disabled, created_at FROM users WHERE id = $1 FOR UPDATE',
+      'SELECT id, email, name, role, disabled, status, created_at FROM users WHERE id = $1 FOR UPDATE',
       [id],
     )
     const target = found.rows[0]
@@ -100,15 +102,17 @@ async function mutateUser(
     if (removesAdmin(target)) {
       if (target.id === actorId) return { ok: false, error: 'self' }
       if (target.role === 'admin' && !target.disabled) {
+        // status = 'active' : un compte pending ne peut de toute façon jamais être admin, défensif
         const others = await q<{ n: string }>(
-          `SELECT count(*) AS n FROM users WHERE role = 'admin' AND NOT disabled AND id <> $1`,
+          `SELECT count(*) AS n FROM users WHERE role = 'admin' AND NOT disabled AND status = 'active' AND id <> $1`,
           [id],
         )
         if (Number(others.rows[0].n) === 0) return { ok: false, error: 'last_admin' }
       }
     }
 
-    await apply(q, target)
+    const error = await apply(q, target)
+    if (error) return { ok: false, error }
     return { ok: true, user: target }
   })
   invalidateUserRole(id)
@@ -140,5 +144,22 @@ export function removeUser(actorId: string, id: string): Promise<UserChangeResul
     actorId, id,
     async q => { await q('DELETE FROM users WHERE id = $1', [id]) },
     () => true,
+  )
+}
+
+/**
+ * Approuve un compte en attente de validation admin (méthode 'password_admin_approval'). Rejeter une
+ * inscription n'a pas de fonction dédiée : un compte pending est toujours role='user' par construction,
+ * donc removeUser() suffit tel quel — mêmes garde-fous (self/last_admin), aucune nouvelle logique.
+ */
+export function approveUser(actorId: string, id: string): Promise<UserChangeResult> {
+  return mutateUser(
+    actorId, id,
+    async (q, target) => {
+      if (target.status !== 'pending_approval') return 'not_pending'
+      await q(`UPDATE users SET status = 'active' WHERE id = $1`, [id])
+      target.status = 'active'
+    },
+    () => false, // approuver ne retire jamais un administrateur
   )
 }

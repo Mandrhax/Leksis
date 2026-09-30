@@ -35,6 +35,11 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { key } = parsed.data
+  // Changer de méthode de connexion a besoin de vérifications croisées (SMTP/OIDC configurés ?) que ce PATCH
+  // générique ne fait pas — évite un verrouillage accidentel de l'instance. Passe par /api/admin/services.
+  if (key === 'auth_config') {
+    return NextResponse.json({ error: 'Use /api/admin/services (service: "auth") to change the sign-in method.' }, { status: 400 })
+  }
   const checked = parseSetting(key, parsed.data.value)
   if (!checked.ok) {
     return NextResponse.json({ error: 'Invalid value.', details: checked.error.flatten() }, { status: 400 })

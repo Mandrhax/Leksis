@@ -11,9 +11,10 @@ const Schema = z.object({
 
 // `code` is stable: the admin UI translates it (see t.userList.err*)
 const ERRORS: Record<UserChangeError, { status: number; error: string }> = {
-  not_found:  { status: 404, error: 'User not found.' },
-  self:       { status: 400, error: 'You cannot demote, disable or delete your own account.' },
-  last_admin: { status: 400, error: 'At least one active administrator must remain.' },
+  not_found:   { status: 404, error: 'User not found.' },
+  self:        { status: 400, error: 'You cannot demote, disable or delete your own account.' },
+  last_admin:  { status: 400, error: 'At least one active administrator must remain.' },
+  not_pending: { status: 400, error: 'This account is not pending approval.' },
 }
 
 function failure(code: UserChangeError) {

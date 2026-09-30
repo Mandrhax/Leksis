@@ -10,13 +10,18 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- ============================================================
 -- users — accounts are created on first sign-in (OTP) or by the install script
 -- ============================================================
+-- status: onboarding state for the currently active auth method ('active' = no pending step — OTP/OIDC
+-- accounts never leave it). Orthogonal to `disabled` (admin-blocked vs never-finished-signup).
+-- password_hash: set only for accounts created/attached through a password-based method.
 CREATE TABLE IF NOT EXISTS users (
-  id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  name       TEXT,
-  email      TEXT UNIQUE NOT NULL,
-  role       TEXT NOT NULL DEFAULT 'user',
-  disabled   BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  name          TEXT,
+  email         TEXT UNIQUE NOT NULL,
+  role          TEXT NOT NULL DEFAULT 'user',
+  disabled      BOOLEAN NOT NULL DEFAULT FALSE,
+  status        TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending_approval', 'pending_verification')),
+  password_hash TEXT,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================================
@@ -31,6 +36,22 @@ CREATE TABLE IF NOT EXISTS otp_tokens (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS otp_tokens_email_idx ON otp_tokens(email);
+
+-- ============================================================
+-- email_tokens — single-use, purpose-tagged tokens for email flows (starts with email verification;
+-- reusable later for password reset without a new migration). 24h TTL, see src/lib/accounts.ts.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS email_tokens (
+  id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  email      TEXT NOT NULL,
+  token      TEXT NOT NULL,
+  purpose    TEXT NOT NULL DEFAULT 'verify_email',
+  expires_at TIMESTAMPTZ NOT NULL,
+  used       BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS email_tokens_token_idx ON email_tokens(token);
+CREATE INDEX IF NOT EXISTS email_tokens_email_idx ON email_tokens(email);
 
 -- ============================================================
 -- site_settings — key/value store for admin configuration

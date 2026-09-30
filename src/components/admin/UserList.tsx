@@ -11,6 +11,7 @@ interface User {
   name: string | null
   role: string
   disabled: boolean
+  status: 'active' | 'pending_approval' | 'pending_verification'
   created_at: string
 }
 
@@ -61,10 +62,11 @@ export function UserList({ initial, currentUserId }: Props) {
 
   const errorMessage = useCallback((code?: string) => {
     switch (code) {
-      case 'self':       return t.userList.errSelf
-      case 'last_admin': return t.userList.errLastAdmin
-      case 'not_found':  return t.userList.errNotFound
-      default:           return t.userList.toastError
+      case 'self':        return t.userList.errSelf
+      case 'last_admin':  return t.userList.errLastAdmin
+      case 'not_found':   return t.userList.errNotFound
+      case 'not_pending': return t.userList.errNotPending
+      default:            return t.userList.toastError
     }
   }, [t])
 
@@ -100,10 +102,10 @@ export function UserList({ initial, currentUserId }: Props) {
     setPage(1)
   }
 
-  async function send(user: User, method: 'PATCH' | 'DELETE', body?: object): Promise<boolean> {
+  async function send(user: User, method: 'PATCH' | 'DELETE' | 'POST', body?: object, pathSuffix = ''): Promise<boolean> {
     setBusy(user.id)
     try {
-      const res = await fetch(`/api/admin/users/${user.id}`, {
+      const res = await fetch(`/api/admin/users/${user.id}${pathSuffix}`, {
         method,
         headers: body ? { 'Content-Type': 'application/json' } : undefined,
         body: body ? JSON.stringify(body) : undefined,
@@ -144,6 +146,19 @@ export function UserList({ initial, currentUserId }: Props) {
     await load(page, query)
   }
 
+  async function approve(user: User) {
+    if (!await send(user, 'POST', undefined, '/approve')) return
+    setData(d => ({ ...d, users: d.users.map(u => u.id === user.id ? { ...u, status: 'active' } : u) }))
+    setToast({ message: t.userList.toastApproved.replace('{0}', user.email), type: 'success' })
+  }
+
+  async function reject(user: User) {
+    if (!await send(user, 'POST', undefined, '/reject')) return
+    setToast({ message: t.userList.toastRejected.replace('{0}', user.email), type: 'success' })
+    // Reload: the page may now be short or empty
+    await load(page, query)
+  }
+
   const lastPage = Math.max(Math.ceil(data.total / data.pageSize), 1)
   const from = data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1
   const to   = Math.min(data.page * data.pageSize, data.total)
@@ -180,6 +195,7 @@ export function UserList({ initial, currentUserId }: Props) {
             )}
             {data.users.map(user => {
               const isSelf = user.id === currentUserId
+              const isPending = user.status !== 'active'
               return (
                 <tr key={user.id} className={isSelf ? 'bg-primary/5' : ''}>
                   <td className="px-5 py-3.5">
@@ -194,6 +210,8 @@ export function UserList({ initial, currentUserId }: Props) {
                         <p className="text-on-surface-variant text-xs">{user.email}</p>
                         {isSelf && <span className="text-xs text-primary">{t.userList.you}</span>}
                         {user.disabled && <span className="text-xs text-error">{t.userList.disabledBadge}</span>}
+                        {user.status === 'pending_approval' && <span className="text-xs text-primary">{t.userList.pendingApprovalBadge}</span>}
+                        {user.status === 'pending_verification' && <span className="text-xs text-primary">{t.userList.pendingVerificationBadge}</span>}
                       </div>
                     </div>
                   </td>
@@ -205,7 +223,7 @@ export function UserList({ initial, currentUserId }: Props) {
                     <Switch
                       on={!user.disabled}
                       onClick={() => toggleActive(user)}
-                      disabled={busy === user.id || isSelf}
+                      disabled={busy === user.id || isSelf || isPending}
                       title={user.disabled ? t.userList.enable : t.userList.disable}
                       label={t.userList.colActive}
                     />
@@ -214,13 +232,18 @@ export function UserList({ initial, currentUserId }: Props) {
                     <Switch
                       on={user.role === 'admin'}
                       onClick={() => toggleRole(user)}
-                      disabled={busy === user.id || (isSelf && user.role === 'admin')}
+                      disabled={busy === user.id || (isSelf && user.role === 'admin') || isPending}
                       title={user.role === 'admin' ? t.userList.demote : t.userList.promote}
                       label={t.userList.colAdminRole}
                     />
                   </td>
                   <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                    {confirmId === user.id ? (
+                    {user.status === 'pending_approval' ? (
+                      <span className="inline-flex items-center gap-2 text-xs">
+                        <button type="button" onClick={() => approve(user)} disabled={busy === user.id} className="text-primary font-semibold hover:underline disabled:opacity-40">{t.userList.approve}</button>
+                        <button type="button" onClick={() => reject(user)} disabled={busy === user.id} className="text-error font-semibold hover:underline disabled:opacity-40">{t.userList.reject}</button>
+                      </span>
+                    ) : confirmId === user.id ? (
                       <span className="inline-flex items-center gap-2 text-xs">
                         <button type="button" onClick={() => remove(user)} className="text-error font-semibold hover:underline">{t.userList.confirmDelete}</button>
                         <button type="button" onClick={() => setConfirmId(null)} className="text-on-surface-variant hover:underline">{t.userList.cancel}</button>

@@ -1,5 +1,11 @@
+// getAuthMethod()/getAllSettings() lisent la DB via `pg`, pas via fetch() : Next ne les reconnaît pas comme
+// une « Dynamic API » et mettrait sinon cette page en cache indéfiniment (Full Route Cache) — un changement
+// de méthode de connexion ne se verrait jamais sans redémarrer. Même raison que admin/settings, admin/users.
+export const dynamic = 'force-dynamic'
+
 import { I18nProvider } from '@/lib/i18n'
 import { SignInForm } from '@/components/ui/SignInForm'
+import { getAuthPublicConfig } from '@/lib/auth-methods'
 
 async function loadSiteName(): Promise<string> {
   try {
@@ -12,10 +18,10 @@ async function loadSiteName(): Promise<string> {
 }
 
 export default async function SignInPage() {
-  const siteName = await loadSiteName()
+  const [siteName, auth] = await Promise.all([loadSiteName(), getAuthPublicConfig()])
   return (
     <I18nProvider>
-      <SignInForm siteName={siteName} />
+      <SignInForm siteName={siteName} method={auth.method} ssoButtonLabel={auth.oidc.buttonLabel} />
     </I18nProvider>
   )
 }

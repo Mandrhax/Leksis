@@ -12,8 +12,10 @@ const MAX_IMPORT_BYTES = 15 * 1024 * 1024
 
 // Clés importables : celles de l'admin (validées par leur schéma) + ai_config (voir plus bas).
 // L'ancien ollama_config n'est plus importé : il n'est lu que comme repli d'anciennes installations.
-function isAllowedKey(k: string): k is ValidatedSettingKey | 'ai_config' {
-  return k === 'ai_config' || isValidatedSettingKey(k)
+// auth_config non plus : importer une méthode sans vérifier que SMTP/OIDC sont configurés sur CETTE instance
+// pourrait verrouiller la connexion — la méthode active reste toujours celle de l'instance courante.
+function isAllowedKey(k: string): k is Exclude<ValidatedSettingKey, 'auth_config'> | 'ai_config' {
+  return k === 'ai_config' || (isValidatedSettingKey(k) && k !== 'auth_config')
 }
 
 interface AssetInput { filename?: unknown; data?: unknown }

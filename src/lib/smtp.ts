@@ -94,6 +94,15 @@ export async function sendOtpEmail(cfg: SmtpConfig, opts: { to: string; code: st
   })
 }
 
+/** Envoie le lien de vérification d'adresse email (inscription par mot de passe). */
+export async function sendVerificationEmail(cfg: SmtpConfig, opts: { to: string; link: string; siteName: string }): Promise<void> {
+  await sendMail(cfg, {
+    to: opts.to,
+    subject: `${opts.siteName} — Verify your email address`,
+    text: `Welcome to ${opts.siteName}. Click the link below to verify your email address and activate your account:\n\n${opts.link}\n\nThis link is valid for 24 hours. If you did not request it, you can ignore this email.`,
+  })
+}
+
 /** Vérifie la connexion et l'authentification SMTP sans envoyer de message. */
 export async function verifySmtpConnection(cfg: SmtpConfig): Promise<{ ok: true } | { ok: false; error: string }> {
   try {

@@ -30,6 +30,8 @@ export function AuditTable() {
     DISABLE_USER:    t.auditTable.actionDisableUser,
     ENABLE_USER:     t.auditTable.actionEnableUser,
     DELETE_USER:     t.auditTable.actionDeleteUser,
+    APPROVE_USER:    t.auditTable.actionApproveUser,
+    REJECT_USER:     t.auditTable.actionRejectUser,
     AUTO_PURGE_USAGE: t.auditTable.actionAutoPurge,
     AUTO_PURGE_AUDIT: t.auditTable.actionAutoPurge,
   }

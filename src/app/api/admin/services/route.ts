@@ -6,8 +6,10 @@ import { encrypt } from '@/lib/crypto'
 import { generateCaddyfile, normalizeCaddyConfig, reloadCaddy } from '@/lib/caddy'
 import { getAiConfig, getAiPublicConfig, isExternalUrl } from '@/lib/llm'
 import { NUM_CTX_MAX, NUM_CTX_MIN, MAX_CONCURRENT_AI_REQUESTS_MAX } from '@/lib/llm/types'
-import { getSmtpPublicConfig } from '@/lib/smtp'
+import { getSmtpConfig, getSmtpPublicConfig, isSmtpConfigured } from '@/lib/smtp'
 import { isValidEmail } from '@/lib/validators'
+import { AUTH_METHODS } from '@/lib/settings-schema'
+import { getOidcConfig, getOidcPublicConfig, isOidcConfigured } from '@/lib/auth-methods'
 
 const AiSchema = z.object({
   service:          z.literal('ai'),
@@ -45,7 +47,22 @@ const SmtpSchema = z.object({
   fromName:        z.string().max(120).optional(),
 })
 
-const Schema = z.discriminatedUnion('service', [AiSchema, CaddySchema, SmtpSchema])
+const AuthSchema = z.object({
+  service: z.literal('auth'),
+  method:  z.enum(AUTH_METHODS),
+})
+
+const OidcSchema = z.object({
+  service:           z.literal('oidc'),
+  issuer:            z.string().url(),
+  clientId:          z.string().min(1).max(255),
+  clientSecret:      z.string().max(2000).optional(),  // vide = ne pas modifier
+  clearClientSecret: z.boolean().optional(),
+  buttonLabel:       z.string().max(60).optional(),
+  scopes:            z.string().max(500).optional(),
+})
+
+const Schema = z.discriminatedUnion('service', [AiSchema, CaddySchema, SmtpSchema, AuthSchema, OidcSchema])
 
 export async function GET() {
   const session = await getAdminSession()
@@ -54,8 +71,9 @@ export async function GET() {
   const ai     = await getAiPublicConfig()
   const caddy  = await getSetting<Record<string, unknown>>('caddy_config')
   const smtp   = await getSmtpPublicConfig()
+  const oidc   = await getOidcPublicConfig()
 
-  return NextResponse.json({ ai, caddy, smtp })
+  return NextResponse.json({ ai, caddy, smtp, oidc })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -136,6 +154,45 @@ export async function PATCH(req: NextRequest) {
     await updateSetting('smtp_config', value, session.user.id, session.user.email!, {
       host: value.host, port: value.port, secure: value.secure, user: value.user,
       fromAddress: value.fromAddress, fromName: value.fromName, hasPassword: passEnc !== '',
+    })
+  } else if (data.service === 'auth') {
+    // Vérifications croisées qu'un simple schéma zod ne peut pas faire : basculer sur une méthode qui a
+    // besoin de SMTP/OIDC sans que ce soit configuré verrouillerait l'instance (plus personne ne pourrait
+    // se connecter) — refusé ici plutôt que découvert après coup. C'est pour ça que ce réglage ne passe
+    // jamais par le PATCH générique /api/admin/settings (voir src/lib/settings-schema.ts).
+    if (data.method === 'otp_email' || data.method === 'password_email_verify') {
+      if (!isSmtpConfigured(await getSmtpConfig())) {
+        return NextResponse.json({ error: 'smtp_not_configured' }, { status: 400 })
+      }
+    }
+    if (data.method === 'sso_oidc') {
+      if (!isOidcConfigured(await getOidcConfig())) {
+        return NextResponse.json({ error: 'oidc_not_configured' }, { status: 400 })
+      }
+    }
+    await updateSetting('auth_config', { method: data.method }, session.user.id, session.user.email!)
+  } else if (data.service === 'oidc') {
+    const existing = await getSetting<Record<string, unknown>>('oidc_config')
+    const issuer = data.issuer.replace(/\/+$/, '')
+    // Le secret enregistré ne suit pas un changement d'issuer/clientId, même logique que ai_config.apiKeyEnc
+    const sameTarget = (existing.issuer as string | undefined) === issuer && (existing.clientId as string | undefined) === data.clientId
+    const clientSecretEnc = data.clearClientSecret
+      ? ''
+      : data.clientSecret
+        ? encrypt(data.clientSecret)
+        : (sameTarget ? ((existing.clientSecretEnc as string | undefined) ?? '') : '')
+
+    const value = {
+      issuer,
+      clientId:    data.clientId,
+      clientSecretEnc,
+      buttonLabel: data.buttonLabel || 'SSO',
+      scopes:      data.scopes || 'openid email profile',
+    }
+    // Le journal d'audit ne reçoit jamais le secret, même chiffré
+    await updateSetting('oidc_config', value, session.user.id, session.user.email!, {
+      issuer: value.issuer, clientId: value.clientId, buttonLabel: value.buttonLabel, scopes: value.scopes,
+      hasClientSecret: clientSecretEnc !== '',
     })
   } else {
     const normalized = normalizeCaddyConfig(data)

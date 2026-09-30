@@ -16,12 +16,15 @@ vi.mock('@/lib/db', () => ({
     })),
 }))
 
-import { changeUser, getUserRole, listUsers, removeUser } from '@/lib/users'
+import { approveUser, changeUser, getUserRole, listUsers, removeUser } from '@/lib/users'
 
 const schema = readFileSync(new URL('../../docker/init-schema.sql', import.meta.url), 'utf8').replace(/CREATE EXTENSION[^\n]*\n/g, '')
 
-async function addUser(email: string, role = 'user', name: string | null = null): Promise<string> {
-  const r = await pg.db.query<{ id: string }>('INSERT INTO users (email, role, name) VALUES ($1, $2, $3) RETURNING id', [email, role, name])
+async function addUser(email: string, role = 'user', name: string | null = null, status = 'active'): Promise<string> {
+  const r = await pg.db.query<{ id: string }>(
+    'INSERT INTO users (email, role, name, status) VALUES ($1, $2, $3, $4) RETURNING id',
+    [email, role, name, status],
+  )
   return r.rows[0].id
 }
 
@@ -95,6 +98,35 @@ describe('removeUser', () => {
     expect((await pg.db.query('SELECT 1 FROM user_glossary_prefs WHERE user_id = $1', [bob])).rows).toHaveLength(0)
     expect((await pg.db.query('SELECT 1 FROM usage_log WHERE user_id = $1', [bob])).rows).toHaveLength(1)
     expect(await removeUser(admin, bob)).toEqual({ ok: false, error: 'not_found' })
+  })
+
+  it('deletes a pending signup just like any other account (rejection)', async () => {
+    const admin = await addUser('a@x.ch', 'admin')
+    const bob = await addUser('bob@x.ch', 'user', null, 'pending_approval')
+    expect(await removeUser(admin, bob)).toMatchObject({ ok: true, user: { email: 'bob@x.ch', status: 'pending_approval' } })
+  })
+})
+
+describe('approveUser', () => {
+  it('activates a pending_approval account', async () => {
+    const admin = await addUser('a@x.ch', 'admin')
+    const bob = await addUser('bob@x.ch', 'user', null, 'pending_approval')
+    expect(await approveUser(admin, bob)).toMatchObject({ ok: true, user: { email: 'bob@x.ch', status: 'active' } })
+    const row = await pg.db.query<{ status: string }>('SELECT status FROM users WHERE id = $1', [bob])
+    expect(row.rows[0].status).toBe('active')
+  })
+
+  it('refuses an account that is not pending approval', async () => {
+    const admin = await addUser('a@x.ch', 'admin')
+    const bob = await addUser('bob@x.ch') // active by default
+    expect(await approveUser(admin, bob)).toEqual({ ok: false, error: 'not_pending' })
+    const alice = await addUser('alice@x.ch', 'user', null, 'pending_verification')
+    expect(await approveUser(admin, alice)).toEqual({ ok: false, error: 'not_pending' })
+  })
+
+  it('reports an unknown user', async () => {
+    const admin = await addUser('a@x.ch', 'admin')
+    expect(await approveUser(admin, 'nope')).toEqual({ ok: false, error: 'not_found' })
   })
 })
 
