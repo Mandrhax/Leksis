@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.0-beta.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.0/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -320,30 +320,16 @@ Users switch the UI language instantly with the language selector — the prefer
 
 ## 🎉 What's new
 
-### v1.8.0-beta.1
-Beta — **Configurable sign-in methods: OTP, password (with admin approval or email verification), and single sign-on (OIDC)**. **Database migration** (see below).
-- **New "Sign-in" tab** (*Admin → Settings*): choose one sign-in method for the whole instance — OTP shown on screen (default, unchanged), OTP by email, password with admin approval, password with email verification, or SSO through a generic OIDC provider (Keycloak, Microsoft Entra ID, Okta, Google Workspace…). Switching to a method that needs SMTP or OIDC is refused until it's actually configured and working, so the instance can't accidentally lock everyone out
-- **Password + admin approval**: anyone can sign up (`/auth/signup`) with an email and password; the account stays inactive until an administrator approves it from the Users page (pending accounts show a badge with Approve/Reject buttons). Works without any SMTP relay
-- **Password + email verification**: same sign-up flow, but the account activates itself once the person clicks the verification link emailed to them (requires SMTP)
-- **Single sign-on (OIDC)**: point Leksis at any OpenID Connect provider's issuer URL, client ID and secret (*Admin → Settings → Sign-in*) — a "Test connection" button checks the issuer before you switch to it. First sign-in through the identity provider creates the account automatically (as a regular user; promote to admin from the Users page afterward)
-- Passwords are hashed with scrypt, never stored or logged in plain text; the OIDC client secret is encrypted the same way as the AI engine's API key and the SMTP password
-- **Migration**: adds `users.status` (onboarding state) and `users.password_hash`, plus a new `email_tokens` table for verification links. Existing installations keep working exactly as before — the active method defaults to whatever was already true (OTP by email if SMTP was already configured, otherwise on-screen OTP)
-
-### v1.7.0-beta.3
-Beta — **Fix: voice dictation now clearly shows it's recording**. No database migration.
-- A pulsing red dot on the microphone button and a live `mm:ss` counter next to it, so it's obvious the microphone is actually capturing — the icon swap alone wasn't a strong enough signal
-- A transcription failure now shows a persistent inline message instead of only a hover tooltip
-
-### v1.7.0-beta.2
-Beta — **Fix: the microphone permissions policy was blocking voice dictation**. No database migration.
-- The server's `Permissions-Policy` header disabled `microphone` entirely (set before this feature existed) — the browser refused to even prompt for microphone access. Voice dictation in Text Translation and AI Rewrite now works
-- Also fixes an `npm ci` failure (dependency resolution conflict) and a high-severity `pdfjs-dist` advisory found while regenerating the lockfile — both only affected building the app, not runtime behavior
-
-### v1.7.0-beta.1
-Beta — **AI request concurrency limit, sign-in codes by email, and voice dictation**. No database migration.
-- **Concurrency limit**: cap how many AI requests run at once (*Services → AI*, 0 = unlimited, default) — extra requests wait their turn instead of overloading a single Ollama/vLLM server when several people translate at the same time
-- **Sign-in code by email**: configure your own SMTP relay (*Settings → General*) so the code is emailed instead of shown on screen. Off by default — nothing changes unless you configure it; if sending fails, sign-in is refused rather than silently falling back to showing the code
-- **Voice dictation**: an optional microphone button in Text Translation and AI Rewrite lets you dictate instead of typing. Requires an OpenAI-compatible engine with an audio-capable model (*Services → AI → Models* → "Voice dictation model") — Ollama has no audio input support
+### v1.8.0
+Configurable sign-in methods (OTP, password, single sign-on), self-service and admin password management, an AI request concurrency limit, sign-in codes by email, and voice dictation (tested through four betas). **Database migration** (see below).
+- **Sign-in method** (*Admin → Settings → Sign-in*, new tab): choose one for the whole instance — OTP shown on screen (default, unchanged), OTP by email, password with admin approval, password with email verification, or single sign-on through a generic OpenID Connect provider (Keycloak, Microsoft Entra ID, Okta, Google Workspace…). Switching to a method that needs SMTP or OIDC is refused until it is actually configured and working, so the instance can't accidentally lock everyone out
+- **Password sign-up**: anyone can sign up (`/auth/signup`) with an email and password, either held for admin approval (Users page, works without SMTP) or activated via an emailed verification link. Passwords are hashed with scrypt, never stored or logged in plain text
+- **Password management**: everyone can change their own password from *Settings*; administrators can reset anyone's password — including another admin's — from the Users page, where a strong password is generated and shown once for the admin to pass on through a secure channel
+- **Single sign-on (OIDC)**: issuer URL, client ID and secret configured in the same Sign-in tab, with a "Test connection" check before switching to it; the client secret is encrypted the same way as the AI engine's API key and the SMTP password. First sign-in through the identity provider creates the account automatically (as a regular user; promote to admin afterward from the Users page)
+- **AI request concurrency limit**: cap how many AI requests run at once (*Services → AI*, 0 = unlimited, default) — extra requests wait their turn instead of overloading a single Ollama/vLLM server when several people translate at the same time
+- **Sign-in code by email**: configure your own SMTP relay (*Settings → General*) so the on-screen code is emailed instead — off by default, and if sending fails sign-in is refused rather than silently falling back to showing the code
+- **Voice dictation**: an optional microphone button in Text Translation and AI Rewrite lets you dictate instead of typing (requires an OpenAI-compatible engine with an audio-capable model, *Services → AI → Models* → "Voice dictation model" — Ollama has no audio input support), with a visible recording indicator and a persistent error message if transcription fails
+- **Migration**: adds `users.status` (onboarding state) and `users.password_hash`, plus a new `email_tokens` table for verification links. Existing installations keep working exactly as before — the active sign-in method defaults to whatever was already true (OTP by email if SMTP was already configured, otherwise on-screen OTP)
 
 ### v1.6.0
 **Privacy policy and Usage policy pages, in 4 languages and downloadable as PDF**. No database migration.
