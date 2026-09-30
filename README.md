@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.7.0-beta.3/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.0-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,15 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.0-beta.1
+Beta — **Configurable sign-in methods: OTP, password (with admin approval or email verification), and single sign-on (OIDC)**. **Database migration** (see below).
+- **New "Sign-in" tab** (*Admin → Settings*): choose one sign-in method for the whole instance — OTP shown on screen (default, unchanged), OTP by email, password with admin approval, password with email verification, or SSO through a generic OIDC provider (Keycloak, Microsoft Entra ID, Okta, Google Workspace…). Switching to a method that needs SMTP or OIDC is refused until it's actually configured and working, so the instance can't accidentally lock everyone out
+- **Password + admin approval**: anyone can sign up (`/auth/signup`) with an email and password; the account stays inactive until an administrator approves it from the Users page (pending accounts show a badge with Approve/Reject buttons). Works without any SMTP relay
+- **Password + email verification**: same sign-up flow, but the account activates itself once the person clicks the verification link emailed to them (requires SMTP)
+- **Single sign-on (OIDC)**: point Leksis at any OpenID Connect provider's issuer URL, client ID and secret (*Admin → Settings → Sign-in*) — a "Test connection" button checks the issuer before you switch to it. First sign-in through the identity provider creates the account automatically (as a regular user; promote to admin from the Users page afterward)
+- Passwords are hashed with scrypt, never stored or logged in plain text; the OIDC client secret is encrypted the same way as the AI engine's API key and the SMTP password
+- **Migration**: adds `users.status` (onboarding state) and `users.password_hash`, plus a new `email_tokens` table for verification links. Existing installations keep working exactly as before — the active method defaults to whatever was already true (OTP by email if SMTP was already configured, otherwise on-screen OTP)
 
 ### v1.7.0-beta.3
 Beta — **Fix: voice dictation now clearly shows it's recording**. No database migration.
