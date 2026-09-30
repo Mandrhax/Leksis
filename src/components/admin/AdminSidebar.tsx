@@ -121,6 +121,9 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
         <NavLink href="/admin/usage"    icon="bar_chart"      label={t.adminSidebar.navUsage}    />
         <NavLink href="/admin/audit"    icon="manage_history" label={t.adminSidebar.navAudit}    />
         <NavLink href="/admin/backup"   icon="cloud_download" label={t.adminSidebar.navBackup}   />
+
+        <SectionLabel>{t.adminSidebar.navSectionReference}</SectionLabel>
+        <NavLink href="/admin/docs" icon="article" label={t.adminSidebar.navDocs} />
       </nav>
 
       {/* Back to app */}
