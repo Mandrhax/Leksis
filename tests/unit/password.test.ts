@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hashPassword, verifyPassword } from '@/lib/password'
+import { generateRandomPassword, hashPassword, verifyPassword } from '@/lib/password'
 
 describe('hashPassword / verifyPassword', () => {
   it('round-trips a correct password', async () => {
@@ -32,5 +32,20 @@ describe('hashPassword / verifyPassword', () => {
     await expect(verifyPassword('not-a-hash', 'x')).resolves.toBe(false)
     await expect(verifyPassword('scrypt:oops:8:1:aa:bb', 'x')).resolves.toBe(false)
     await expect(verifyPassword('bcrypt:10:salt:hash:x:y', 'x')).resolves.toBe(false)
+  })
+})
+
+describe('generateRandomPassword', () => {
+  it('generates a strong, URL-safe password that hashes and verifies', async () => {
+    const password = generateRandomPassword()
+    expect(password.length).toBeGreaterThanOrEqual(20)
+    expect(password).toMatch(/^[A-Za-z0-9_-]+$/)
+    const hash = await hashPassword(password)
+    expect(await verifyPassword(hash, password)).toBe(true)
+  })
+
+  it('never repeats', () => {
+    const passwords = new Set(Array.from({ length: 20 }, () => generateRandomPassword()))
+    expect(passwords.size).toBe(20)
   })
 })

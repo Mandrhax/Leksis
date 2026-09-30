@@ -1,5 +1,6 @@
 import 'server-only'
 import { query, withTransaction } from '@/lib/db'
+import { generateRandomPassword, hashPassword } from '@/lib/password'
 
 // Le rôle est figé dans le JWT à la connexion (30 jours). Pour qu'une rétrogradation, une désactivation ou une
 // suppression prenne effet sans attendre l'expiration, on le relit en base à chaque lecture de session, avec un
@@ -162,4 +163,23 @@ export function approveUser(actorId: string, id: string): Promise<UserChangeResu
     },
     () => false, // approuver ne retire jamais un administrateur
   )
+}
+
+export type ResetPasswordResult = { ok: true; email: string; password: string } | { ok: false; error: 'not_found' }
+
+/**
+ * Réinitialise le mot de passe d'un compte (admin, méthode mot de passe) : génère un mot de passe fort,
+ * l'enregistre haché et le renvoie une seule fois en clair — à l'admin de le transmettre à la personne par
+ * un canal sûr. Fonctionne même si le compte n'avait pas encore de mot de passe (créé via OTP/OIDC).
+ * Pas de garde-fou « dernier admin » : changer un mot de passe ne retire jamais le rôle admin de personne.
+ */
+export async function resetUserPassword(id: string): Promise<ResetPasswordResult> {
+  const password = generateRandomPassword()
+  const passwordHash = await hashPassword(password)
+  const result = await query<{ email: string }>(
+    'UPDATE users SET password_hash = $2 WHERE id = $1 RETURNING email',
+    [id, passwordHash],
+  )
+  if (!result.rowCount) return { ok: false, error: 'not_found' }
+  return { ok: true, email: result.rows[0].email, password }
 }

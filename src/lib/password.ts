@@ -29,6 +29,11 @@ export async function hashPassword(password: string): Promise<string> {
   return `scrypt:${SCRYPT_N}:${SCRYPT_R}:${SCRYPT_P}:${salt.toString('hex')}:${hash.toString('hex')}`
 }
 
+/** Mot de passe aléatoire fort (20 caractères, base64url — 15 octets, pile sans padding). Pour un reset admin. */
+export function generateRandomPassword(): string {
+  return randomBytes(15).toString('base64url')
+}
+
 /** Vérifie un mot de passe contre un hash produit par hashPassword(). Ne lève jamais sur un format invalide. */
 export async function verifyPassword(stored: string, password: string): Promise<boolean> {
   const parts = stored.split(':')

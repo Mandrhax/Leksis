@@ -451,6 +451,75 @@ try {
   const newSession = await sessionOf(signupPage)
   check('the approved account can sign in with its password', newSession?.user?.email === newEmail, JSON.stringify(newSession))
 
+  // ── Settings: change my own password ────────────────────────────
+  const oldPassword = 'a very long password 123'
+  const newPassword = 'a different long password 456'
+  await signupPage.goto(BASE + '/settings', { waitUntil: 'networkidle0' })
+  await signupPage.waitForSelector('input[type=password]', { timeout: 10000 })
+  const pwFields = await signupPage.$$('input[type=password]')
+  check('the change-password form has three fields', pwFields.length === 3, String(pwFields.length))
+  await pwFields[0].type(oldPassword)
+  await pwFields[1].type(newPassword)
+  await pwFields[2].type(newPassword)
+  await Promise.all([
+    signupPage.waitForFunction(() => document.body.innerText.includes('Password changed'), { timeout: 10000 }),
+    signupPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.innerText.includes('Change password'))?.click()),
+  ])
+  check('changing the password from Settings shows a success message', true)
+
+  await signupPage.goto(BASE + '/auth/signin', { waitUntil: 'networkidle0' })
+  await signupPage.type('#email', newEmail)
+  await signupPage.type('#password', oldPassword)
+  await signupPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.innerText.includes('Sign in'))?.click())
+  await new Promise(r => setTimeout(r, 1500))
+  check('the old password no longer works', new URL(signupPage.url()).pathname === '/auth/signin', signupPage.url())
+
+  await signupPage.goto(BASE + '/auth/signin', { waitUntil: 'networkidle0' })
+  await signupPage.type('#email', newEmail)
+  await signupPage.type('#password', newPassword)
+  await Promise.all([
+    signupPage.waitForFunction(() => !location.pathname.startsWith('/auth/signin'), { timeout: 15000 }),
+    signupPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.innerText.includes('Sign in'))?.click()),
+  ])
+  const afterChangeSession = await sessionOf(signupPage)
+  check('the new password signs in', afterChangeSession?.user?.email === newEmail, JSON.stringify(afterChangeSession))
+
+  // ── Admin: reset another user's password ────────────────────────
+  await adminPage.goto(BASE + '/admin/users', { waitUntil: 'networkidle0' })
+  await adminPage.evaluate(() => { const i = document.querySelector('input[type=search]'); if (i) i.value = '' })
+  await adminPage.type('input[type=search]', 'newbie')
+  await adminPage.waitForFunction(() => document.body.innerText.includes('newbie@example.com'), { timeout: 10000 })
+  await clickInRow(newEmail, 'button[title="Reset password"]')
+  await adminPage.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.innerText.trim() === 'Reset'), { timeout: 10000 })
+  await adminPage.evaluate(() => [...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Reset')?.click())
+  await adminPage.waitForFunction(() => document.body.innerText.includes('Password reset'), { timeout: 10000 })
+  await adminPage.waitForSelector('code', { timeout: 10000 })
+  const adminResetPassword = await adminPage.evaluate(() => document.querySelector('code')?.textContent ?? '')
+  check('the admin sees the generated password once', adminResetPassword.length >= 20, adminResetPassword.length)
+  await adminPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.innerText.includes('Close'))?.click())
+
+  await signupPage.goto(BASE + '/auth/signin', { waitUntil: 'networkidle0' })
+  await signupPage.type('#email', newEmail)
+  await signupPage.type('#password', newPassword) // the self-chosen password must no longer work
+  await signupPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.innerText.includes('Sign in'))?.click())
+  await new Promise(r => setTimeout(r, 1500))
+  check('the self-chosen password no longer works after an admin reset', new URL(signupPage.url()).pathname === '/auth/signin', signupPage.url())
+
+  await signupPage.goto(BASE + '/auth/signin', { waitUntil: 'networkidle0' })
+  await signupPage.type('#email', newEmail)
+  await signupPage.type('#password', adminResetPassword)
+  await Promise.all([
+    signupPage.waitForFunction(() => !location.pathname.startsWith('/auth/signin'), { timeout: 15000 }),
+    signupPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.innerText.includes('Sign in'))?.click()),
+  ])
+  const afterResetSession = await sessionOf(signupPage)
+  check('the admin-reset password signs in', afterResetSession?.user?.email === newEmail, JSON.stringify(afterResetSession))
+
+  const resetAudit = await db.query("SELECT detail FROM audit_log WHERE action = 'RESET_PASSWORD'")
+  check('the reset is audited without ever storing the password itself', resetAudit.rows.length === 1
+    && resetAudit.rows[0].detail?.email === newEmail && !JSON.stringify(resetAudit.rows[0].detail).includes(adminResetPassword),
+    JSON.stringify(resetAudit.rows[0]))
+
   check('no browser console errors on the admin pages', adminProblems.length === 0, adminProblems.join(' | '))
 
   check('no browser console errors or uncaught exceptions (e.g. hydration #418)', problems.length === 0, problems.join(' | '))

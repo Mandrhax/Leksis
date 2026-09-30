@@ -56,6 +56,9 @@ export function UserList({ initial, currentUserId }: Props) {
   const [query, setQuery]         = useState('')   // search term actually applied (debounced)
   const [busy, setBusy]           = useState<string | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [confirmResetId, setConfirmResetId] = useState<string | null>(null)
+  const [resetResult, setResetResult] = useState<{ email: string; password: string } | null>(null)
+  const [copied, setCopied]       = useState(false)
   const [toast, setToast]         = useState<ToastState>(null)
   const requestId                 = useRef(0)
   const firstLoad                 = useRef(true)
@@ -159,6 +162,35 @@ export function UserList({ initial, currentUserId }: Props) {
     await load(page, query)
   }
 
+  async function resetPassword(user: User) {
+    setConfirmResetId(null)
+    setBusy(user.id)
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/reset-password`, { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setToast({ message: errorMessage(json.code), type: 'error' })
+        return
+      }
+      // Le mot de passe n'est jamais renvoyé une deuxième fois : affiché une fois dans une modale, pas un toast
+      // qui disparaîtrait tout seul avant que l'admin ait pu le copier.
+      setResetResult({ email: json.email, password: json.password })
+    } catch {
+      setToast({ message: t.userList.networkError, type: 'error' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function copyResetPassword() {
+    if (!resetResult) return
+    try {
+      await navigator.clipboard.writeText(resetResult.password)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* clipboard indisponible (contexte non sécurisé, permission…) : le mot de passe reste sélectionnable à la main */ }
+  }
+
   const lastPage = Math.max(Math.ceil(data.total / data.pageSize), 1)
   const from = data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1
   const to   = Math.min(data.page * data.pageSize, data.total)
@@ -248,17 +280,34 @@ export function UserList({ initial, currentUserId }: Props) {
                         <button type="button" onClick={() => remove(user)} className="text-error font-semibold hover:underline">{t.userList.confirmDelete}</button>
                         <button type="button" onClick={() => setConfirmId(null)} className="text-on-surface-variant hover:underline">{t.userList.cancel}</button>
                       </span>
+                    ) : confirmResetId === user.id ? (
+                      <span className="inline-flex items-center gap-2 text-xs">
+                        <button type="button" onClick={() => resetPassword(user)} className="text-primary font-semibold hover:underline">{t.userList.confirmResetPassword}</button>
+                        <button type="button" onClick={() => setConfirmResetId(null)} className="text-on-surface-variant hover:underline">{t.userList.cancel}</button>
+                      </span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmId(user.id)}
-                        disabled={busy === user.id || isSelf}
-                        className="icon-btn disabled:opacity-30"
-                        title={t.userList.delete}
-                        aria-label={t.userList.delete}
-                      >
-                        <span className="material-symbols-outlined text-[1.1rem] leading-none" aria-hidden="true">delete</span>
-                      </button>
+                      <span className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmResetId(user.id)}
+                          disabled={busy === user.id}
+                          className="icon-btn disabled:opacity-30"
+                          title={t.userList.resetPassword}
+                          aria-label={t.userList.resetPassword}
+                        >
+                          <span className="material-symbols-outlined text-[1.1rem] leading-none" aria-hidden="true">key</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmId(user.id)}
+                          disabled={busy === user.id || isSelf}
+                          className="icon-btn disabled:opacity-30"
+                          title={t.userList.delete}
+                          aria-label={t.userList.delete}
+                        >
+                          <span className="material-symbols-outlined text-[1.1rem] leading-none" aria-hidden="true">delete</span>
+                        </button>
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -278,6 +327,43 @@ export function UserList({ initial, currentUserId }: Props) {
       </div>
 
       <p className="mt-4 text-xs text-on-surface-variant max-w-2xl">{t.userList.deleteHint}</p>
+
+      {resetResult && (
+        <div
+          className="fixed inset-0 z-[500] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setResetResult(null)}
+        >
+          <div
+            className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 max-w-sm w-full shadow-lg"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="font-headline font-semibold text-base text-on-surface mb-2">{t.userList.resetPasswordModalTitle}</h3>
+            <p className="text-sm text-on-surface-variant mb-4">{t.userList.resetPasswordModalDesc.replace('{0}', resetResult.email)}</p>
+            <div className="flex items-center gap-2 mb-5">
+              <code className="flex-1 px-3 py-2 rounded-lg bg-surface-container text-sm text-on-surface break-all select-all">
+                {resetResult.password}
+              </code>
+              <button
+                type="button"
+                onClick={copyResetPassword}
+                className="icon-btn shrink-0"
+                title={t.userList.copyPassword}
+                aria-label={t.userList.copyPassword}
+              >
+                <span className="material-symbols-outlined text-[1.1rem] leading-none" aria-hidden="true">
+                  {copied ? 'check' : 'content_copy'}
+                </span>
+              </button>
+            </div>
+            <div className="flex justify-end">
+              <button type="button" onClick={() => setResetResult(null)} className="action-btn">
+                {t.userList.close}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AdminToast toast={toast} onDismiss={() => setToast(null)} />
     </>
   )

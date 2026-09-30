@@ -16,7 +16,8 @@ vi.mock('@/lib/db', () => ({
     })),
 }))
 
-import { approveUser, changeUser, getUserRole, listUsers, removeUser } from '@/lib/users'
+import { approveUser, changeUser, getUserRole, listUsers, removeUser, resetUserPassword } from '@/lib/users'
+import { verifyPassword } from '@/lib/password'
 
 const schema = readFileSync(new URL('../../docker/init-schema.sql', import.meta.url), 'utf8').replace(/CREATE EXTENSION[^\n]*\n/g, '')
 
@@ -160,5 +161,46 @@ describe('listUsers', () => {
     expect((await listUsers({ q: '100%' })).total).toBe(1)
     expect((await listUsers({ q: '%' })).total).toBe(1) // only the name containing a literal %
     expect((await listUsers({ q: 'user_' })).total).toBe(0)
+  })
+})
+
+describe('resetUserPassword', () => {
+  it('sets a new password that verifies, and returns it in clear once', async () => {
+    const bob = await addUser('bob@x.ch')
+    const result = await resetUserPassword(bob)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.email).toBe('bob@x.ch')
+
+    const row = await pg.db.query<{ password_hash: string }>('SELECT password_hash FROM users WHERE id = $1', [bob])
+    expect(await verifyPassword(row.rows[0].password_hash, result.password)).toBe(true)
+  })
+
+  it('overwrites an existing password (does not just attach one)', async () => {
+    const bob = await addUser('bob@x.ch')
+    const first = await resetUserPassword(bob)
+    const second = await resetUserPassword(bob)
+    expect(first.ok && second.ok && first.password).not.toBe(second.ok && second.password)
+    if (!second.ok) return
+    const row = await pg.db.query<{ password_hash: string }>('SELECT password_hash FROM users WHERE id = $1', [bob])
+    expect(await verifyPassword(row.rows[0].password_hash, second.password)).toBe(true)
+  })
+
+  it('works for an OTP/OIDC account that never had a password', async () => {
+    const bob = await addUser('bob@x.ch')
+    const before = await pg.db.query<{ password_hash: string | null }>('SELECT password_hash FROM users WHERE id = $1', [bob])
+    expect(before.rows[0].password_hash).toBeNull()
+    const result = await resetUserPassword(bob)
+    expect(result.ok).toBe(true)
+  })
+
+  it('reports an unknown user', async () => {
+    expect(await resetUserPassword('nope')).toEqual({ ok: false, error: 'not_found' })
+  })
+
+  it('can reset an admin\'s own password (no last-admin guard applies)', async () => {
+    const admin = await addUser('a@x.ch', 'admin')
+    const result = await resetUserPassword(admin)
+    expect(result.ok).toBe(true)
   })
 })

@@ -100,6 +100,120 @@ function GlossaryPreferences() {
   )
 }
 
+function ChangePasswordCard() {
+  const { t } = useI18n()
+  const [changeable, setChangeable] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/user/password')
+      .then(res => res.ok ? res.json() : { changeable: false })
+      .then(data => setChangeable(data.changeable === true))
+      .catch(() => setChangeable(false))
+      .finally(() => setLoaded(true))
+  }, [])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setSuccess(false)
+
+    if (newPassword.length < 10) {
+      setError(t.settingsPage.passwordErrWeak)
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError(t.settingsPage.passwordErrMismatch)
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/user/password', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(
+          data.code === 'wrong_password' ? t.settingsPage.passwordErrWrong
+          : data.code === 'rate_limited'  ? t.settingsPage.passwordErrRateLimited
+          : t.settingsPage.passwordErrGeneric,
+        )
+        return
+      }
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setSuccess(true)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Rien à afficher tant que la méthode active n'est pas connue, ou si elle ne repose pas sur un mot de passe
+  if (!loaded || !changeable) return null
+
+  return (
+    <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6">
+      <h2 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
+        {t.settingsPage.passwordTitle}
+      </h2>
+      <p className="text-sm text-on-surface-variant mb-4">{t.settingsPage.passwordDesc}</p>
+
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <input
+          type="password"
+          required
+          autoComplete="current-password"
+          value={currentPassword}
+          onChange={e => setCurrentPassword(e.target.value)}
+          placeholder={t.settingsPage.currentPasswordLabel}
+          className="w-full px-3 py-2 text-sm rounded-lg border border-outline-variant/40 bg-background text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60"
+        />
+        <input
+          type="password"
+          required
+          autoComplete="new-password"
+          minLength={10}
+          value={newPassword}
+          onChange={e => setNewPassword(e.target.value)}
+          placeholder={t.settingsPage.newPasswordLabel}
+          className="w-full px-3 py-2 text-sm rounded-lg border border-outline-variant/40 bg-background text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60"
+        />
+        <input
+          type="password"
+          required
+          autoComplete="new-password"
+          minLength={10}
+          value={confirmPassword}
+          onChange={e => setConfirmPassword(e.target.value)}
+          placeholder={t.settingsPage.confirmPasswordLabel}
+          className="w-full px-3 py-2 text-sm rounded-lg border border-outline-variant/40 bg-background text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60"
+        />
+
+        {error && <p className="text-xs text-error">{error}</p>}
+        {success && <p className="text-xs text-primary">{t.settingsPage.passwordToastSuccess}</p>}
+
+        <button
+          type="submit"
+          disabled={submitting || !currentPassword || !newPassword || !confirmPassword}
+          className="action-btn"
+        >
+          {submitting ? t.settingsPage.passwordSubmitting : t.settingsPage.passwordSubmit}
+        </button>
+      </form>
+    </div>
+  )
+}
+
 function SettingsContent() {
   const { t } = useI18n()
   const { data: session, status } = useSession()
@@ -158,6 +272,9 @@ function SettingsContent() {
               </div>
             </div>
           </div>
+
+          {/* Password (only when the active sign-in method uses one) */}
+          <ChangePasswordCard />
 
           {/* Glossaries */}
           <GlossaryPreferences />
