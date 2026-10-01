@@ -37,6 +37,7 @@ interface Props {
   maxImageMB:        number
   configuredTones:   ToneConfig[]
   voiceInputEnabled: boolean
+  appVersion:        string
 }
 
 export function HomeClient(props: Props) {
@@ -47,7 +48,7 @@ export function HomeClient(props: Props) {
   )
 }
 
-function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, defaultFormality, maxTextChars, maxDocChars, maxImageMB, configuredTones, voiceInputEnabled }: Props) {
+function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, defaultFormality, maxTextChars, maxDocChars, maxImageMB, configuredTones, voiceInputEnabled, appVersion }: Props) {
   const { t } = useI18n()
 
   const ALL_TABS: { id: TabId; label: string; icon: string }[] = [
@@ -186,6 +187,12 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
               {footerText}
             </span>
           )}
+          <span
+            className="text-xs text-on-surface-variant/60"
+            style={footerTextColor ? { color: footerTextColor } : undefined}
+          >
+            v{appVersion}
+          </span>
           <nav className="flex flex-wrap items-center gap-x-4 gap-y-1 ml-auto">
             {footerLinks.map((link, i) => (
               <a

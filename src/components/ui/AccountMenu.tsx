@@ -80,7 +80,7 @@ export function AccountMenu() {
       {/* Administration (admin only) */}
       {user?.role === 'admin' && (
         <Link
-          href="/admin/settings"
+          href="/admin/dashboard"
           onClick={() => setOpen(false)}
           className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-on-surface
                      hover:bg-surface-container-low transition-colors"

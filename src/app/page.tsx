@@ -1,6 +1,7 @@
 import { HomeClient } from '@/components/ui/HomeClient'
 import type { Formality } from '@/types/leksis'
 import { DEFAULT_TONES, normalizeTones } from '@/lib/tones-defaults'
+import pkg from '../../package.json'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,5 +76,5 @@ async function loadPageSettings() {
 
 export default async function Home() {
   const props = await loadPageSettings()
-  return <HomeClient {...props} />
+  return <HomeClient {...props} appVersion={pkg.version} />
 }
