@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.2-beta.4/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.2-beta.5/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,10 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.2-beta.5
+**CI fix: a hydration error on the workspace page.** No database migration.
+- Document Studio and Image Extraction read their saved target language from the browser in a way that could disagree with the server's first render, now that beta.3 keeps every tab mounted from the start — React flagged this as a hydration error. Fixed to apply the saved language after mount, like the Text tab already did.
 
 ### v1.8.2-beta.4
 **Two small follow-ups from beta.3 testing.** No database migration.
