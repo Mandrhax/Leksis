@@ -33,6 +33,8 @@ interface Props {
   defaultTargetLang: string
   defaultFormality:  Formality
   maxTextChars:      number
+  maxDocChars:       number
+  maxImageMB:        number
   configuredTones:   ToneConfig[]
   voiceInputEnabled: boolean
 }
@@ -45,7 +47,7 @@ export function HomeClient(props: Props) {
   )
 }
 
-function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, defaultFormality, maxTextChars, configuredTones, voiceInputEnabled }: Props) {
+function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, defaultFormality, maxTextChars, maxDocChars, maxImageMB, configuredTones, voiceInputEnabled }: Props) {
   const { t } = useI18n()
 
   const ALL_TABS: { id: TabId; label: string; icon: string }[] = [
@@ -144,12 +146,29 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
       </div>
 
       {/* ── Main workspace ── */}
+      {/* Enabled tabs stay mounted and are only hidden — switching tabs must never clear what's typed or uploaded */}
       <main className="flex-grow flex flex-col items-center px-6 md:px-8 pb-6 pt-6">
         <div className="w-full max-w-[1440px]">
-          {safeActiveTab === 'text'     && <TextTranslationTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} defaultFormality={defaultFormality} maxTextChars={maxTextChars} voiceInputEnabled={voiceInputEnabled} />}
-          {safeActiveTab === 'document' && <DocumentStudioTab  defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} />}
-          {safeActiveTab === 'image'    && <ImageExtractionTab defaultTargetLang={defaultTargetLang} />}
-          {safeActiveTab === 'rewrite'  && <AIRewriteTab maxTextChars={maxTextChars} configuredTones={configuredTones} voiceInputEnabled={voiceInputEnabled} />}
+          {enabledTabs.text && (
+            <div className={safeActiveTab === 'text' ? '' : 'hidden'}>
+              <TextTranslationTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} defaultFormality={defaultFormality} maxTextChars={maxTextChars} voiceInputEnabled={voiceInputEnabled} />
+            </div>
+          )}
+          {enabledTabs.document && (
+            <div className={safeActiveTab === 'document' ? '' : 'hidden'}>
+              <DocumentStudioTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} maxDocChars={maxDocChars} />
+            </div>
+          )}
+          {enabledTabs.image && (
+            <div className={safeActiveTab === 'image' ? '' : 'hidden'}>
+              <ImageExtractionTab defaultTargetLang={defaultTargetLang} maxImageMB={maxImageMB} />
+            </div>
+          )}
+          {enabledTabs.rewrite && (
+            <div className={safeActiveTab === 'rewrite' ? '' : 'hidden'}>
+              <AIRewriteTab maxTextChars={maxTextChars} configuredTones={configuredTones} voiceInputEnabled={voiceInputEnabled} />
+            </div>
+          )}
         </div>
       </main>
 

@@ -43,6 +43,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
   const [inputText, setInputText]   = useState('')
   const [outputText, setOutputText] = useState('')
   const [sourceLang, setSourceLang] = useState<Language | null>(null)
+  const [detectedLang, setDetectedLang] = useState<Language | null>(null)
   const [mode, setMode]     = useState<RewriteMode>('rewrite')
   const [tone, setTone]     = useState<string>(() => activeTones[0]?.id ?? 'professional')
   const [length, setLength] = useState<RewriteLength>('Keep')
@@ -77,7 +78,9 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
     setOutputText('')
     setAppliedMode(null)
 
-    const resolvedLang = sourceLang ?? detectLanguage(text)
+    const detected = sourceLang ? null : detectLanguage(text)
+    const resolvedLang = sourceLang ?? detected
+    setDetectedLang(detected)
 
     try {
       const res = await fetch('/api/rewrite', {
@@ -122,7 +125,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
     setInputText(prev => prev.trim() ? `${prev.trim()} ${text}` : text)
   }
 
-  const handleClearInput  = () => { abort(); setInputText(''); setOutputText(''); setError(null); setAppliedMode(null) }
+  const handleClearInput  = () => { abort(); setInputText(''); setOutputText(''); setError(null); setAppliedMode(null); setDetectedLang(null) }
   const handleClearOutput = () => { setOutputText(''); setAppliedMode(null) }
   const [copied, copy] = useCopyToClipboard()
   const handleCopy = () => { if (outputText) copy(outputText) }
@@ -135,7 +138,16 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
         {/* Left — Input */}
         <div className="bg-surface-container-lowest p-8 flex flex-col h-[420px] md:h-[600px]">
           <div className="flex justify-between items-center mb-6">
-            <LanguageDropdown value={sourceLang} onChange={setSourceLang} includeAutoDetect variant="source" />
+            {/* Auto-detect reveals what it actually detected once a rewrite has run */}
+            <LanguageDropdown
+              value={sourceLang ?? {
+                code: 'auto',
+                name: detectedLang ? t.langDropdown.autoDetectWithLang.replace('{0}', detectedLang.name) : t.langDropdown.autoDetect,
+              }}
+              onChange={l => { setSourceLang(l.code === 'auto' ? null : l); setDetectedLang(null) }}
+              includeAutoDetect
+              variant="source"
+            />
             <button onClick={handleClearInput} className="text-button">
               <span>{t.rewriteTab.clear}</span>
               <span className="material-symbols-outlined text-lg" aria-hidden="true">close</span>

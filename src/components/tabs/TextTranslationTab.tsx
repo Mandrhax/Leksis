@@ -202,7 +202,12 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
   }
 
   const formalityActive = isFormalityActive(sourceLang, detectedLang)
-  const sourceLangValue = sourceLang ?? { code: 'auto', name: t.langDropdown.autoDetect }
+  // Auto-detect reveals what it actually detected — otherwise the Formality toggle greys out
+  // with no visible reason whenever the guess isn't English.
+  const autoDetectLabel = detectedLang
+    ? t.langDropdown.autoDetectWithLang.replace('{0}', detectedLang.name)
+    : t.langDropdown.autoDetect
+  const sourceLangValue = sourceLang ?? { code: 'auto', name: autoDetectLabel }
 
   return (
     <div id="textTab">

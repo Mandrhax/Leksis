@@ -94,9 +94,10 @@ type Mode = 'extract' | 'translate'
 
 interface Props {
   defaultTargetLang?: string
+  maxImageMB?:        number
 }
 
-export function ImageExtractionTab({ defaultTargetLang }: Props) {
+export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10 }: Props) {
   const { t } = useI18n()
   const [file, setFile]         = useState<File | null>(null)
   const [preview, setPreview]   = useState<string | null>(null)
@@ -315,7 +316,7 @@ export function ImageExtractionTab({ defaultTargetLang }: Props) {
                 <span className="material-symbols-outlined text-4xl text-outline-variant/50 group-hover:text-primary/50 transition-colors mb-3">add_photo_alternate</span>
                 <p className="text-sm font-medium text-on-surface-variant text-center mb-1">{t.imgTab.dropHere}</p>
                 <p className="text-xs text-on-surface-variant text-center">{t.imgTab.clickToBrowse}</p>
-                <p className="text-xs text-on-surface-variant text-center mt-3">{t.imgTab.acceptedFormats}</p>
+                <p className="text-xs text-on-surface-variant text-center mt-3">{t.imgTab.acceptedFormats.replace('{0}', String(maxImageMB))}</p>
               </div>
             )}
           </div>

@@ -114,7 +114,9 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
   const favoriteLanguages = allFiltered.filter(l => favorites.includes(l.code))
   const otherLanguages    = allFiltered.filter(l => !favorites.includes(l.code))
 
-  const displayLabel = value?.code === 'auto' || !value ? t.langDropdown.autoDetect : value.name
+  // A caller can pass a richer name for the auto-detect state (e.g. "Auto Detect · French") once
+  // it knows what it detected — trust it instead of always showing the bare default.
+  const displayLabel = !value ? t.langDropdown.autoDetect : value.name
 
   const isAutoDetect = value?.code === 'auto' || !value
   const labelCls = variant === 'source'

@@ -47,6 +47,8 @@ async function loadPageSettings() {
       defaultTargetLang: features.defaults?.targetLang ?? 'en',
       defaultFormality:  features.defaults?.formality  ?? 'Informal',
       maxTextChars:      features.limits?.maxTextChars  ?? 5000,
+      maxDocChars:       features.limits?.maxDocChars   ?? 12000,
+      maxImageMB:        features.limits?.maxImageMB    ?? 10,
       configuredTones,
       voiceInputEnabled,
     }
@@ -63,6 +65,8 @@ async function loadPageSettings() {
       defaultTargetLang: 'en',
       defaultFormality:  'Informal' as Formality,
       maxTextChars:      5000,
+      maxDocChars:       12000,
+      maxImageMB:        10,
       configuredTones:   DEFAULT_TONES,
       voiceInputEnabled: false,
     }

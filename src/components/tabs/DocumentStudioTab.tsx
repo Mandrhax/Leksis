@@ -70,9 +70,10 @@ function formatFileSize(bytes: number) {
 interface Props {
   defaultSourceLang?: string
   defaultTargetLang?: string
+  maxDocChars?:       number
 }
 
-export function DocumentStudioTab({ defaultTargetLang }: Props) {
+export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000 }: Props) {
   const { t } = useI18n()
   const [file, setFile]             = useState<File | null>(null)
   const [mode, setMode]             = useState<Mode>('translate')
@@ -250,12 +251,17 @@ export function DocumentStudioTab({ defaultTargetLang }: Props) {
         {/* Left — Upload */}
         <div className="bg-surface-container-lowest p-8 flex flex-col h-[420px] md:h-[600px]">
           <div className="flex justify-between items-center mb-6">
-            <LanguageDropdown
-              value={sourceLang ?? { code: 'auto', name: t.langDropdown.autoDetect }}
-              onChange={l => setSourceLang(l.code === 'auto' ? null : l)}
-              includeAutoDetect
-              variant="source"
-            />
+            {/* Source language only matters once we're actually translating — extraction alone doesn't use it */}
+            {mode === 'translate' ? (
+              <LanguageDropdown
+                value={sourceLang ?? { code: 'auto', name: t.langDropdown.autoDetect }}
+                onChange={l => setSourceLang(l.code === 'auto' ? null : l)}
+                includeAutoDetect
+                variant="source"
+              />
+            ) : (
+              <span className="text-xs font-bold text-on-surface-variant tracking-wider uppercase">{t.docTab.sourceDocument}</span>
+            )}
             <button onClick={handleClearInput} className="text-button">
               <span>{t.docTab.clear}</span>
               <span className="material-symbols-outlined text-lg" aria-hidden="true">close</span>
@@ -277,6 +283,7 @@ export function DocumentStudioTab({ defaultTargetLang }: Props) {
               <p className="text-sm font-medium text-on-surface-variant text-center mb-1">{t.docTab.dropHere}</p>
               <p className="text-xs text-on-surface-variant text-center">{t.docTab.clickToBrowse}</p>
               <p className="text-xs text-on-surface-variant text-center mt-3">{t.docTab.acceptedFormats}</p>
+              <p className="text-xs text-on-surface-variant/70 text-center mt-0.5">{t.docTab.charLimitHint.replace('{0}', String(maxDocChars))}</p>
             </div>
           )}
 
@@ -323,16 +330,10 @@ export function DocumentStudioTab({ defaultTargetLang }: Props) {
         {/* Right — Output */}
         <div className="bg-surface-container-low p-8 flex flex-col h-[420px] md:h-[600px]">
           <div className="flex justify-between items-center mb-6">
-            {mode === 'translate' && (
-              <LanguageDropdown
-                value={targetLang}
-                onChange={handleTargetLangChange}
-                variant="target"
-              />
-            )}
-            {mode === 'extract' && (
-              <span className="text-xs font-bold text-on-surface tracking-wider uppercase">{t.docTab.extractedText}</span>
-            )}
+            {/* Static label — the target language is picked once, in the mode toolbar below, not duplicated here */}
+            <span className="text-xs font-bold text-on-surface tracking-wider uppercase">
+              {mode === 'translate' ? t.docTab.translatedText : t.docTab.extractedText}
+            </span>
             <button onClick={handleClearOutput} className="text-button ml-auto">
               <span>{t.docTab.clear}</span>
               <span className="material-symbols-outlined text-lg" aria-hidden="true">close</span>
