@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.2-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,11 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.2-beta.1
+**Mobile layout fix in the admin panel.** No database migration.
+- **Admin tab bars** (Settings, Services) no longer overflow the screen width on mobile: the tab row now scrolls horizontally on its own instead of dragging the whole page sideways
+- The Users and Audit log tables also scroll independently when their content is wider than the screen, instead of widening the page
 
 ### v1.8.1
 **New technical documentation page in the admin panel**. No database migration.
