@@ -11,6 +11,20 @@ import type { Language } from '@/types/leksis'
 const DEFAULT_TARGET: Language = { code: 'fr', name: 'French' }
 const IMG_TARGET_KEY = 'leksisImgTargetLang'
 
+// Reads localStorage only — never call during the initial render, server and client would
+// disagree (no localStorage server-side) and React would flag a hydration mismatch.
+function loadImgTargetLang(defaultCode?: string): Language {
+  try {
+    const r = localStorage.getItem(IMG_TARGET_KEY)
+    if (r) return JSON.parse(r)
+    if (defaultCode && defaultCode !== 'auto') {
+      const found = LANGUAGES.find(l => l.code === defaultCode)
+      if (found) return found
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_TARGET
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
@@ -102,17 +116,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10 }: Props
   const [file, setFile]         = useState<File | null>(null)
   const [preview, setPreview]   = useState<string | null>(null)
   const [mode, setMode]         = useState<Mode>('extract')
-  const [targetLang, setTargetLang] = useState<Language>(() => {
-    try {
-      const r = localStorage.getItem(IMG_TARGET_KEY)
-      if (r) return JSON.parse(r)
-      if (defaultTargetLang && defaultTargetLang !== 'auto') {
-        const found = LANGUAGES.find(l => l.code === defaultTargetLang)
-        if (found) return found
-      }
-    } catch { /* ignore */ }
-    return DEFAULT_TARGET
-  })
+  const [targetLang, setTargetLang] = useState<Language>(DEFAULT_TARGET)
   const [outputText, setOutputText]     = useState('')
   const [detectedLang, setDetectedLang] = useState<string | null>(null)
   const [wordCount, setWordCount]       = useState<number | null>(null)
@@ -125,6 +129,8 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10 }: Props
   const abortRef  = useRef<AbortController | null>(null)
   const fileRef   = useRef<HTMLInputElement>(null)
   const outputRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setTargetLang(loadImgTargetLang(defaultTargetLang)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const el = outputRef.current

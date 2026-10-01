@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import { LANGUAGES } from '@/lib/languages'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
@@ -9,6 +9,20 @@ import type { Block, Language } from '@/types/leksis'
 
 const DEFAULT_TARGET: Language = { code: 'fr', name: 'French' }
 const DOC_TARGET_KEY = 'leksisDocTargetLang'
+
+// Reads localStorage only — never call during the initial render, server and client would
+// disagree (no localStorage server-side) and React would flag a hydration mismatch.
+function loadDocTargetLang(defaultCode?: string): Language {
+  try {
+    const r = localStorage.getItem(DOC_TARGET_KEY)
+    if (r) return JSON.parse(r)
+    if (defaultCode && defaultCode !== 'auto') {
+      const found = LANGUAGES.find(l => l.code === defaultCode)
+      if (found) return found
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_TARGET
+}
 
 type Mode = 'extract' | 'translate'
 
@@ -78,17 +92,7 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000 }: Pr
   const [file, setFile]             = useState<File | null>(null)
   const [mode, setMode]             = useState<Mode>('translate')
   const [sourceLang, setSourceLang] = useState<Language | null>(null)
-  const [targetLang, setTargetLang] = useState<Language>(() => {
-    try {
-      const r = localStorage.getItem(DOC_TARGET_KEY)
-      if (r) return JSON.parse(r)
-      if (defaultTargetLang && defaultTargetLang !== 'auto') {
-        const found = LANGUAGES.find(l => l.code === defaultTargetLang)
-        if (found) return found
-      }
-    } catch { /* ignore */ }
-    return DEFAULT_TARGET
-  })
+  const [targetLang, setTargetLang] = useState<Language>(DEFAULT_TARGET)
   const [isLoading, setIsLoading]   = useState(false)
   const [step, setStep]             = useState<'extracting' | 'translating' | null>(null)
   const [error, setError]           = useState<string | null>(null)
@@ -98,6 +102,8 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000 }: Pr
   const abortRef  = useRef<AbortController | null>(null)
   const fileRef   = useRef<HTMLInputElement>(null)
   const outputRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setTargetLang(loadDocTargetLang(defaultTargetLang)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFile = (f: File) => {
     setFile(f)
