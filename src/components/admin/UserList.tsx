@@ -210,7 +210,7 @@ export function UserList({ initial, currentUserId }: Props) {
         />
       </div>
 
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 overflow-hidden">
+      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 overflow-x-auto overflow-y-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-outline-variant/10">

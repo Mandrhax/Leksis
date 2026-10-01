@@ -74,7 +74,7 @@ export function AuditTable() {
           onSuccess={() => load(1)}
         />
       </div>
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 overflow-hidden">
+      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 overflow-x-auto overflow-y-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <span className="material-symbols-outlined animate-spin text-2xl text-on-surface-variant/40" aria-hidden="true">
