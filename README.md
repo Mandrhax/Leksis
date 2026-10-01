@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.2-beta.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.2-beta.3/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,13 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.2-beta.3
+**Workspace UX pass: tabs keep their content, and a few interface papercuts are fixed.** No database migration.
+- **Switching tabs (Text/Document/Image/Rewrite) no longer clears anything**: typed text, the loaded file and the result all survive a trip to another tab and back — an in-progress voice dictation also keeps recording instead of being cut off
+- **Document Studio's duplicate target-language selector removed** (it had two controls bound to the same setting); the source-language selector in "Extract only" mode, which had no effect there, is now a plain label instead
+- **Auto-detect now shows what it detected** ("Auto Detect · French") in Text Translation and AI Rewrite — this also explains why the Formality toggle greys out when the guess isn't English
+- **File-size and character-limit hints now reflect your actual configuration** (Admin → Settings → Features & limits) instead of a hardcoded "10 MB" on the Image tab, and Document Studio now tells you its character limit upfront instead of only after a failed extraction
 
 ### v1.8.2-beta.2
 **Settings page UX improvements, building on beta.1's mobile fixes.** No database migration.
