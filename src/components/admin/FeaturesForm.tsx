@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LANGUAGES } from '@/lib/languages'
 import type { ToastState } from './AdminToast'
 import type { Formality } from '@/types/leksis'
 import { useI18n } from '@/lib/i18n'
+import { useDirtyTracking } from '@/hooks/useDirtyTracking'
 
 interface FeaturesTabs {
   text:     boolean
@@ -41,9 +42,10 @@ const DEFAULT_FEATURES: FeaturesData = {
 interface Props {
   initial: Partial<FeaturesData>
   onToast: (t: ToastState) => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
-export function FeaturesForm({ initial, onToast }: Props) {
+export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
   const { t } = useI18n()
   const [data, setData] = useState<FeaturesData>({
     tabs:             { ...DEFAULT_FEATURES.tabs,     ...(initial.tabs     ?? {}) },
@@ -51,6 +53,8 @@ export function FeaturesForm({ initial, onToast }: Props) {
     limits:           { ...DEFAULT_FEATURES.limits,   ...(initial.limits   ?? {}) },
   })
   const [saving, setSaving] = useState(false)
+  const { dirty, markSaved } = useDirtyTracking(data)
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   const MODULE_LABELS: { id: keyof FeaturesTabs; label: string; icon: string; desc: string }[] = [
     { id: 'text',     label: t.featuresForm.moduleText,     icon: 'translate',     desc: t.featuresForm.moduleTextDesc     },
@@ -68,6 +72,7 @@ export function FeaturesForm({ initial, onToast }: Props) {
         body: JSON.stringify({ key: 'features', value: data }),
       })
       if (!res.ok) throw new Error()
+      markSaved()
       onToast({ type: 'success', message: t.featuresForm.toastSaved })
     } catch {
       onToast({ type: 'error', message: t.featuresForm.toastError })
@@ -251,7 +256,7 @@ export function FeaturesForm({ initial, onToast }: Props) {
 
       {/* Save */}
       <div className="flex justify-end pt-2">
-        <button onClick={handleSave} disabled={saving} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
           {saving ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
           ) : (

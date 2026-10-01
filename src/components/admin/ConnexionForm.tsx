@@ -1,28 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
 import type { SmtpPublicConfig } from '@/lib/smtp'
 import type { OidcPublicConfig } from '@/lib/auth-methods'
 import type { AuthMethod } from '@/lib/settings-schema'
+import { useDirtyTracking } from '@/hooks/useDirtyTracking'
 
 interface Props {
   initial: { method: AuthMethod }
   smtp: SmtpPublicConfig
   oidc: OidcPublicConfig
   onToast: (t: ToastState) => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 const isSmtpConfigured = (s: SmtpPublicConfig) => s.host !== '' && s.fromAddress !== ''
 const isOidcConfigured = (o: OidcPublicConfig) => o.issuer !== '' && o.clientId !== '' && o.hasClientSecret
 
-export function ConnexionForm({ initial, smtp, oidc, onToast }: Props) {
+export function ConnexionForm({ initial, smtp, oidc, onToast, onDirtyChange }: Props) {
   const { t } = useI18n()
   const cf = t.connexionForm
 
   const [method, setMethod] = useState<AuthMethod>(initial.method)
   const [saving, setSaving] = useState(false)
+  const { dirty, markSaved } = useDirtyTracking(method)
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   const smtpOk = isSmtpConfigured(smtp)
   const oidcOk = isOidcConfigured(oidc)
@@ -53,6 +57,7 @@ export function ConnexionForm({ initial, smtp, oidc, onToast }: Props) {
         })
         return
       }
+      markSaved()
       onToast({ message: cf.toastSaved, type: 'success' })
     } catch {
       onToast({ message: cf.toastError, type: 'error' })
@@ -92,12 +97,12 @@ export function ConnexionForm({ initial, smtp, oidc, onToast }: Props) {
         ))}
       </div>
 
-      {method !== initial.method && (
+      {dirty && (
         <p className="text-xs text-error">{cf.switchWarning}</p>
       )}
 
       <div className="flex justify-end pt-3 border-t border-outline-variant/10">
-        <button onClick={handleSave} disabled={saving} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
           {saving
             ? <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
             : <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { I18nProvider } from '@/lib/i18n'
+import { AdminDirtyProvider } from '@/lib/admin-dirty'
 import { UILanguageSwitcher } from '@/components/ui/UILanguageSwitcher'
 import { AccountMenu } from '@/components/ui/AccountMenu'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
@@ -55,7 +56,9 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 export function AdminClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <I18nProvider>
-      <AdminShell>{children}</AdminShell>
+      <AdminDirtyProvider>
+        <AdminShell>{children}</AdminShell>
+      </AdminDirtyProvider>
     </I18nProvider>
   )
 }

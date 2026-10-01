@@ -144,6 +144,10 @@ export const messages = {
     passwordErrGeneric:    'An error occurred. Please try again.',
     passwordErrRateLimited: 'Too many attempts. Please wait a moment and try again.',
   },
+  adminDirty: {
+    confirmLeave: 'You have unsaved changes. Leave without saving?',
+    unsavedBadge: 'Unsaved changes',
+  },
   adminSidebar: {
     title:                  'Administration',
     navLabel:               'Admin navigation',
@@ -253,7 +257,7 @@ export const messages = {
     tabGeneral:     'General',
     tabLegal:       'Legal',
     tabConnexion:   'Sign-in',
-    confirmLabel:   'Confirm?',
+    confirmLabel:   'Reset ALL settings, in every tab, to their defaults?',
     cancelReset:    'Cancel',
     resetDefaults:  'Defaults',
     confirmReset:   'Reset',
@@ -435,7 +439,7 @@ export const messages = {
     methodPasswordEmailVerifyDesc:   'People sign up with a password and verify their email via a link before they can sign in.',
     methodSsoOidc:          'Single sign-on (OIDC)',
     methodSsoOidcDesc:      'Sign in through an external identity provider (Keycloak, Entra ID, Okta…). Configure it below first.',
-    requiresSmtpHint:       'Requires SMTP to be configured (General tab) first.',
+    requiresSmtpHint:       'Requires the SMTP settings below to be configured first.',
     requiresOidcHint:       'Requires the OIDC settings below to be configured and working first.',
     switchWarning:       'Make sure you can sign back in under the new method before leaving this page — switching does not sign out your current session.',
     save:                'Save',

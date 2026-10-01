@@ -146,6 +146,10 @@ export const messages = {
     passwordErrGeneric:    'Une erreur est survenue. Veuillez réessayer.',
     passwordErrRateLimited: 'Trop de tentatives. Patientez un instant puis réessayez.',
   },
+  adminDirty: {
+    confirmLeave: 'Des modifications non enregistrées seront perdues. Quitter quand même ?',
+    unsavedBadge: 'Modifications non enregistrées',
+  },
   adminSidebar: {
     title:                  'Administration',
     navLabel:               'Navigation admin',
@@ -255,7 +259,7 @@ export const messages = {
     tabGeneral:     'Général',
     tabLegal:       'Mentions légales',
     tabConnexion:   'Connexion',
-    confirmLabel:   'Confirmer ?',
+    confirmLabel:   'Réinitialiser TOUS les réglages, dans tous les onglets, par défaut ?',
     cancelReset:    'Annuler',
     resetDefaults:  'Défauts',
     confirmReset:   'Réinitialiser',
@@ -437,7 +441,7 @@ export const messages = {
     methodPasswordEmailVerifyDesc:   'Inscription avec mot de passe et vérification de l\'adresse email via un lien avant la première connexion.',
     methodSsoOidc:          'Authentification unique (OIDC)',
     methodSsoOidcDesc:      'Connexion via un fournisseur d\'identité externe (Keycloak, Entra ID, Okta…). À configurer ci-dessous d\'abord.',
-    requiresSmtpHint:       'Nécessite que le SMTP soit configuré d\'abord (onglet General).',
+    requiresSmtpHint:       'Nécessite que la configuration SMTP ci-dessous soit renseignée d\'abord.',
     requiresOidcHint:       'Nécessite que la configuration OIDC ci-dessous soit renseignée et fonctionnelle d\'abord.',
     switchWarning:       'Vérifiez que vous pouvez vous reconnecter avec la nouvelle méthode avant de quitter cette page — le changement ne déconnecte pas votre session en cours.',
     save:                'Sauvegarder',

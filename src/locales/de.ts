@@ -146,6 +146,10 @@ export const messages = {
     passwordErrGeneric:    'Ein Fehler ist aufgetreten. Bitte erneut versuchen.',
     passwordErrRateLimited: 'Zu viele Versuche. Bitte einen Moment warten und erneut versuchen.',
   },
+  adminDirty: {
+    confirmLeave: 'Es gibt ungespeicherte Änderungen. Trotzdem verlassen?',
+    unsavedBadge: 'Ungespeicherte Änderungen',
+  },
   adminSidebar: {
     title:                  'Administration',
     navLabel:               'Admin-Navigation',
@@ -255,7 +259,7 @@ export const messages = {
     tabGeneral:     'Allgemein',
     tabLegal:       'Rechtliches',
     tabConnexion:   'Anmeldung',
-    confirmLabel:   'Bestätigen?',
+    confirmLabel:   'ALLE Einstellungen, in jedem Tab, auf Standard zurücksetzen?',
     cancelReset:    'Abbrechen',
     resetDefaults:  'Standard',
     confirmReset:   'Zurücksetzen',
@@ -437,7 +441,7 @@ export const messages = {
     methodPasswordEmailVerifyDesc:   'Registrierung mit Passwort und Bestätigung der E-Mail-Adresse über einen Link vor der ersten Anmeldung.',
     methodSsoOidc:          'Single Sign-on (OIDC)',
     methodSsoOidcDesc:      'Anmeldung über einen externen Identitätsanbieter (Keycloak, Entra ID, Okta…). Zuerst unten konfigurieren.',
-    requiresSmtpHint:       'Erfordert zuerst eine SMTP-Konfiguration (Tab „Allgemein“).',
+    requiresSmtpHint:       'Erfordert zuerst eine funktionierende SMTP-Konfiguration weiter unten.',
     requiresOidcHint:       'Erfordert zuerst eine funktionierende OIDC-Konfiguration weiter unten.',
     switchWarning:       'Stellen Sie sicher, dass Sie sich mit der neuen Methode wieder anmelden können, bevor Sie diese Seite verlassen — der Wechsel meldet Ihre aktuelle Sitzung nicht ab.',
     save:                'Speichern',

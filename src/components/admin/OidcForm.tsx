@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
 import type { OidcPublicConfig } from '@/lib/auth-methods'
+import { useDirtyTracking } from '@/hooks/useDirtyTracking'
 
 interface Data {
   issuer: string
@@ -20,9 +21,10 @@ interface TestResult {
 interface Props {
   initial: OidcPublicConfig
   onToast: (t: ToastState) => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
-export function OidcForm({ initial, onToast }: Props) {
+export function OidcForm({ initial, onToast, onDirtyChange }: Props) {
   const { t } = useI18n()
   const of = t.oidcForm
 
@@ -39,6 +41,8 @@ export function OidcForm({ initial, onToast }: Props) {
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [result, setResult] = useState<TestResult | null>(null)
+  const { dirty, markSaved } = useDirtyTracking({ data, clientSecret, clearClientSecret })
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   // Calculé côté client (jamais depuis une adresse interne côté serveur) — cohérent avec safeCallbackPath
   useEffect(() => { setRedirectUri(`${window.location.origin}/api/auth/callback/oidc`) }, [])
@@ -69,6 +73,7 @@ export function OidcForm({ initial, onToast }: Props) {
       setHasClientSecret(clearClientSecret ? false : clientSecret ? true : hasClientSecret)
       setClientSecret('')
       setClearClientSecret(false)
+      markSaved({ data, clientSecret: '', clearClientSecret: false })
       onToast({ message: of.toastSaved, type: 'success' })
     } catch {
       onToast({ message: of.toastError, type: 'error' })
@@ -165,7 +170,7 @@ export function OidcForm({ initial, onToast }: Props) {
         </button>
 
         <div className="flex-1" />
-        <button onClick={handleSave} disabled={saving || testing || !canSave} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || testing || !canSave || !dirty} className="action-btn disabled:opacity-40">
           {saving ? spinner : <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>}
           {of.save}
         </button>

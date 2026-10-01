@@ -1,16 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ToneConfig } from '@/types/leksis'
 import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
 import { normalizeTones } from '@/lib/tones-defaults'
+import { useDirtyTracking } from '@/hooks/useDirtyTracking'
 
 const MAX_TONES = 6
 
 interface Props {
   initial: ToneConfig[]
   onToast: (t: ToastState) => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 type ToneRow = ToneConfig & { isNew?: boolean }
@@ -29,12 +31,14 @@ function ensureUniqueId(base: string, existing: ToneRow[], excludeIdx: number): 
   return `${base}-${i}`
 }
 
-export function TonesForm({ initial, onToast }: Props) {
+export function TonesForm({ initial, onToast, onDirtyChange }: Props) {
   const { t } = useI18n()
 
   const [tones, setTones]   = useState<ToneRow[]>(() => normalizeTones(initial).map(tn => ({ ...tn })))
   const [errors, setErrors] = useState<FieldErrors>({})
   const [saving, setSaving] = useState(false)
+  const { dirty, markSaved } = useDirtyTracking(tones)
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   function updateLabel(idx: number, lang: 'en' | 'fr' | 'de' | 'it', value: string) {
     setTones(prev => {
@@ -160,7 +164,9 @@ export function TonesForm({ initial, onToast }: Props) {
         body: JSON.stringify({ key: 'rewrite_tones', value: payload }),
       })
       if (!res.ok) throw new Error()
-      setTones(prev => prev.map(({ isNew: _isNew, ...tc }) => tc))
+      const stripped = tones.map(({ isNew: _isNew, ...tc }) => tc)
+      setTones(stripped)
+      markSaved(stripped)
       onToast({ type: 'success', message: t.tonesForm.toastSaved })
     } catch {
       onToast({ type: 'error', message: t.tonesForm.toastError })
@@ -355,7 +361,7 @@ export function TonesForm({ initial, onToast }: Props) {
 
       {/* Save */}
       <div className="flex justify-end pt-2">
-        <button onClick={handleSave} disabled={saving} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
           {saving ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
           ) : (

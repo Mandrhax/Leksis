@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
+import { useDirtyTracking } from '@/hooks/useDirtyTracking'
 
 interface BrandingData {
   siteName:          string
@@ -16,9 +17,10 @@ interface BrandingData {
 interface Props {
   initial: BrandingData
   onToast: (t: ToastState) => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
-export function BrandingForm({ initial, onToast }: Props) {
+export function BrandingForm({ initial, onToast, onDirtyChange }: Props) {
   const { t } = useI18n()
   const [data, setData] = useState<BrandingData>({
     ...initial,
@@ -41,6 +43,17 @@ export function BrandingForm({ initial, onToast }: Props) {
 
   // Fond : couleur ou image, jamais les deux en même temps
   const [bgMode, setBgMode] = useState<'color' | 'image'>(initial.backgroundImage ? 'image' : 'color')
+
+  // Logo/background uploads and mode switches save themselves instantly (see
+  // handleLogoUpload/handleBgUpload/chooseBgMode) — only the fields behind the
+  // "Save" button below are deferred, so only those belong in the dirty check.
+  const { dirty, markSaved } = useDirtyTracking({
+    siteName:        data.siteName,
+    primaryColor:    data.primaryColor,
+    backgroundColor: data.backgroundColor,
+    headerLogoSize:  data.headerLogoSize,
+  })
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   const set = useCallback(<K extends keyof BrandingData>(k: K, v: BrandingData[K]) => {
     setData(prev => ({ ...prev, [k]: v }))
@@ -139,6 +152,7 @@ export function BrandingForm({ initial, onToast }: Props) {
         body: JSON.stringify({ key: 'branding', value: data }),
       })
       if (!res.ok) throw new Error()
+      markSaved()
       onToast({ message: t.brandingForm.toastSaved, type: 'success' })
     } catch {
       onToast({ message: t.brandingForm.toastError, type: 'error' })
@@ -341,7 +355,7 @@ export function BrandingForm({ initial, onToast }: Props) {
 
       </div>{/* end grid */}
       <div className="flex justify-end">
-        <button onClick={handleSave} disabled={saving} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
           {saving
             ? <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
             : <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>

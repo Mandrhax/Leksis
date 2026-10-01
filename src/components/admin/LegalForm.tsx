@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
+import { useDirtyTracking } from '@/hooks/useDirtyTracking'
 
 interface LegalData {
   organization: string
@@ -15,11 +16,12 @@ interface LegalData {
 interface Props {
   initial: Partial<LegalData>
   onToast: (t: ToastState) => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 const INPUT = 'w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50'
 
-export function LegalForm({ initial, onToast }: Props) {
+export function LegalForm({ initial, onToast, onDirtyChange }: Props) {
   const { t } = useI18n()
   const lf = t.legalForm
   const [data, setData] = useState<LegalData>({
@@ -29,6 +31,8 @@ export function LegalForm({ initial, onToast }: Props) {
     usageRules:   initial.usageRules   ?? '',
   })
   const [saving, setSaving] = useState(false)
+  const { dirty, markSaved } = useDirtyTracking(data)
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   async function handleSave() {
     setSaving(true)
@@ -39,6 +43,7 @@ export function LegalForm({ initial, onToast }: Props) {
         body: JSON.stringify({ key: 'legal', value: data }),
       })
       if (!res.ok) throw new Error()
+      markSaved()
       onToast({ message: lf.toastSaved, type: 'success' })
     } catch {
       onToast({ message: lf.toastError, type: 'error' })
@@ -121,7 +126,7 @@ export function LegalForm({ initial, onToast }: Props) {
 
       </div>
       <div className="flex justify-end">
-        <button onClick={handleSave} disabled={saving} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
           {saving ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
           ) : (

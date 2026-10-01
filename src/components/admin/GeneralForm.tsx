@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
 import { RETENTION_DEFAULTS, RETENTION_MAX_DAYS } from '@/lib/settings-schema'
+import { useDirtyTracking } from '@/hooks/useDirtyTracking'
 
 interface GeneralData {
   contactEmail: string
@@ -17,9 +18,10 @@ interface GeneralData {
 interface Props {
   initial: GeneralData
   onToast: (t: ToastState) => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
-export function GeneralForm({ initial, onToast }: Props) {
+export function GeneralForm({ initial, onToast, onDirtyChange }: Props) {
   const { t } = useI18n()
   const [data, setData] = useState<GeneralData>({
     contactEmail: initial.contactEmail ?? '',
@@ -30,6 +32,8 @@ export function GeneralForm({ initial, onToast }: Props) {
     auditRetentionDays: initial.auditRetentionDays ?? RETENTION_DEFAULTS.auditRetentionDays,
   })
   const [saving, setSaving] = useState(false)
+  const { dirty, markSaved } = useDirtyTracking(data)
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   async function handleSave() {
     setSaving(true)
@@ -40,6 +44,7 @@ export function GeneralForm({ initial, onToast }: Props) {
         body: JSON.stringify({ key: 'general', value: data }),
       })
       if (!res.ok) throw new Error()
+      markSaved()
       onToast({ message: t.generalForm.toastSaved, type: 'success' })
     } catch {
       onToast({ message: t.generalForm.toastError, type: 'error' })
@@ -148,7 +153,7 @@ export function GeneralForm({ initial, onToast }: Props) {
 
       </div>{/* end grid */}
       <div className="flex justify-end">
-        <button onClick={handleSave} disabled={saving} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
           {saving ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
           ) : (

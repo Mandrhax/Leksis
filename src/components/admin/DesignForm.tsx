@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
+import { useDirtyTracking } from '@/hooks/useDirtyTracking'
 
 interface DesignData {
   buttonRadius: string
@@ -14,9 +15,10 @@ interface DesignData {
 interface Props {
   initial: DesignData
   onToast: (t: ToastState) => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
-export function DesignForm({ initial, onToast }: Props) {
+export function DesignForm({ initial, onToast, onDirtyChange }: Props) {
   const { t } = useI18n()
   const [data, setData] = useState<DesignData>({
     buttonRadius: initial.buttonRadius ?? '0.75rem',
@@ -25,6 +27,8 @@ export function DesignForm({ initial, onToast }: Props) {
     footerLinks: initial.footerLinks ?? [],
   })
   const [saving, setSaving] = useState(false)
+  const { dirty, markSaved } = useDirtyTracking(data)
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   function addFooterLink() {
     setData(prev => ({ ...prev, footerLinks: [...prev.footerLinks, { label: '', url: '' }] }))
@@ -50,6 +54,7 @@ export function DesignForm({ initial, onToast }: Props) {
         body: JSON.stringify({ key: 'design', value: data }),
       })
       if (!res.ok) throw new Error()
+      markSaved()
       onToast({ message: t.designForm.toastSaved, type: 'success' })
     } catch {
       onToast({ message: t.designForm.toastError, type: 'error' })
@@ -184,7 +189,7 @@ export function DesignForm({ initial, onToast }: Props) {
 
       </div>{/* end grid */}
       <div className="flex justify-end">
-        <button onClick={handleSave} disabled={saving} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
           {saving ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
           ) : (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { BrandingForm }  from './BrandingForm'
 import { DesignForm }    from './DesignForm'
 import { GeneralForm }   from './GeneralForm'
@@ -17,6 +17,7 @@ import { AdminToast }    from './AdminToast'
 import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
 import { ServiceTabBar } from './ServiceTabBar'
+import { useAdminDirtyRegister } from '@/lib/admin-dirty'
 
 interface Props {
   settings: Record<string, unknown>
@@ -27,6 +28,9 @@ interface Props {
 
 type Tab = 'identity' | 'appearance' | 'features' | 'tones' | 'general' | 'legal' | 'connexion'
 
+// Finer-grained than Tab: the Connexion tab hosts three independently-saved forms.
+type DirtySource = 'identity' | 'appearance' | 'features' | 'tones' | 'general' | 'connexion' | 'smtp' | 'oidc' | 'legal'
+
 export function SettingsTabs({ settings, smtp, oidc, authMethod }: Props) {
   const { t } = useI18n()
   const st = t.settingsTabs
@@ -34,6 +38,31 @@ export function SettingsTabs({ settings, smtp, oidc, authMethod }: Props) {
   const [toast, setToast]           = useState<ToastState>(null)
   const [confirming, setConfirming] = useState(false)
   const [resetting, setResetting]   = useState(false)
+  const [dirtyMap, setDirtyMap]     = useState<Record<DirtySource, boolean>>({
+    identity: false, appearance: false, features: false, tones: false,
+    general: false, connexion: false, smtp: false, oidc: false, legal: false,
+  })
+
+  // Stable per-source callbacks so a parent re-render doesn't retrigger every child's dirty effect.
+  const setDirty = useMemo(() => {
+    const sources: DirtySource[] = ['identity', 'appearance', 'features', 'tones', 'general', 'connexion', 'smtp', 'oidc', 'legal']
+    return Object.fromEntries(sources.map(source => [
+      source,
+      (dirty: boolean) => setDirtyMap(prev => prev[source] === dirty ? prev : { ...prev, [source]: dirty }),
+    ])) as Record<DirtySource, (dirty: boolean) => void>
+  }, [])
+
+  const tabDirty: Record<Tab, boolean> = {
+    identity:   dirtyMap.identity,
+    appearance: dirtyMap.appearance,
+    features:   dirtyMap.features,
+    tones:      dirtyMap.tones,
+    general:    dirtyMap.general,
+    legal:      dirtyMap.legal,
+    connexion:  dirtyMap.connexion || dirtyMap.smtp || dirtyMap.oidc,
+  }
+  const anyDirty = useMemo(() => Object.values(dirtyMap).some(Boolean), [dirtyMap])
+  useAdminDirtyRegister('settings', anyDirty)
 
   async function handleReset() {
     if (!confirming) { setConfirming(true); return }
@@ -94,45 +123,47 @@ export function SettingsTabs({ settings, smtp, oidc, authMethod }: Props) {
 
       <ServiceTabBar
         ariaLabel={st.tabsAriaLabel}
+        dirtyLabel={t.adminDirty.unsavedBadge}
         active={tab}
         onChange={setTab}
         tabs={[
-          { id: 'identity',   label: st.tabIdentity,   icon: 'palette'        },
-          { id: 'appearance', label: st.tabAppearance, icon: 'brush'          },
-          { id: 'features',   label: st.tabFeatures,   icon: 'tune'           },
-          { id: 'tones',      label: st.tabTones,      icon: 'auto_fix_high' },
-          { id: 'general',    label: st.tabGeneral,    icon: 'info'           },
-          { id: 'legal',      label: st.tabLegal,      icon: 'gavel'          },
-          { id: 'connexion',  label: st.tabConnexion,  icon: 'lock'           },
+          { id: 'identity',   label: st.tabIdentity,   icon: 'palette',       dirty: tabDirty.identity   },
+          { id: 'appearance', label: st.tabAppearance, icon: 'brush',         dirty: tabDirty.appearance },
+          { id: 'features',   label: st.tabFeatures,   icon: 'tune',          dirty: tabDirty.features   },
+          { id: 'tones',      label: st.tabTones,      icon: 'auto_fix_high', dirty: tabDirty.tones      },
+          { id: 'general',    label: st.tabGeneral,    icon: 'info',          dirty: tabDirty.general    },
+          { id: 'legal',      label: st.tabLegal,      icon: 'gavel',         dirty: tabDirty.legal      },
+          { id: 'connexion',  label: st.tabConnexion,  icon: 'lock',          dirty: tabDirty.connexion  },
         ]}
       />
 
       {/* All panels stay mounted so unsaved edits survive switching tabs */}
       <div className={tab === 'identity' ? '' : 'hidden'}>
-        <BrandingForm initial={brandingInitial as never} onToast={setToast} />
+        <BrandingForm initial={brandingInitial as never} onToast={setToast} onDirtyChange={setDirty.identity} />
       </div>
       <div className={tab === 'appearance' ? '' : 'hidden'}>
-        <DesignForm initial={designInitial as never} onToast={setToast} />
+        <DesignForm initial={designInitial as never} onToast={setToast} onDirtyChange={setDirty.appearance} />
       </div>
       <div className={tab === 'features' ? '' : 'hidden'}>
-        <FeaturesForm initial={settings.features as never ?? {}} onToast={setToast} />
+        <FeaturesForm initial={settings.features as never ?? {}} onToast={setToast} onDirtyChange={setDirty.features} />
       </div>
       <div className={tab === 'tones' ? '' : 'hidden'}>
-        <TonesForm initial={(settings.rewrite_tones as ToneConfig[] | undefined) ?? []} onToast={setToast} />
+        <TonesForm initial={(settings.rewrite_tones as ToneConfig[] | undefined) ?? []} onToast={setToast} onDirtyChange={setDirty.tones} />
       </div>
       <div className={tab === 'general' ? '' : 'hidden'}>
-        <GeneralForm initial={settings.general as never ?? {}} onToast={setToast} />
-        <div className="mt-3">
-          <SmtpForm initial={smtp} onToast={setToast} />
-        </div>
+        <GeneralForm initial={settings.general as never ?? {}} onToast={setToast} onDirtyChange={setDirty.general} />
       </div>
       <div className={tab === 'legal' ? '' : 'hidden'}>
-        <LegalForm initial={(settings.legal as Record<string, string> | undefined) ?? {}} onToast={setToast} />
+        <LegalForm initial={(settings.legal as Record<string, string> | undefined) ?? {}} onToast={setToast} onDirtyChange={setDirty.legal} />
       </div>
       <div className={tab === 'connexion' ? '' : 'hidden'}>
-        <ConnexionForm initial={{ method: authMethod }} smtp={smtp} oidc={oidc} onToast={setToast} />
+        <ConnexionForm initial={{ method: authMethod }} smtp={smtp} oidc={oidc} onToast={setToast} onDirtyChange={setDirty.connexion} />
+        {/* SMTP lives here, not under General: it only matters as a prerequisite for two of the sign-in methods above */}
         <div className="mt-3">
-          <OidcForm initial={oidc} onToast={setToast} />
+          <SmtpForm initial={smtp} onToast={setToast} onDirtyChange={setDirty.smtp} />
+        </div>
+        <div className="mt-3">
+          <OidcForm initial={oidc} onToast={setToast} onDirtyChange={setDirty.oidc} />
         </div>
       </div>
 

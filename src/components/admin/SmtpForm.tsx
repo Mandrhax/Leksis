@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ToastState } from './AdminToast'
 import { useI18n } from '@/lib/i18n'
 import type { SmtpPublicConfig } from '@/lib/smtp'
+import { useDirtyTracking } from '@/hooks/useDirtyTracking'
 
 interface Data {
   host:        string
@@ -23,11 +24,12 @@ interface TestResult {
 interface Props {
   initial: SmtpPublicConfig
   onToast: (t: ToastState) => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 const isValidPort = (v: string): boolean => /^\d+$/.test(v) && Number(v) >= 1 && Number(v) <= 65535
 
-export function SmtpForm({ initial, onToast }: Props) {
+export function SmtpForm({ initial, onToast, onDirtyChange }: Props) {
   const { t } = useI18n()
   const sf = t.smtpForm
 
@@ -47,6 +49,8 @@ export function SmtpForm({ initial, onToast }: Props) {
   const [testing,  setTesting]  = useState(false)
   const [sending,  setSending]  = useState(false)
   const [result,   setResult]   = useState<TestResult | null>(null)
+  const { dirty, markSaved } = useDirtyTracking({ data, password, clearPassword })
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   const portValid = isValidPort(data.port)
   const canSave = data.host !== '' && data.fromAddress !== '' && portValid
@@ -77,6 +81,7 @@ export function SmtpForm({ initial, onToast }: Props) {
       setHasPassword(clearPassword ? false : password ? true : hasPassword)
       setPassword('')
       setClearPassword(false)
+      markSaved({ data, password: '', clearPassword: false })
       onToast({ message: sf.toastSaved, type: 'success' })
     } catch {
       onToast({ message: sf.toastError, type: 'error' })
@@ -212,7 +217,7 @@ export function SmtpForm({ initial, onToast }: Props) {
         </div>
 
         <div className="flex-1" />
-        <button onClick={handleSave} disabled={saving || testing || sending || !canSave} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || testing || sending || !canSave || !dirty} className="action-btn disabled:opacity-40">
           {saving ? spinner : <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>}
           {sf.save}
         </button>

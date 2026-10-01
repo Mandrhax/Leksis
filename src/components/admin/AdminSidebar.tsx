@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useI18n } from '@/lib/i18n'
+import { useAdminLeaveGuard } from '@/lib/admin-dirty'
 
 type ServiceKey = 'ollama' | 'db' | 'caddy'
 type ServiceStatus = Record<ServiceKey, boolean | null>
@@ -60,10 +61,12 @@ function NavLink({
   status?: boolean | null
 }) {
   const pathname = usePathname()
+  const confirmLeave = useAdminLeaveGuard()
   const active = pathname.startsWith(href)
   return (
     <Link
       href={href}
+      onClick={e => { if (!active && !confirmLeave()) e.preventDefault() }}
       className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
         active
           ? 'bg-primary/10 text-primary font-semibold'
@@ -82,6 +85,7 @@ function NavLink({
 export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useI18n()
   const svcStatus = useServiceStatus()
+  const confirmLeave = useAdminLeaveGuard()
 
   return (
     <aside className={`fixed inset-y-0 left-0 z-40 w-56 shrink-0 bg-surface-container-lowest border-r border-outline-variant/10 flex flex-col transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-auto ${open ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -130,6 +134,7 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
       <div className="p-2 border-t border-outline-variant/10">
         <Link
           href="/"
+          onClick={e => { if (!confirmLeave()) e.preventDefault() }}
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
         >
           <span className="material-symbols-outlined text-[1.05rem] leading-none" aria-hidden="true">
