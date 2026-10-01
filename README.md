@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.2-beta.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.2-beta.2/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -320,10 +320,13 @@ Users switch the UI language instantly with the language selector — the prefer
 
 ## 🎉 What's new
 
-### v1.8.2-beta.1
-**Mobile layout fix in the admin panel.** No database migration.
-- **Admin tab bars** (Settings, Services) no longer overflow the screen width on mobile: the tab row now scrolls horizontally on its own instead of dragging the whole page sideways
+### v1.8.2-beta.2
+**Settings page UX improvements, building on beta.1's mobile fixes.** No database migration.
+- **Unsaved-changes guard**: every Settings/Sign-in form now tracks whether it actually differs from what was last saved — the Save button stays disabled until there's something to save, a dot marks the tab holding the change, and leaving the admin section (sidebar navigation, reload, tab close) asks for confirmation first instead of silently dropping the edit
+- **SMTP configuration moved** from the General tab to Sign-in, next to the authentication methods that depend on it (OTP by email, password with email verification) — it was only ever used for those, and sits there now the same way OIDC already did
+- **Admin tab bars** (Settings, Services) no longer overflow the screen width on mobile: the tab row scrolls horizontally on its own instead of dragging the whole page sideways, with a subtle fade hinting when there's more to scroll to
 - The Users and Audit log tables also scroll independently when their content is wider than the screen, instead of widening the page
+- "Reset to defaults" now spells out that it resets every tab, not just the one you're looking at
 
 ### v1.8.1
 **New technical documentation page in the admin panel**. No database migration.
