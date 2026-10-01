@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.2-beta.5/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.2/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -320,29 +320,17 @@ Users switch the UI language instantly with the language selector — the prefer
 
 ## 🎉 What's new
 
-### v1.8.2-beta.5
-**CI fix: a hydration error on the workspace page.** No database migration.
-- Document Studio and Image Extraction read their saved target language from the browser in a way that could disagree with the server's first render, now that beta.3 keeps every tab mounted from the start — React flagged this as a hydration error. Fixed to apply the saved language after mount, like the Text tab already did.
-
-### v1.8.2-beta.4
-**Two small follow-ups from beta.3 testing.** No database migration.
-- The footer now shows the running version (`v1.8.2-beta.4`)
-- "Administration" in the account menu now opens the admin dashboard directly, instead of the Settings page
-
-### v1.8.2-beta.3
-**Workspace UX pass: tabs keep their content, and a few interface papercuts are fixed.** No database migration.
+### v1.8.2
+**Workspace UX pass, plus Settings page UX improvements (tested through five betas).** No database migration.
 - **Switching tabs (Text/Document/Image/Rewrite) no longer clears anything**: typed text, the loaded file and the result all survive a trip to another tab and back — an in-progress voice dictation also keeps recording instead of being cut off
 - **Document Studio's duplicate target-language selector removed** (it had two controls bound to the same setting); the source-language selector in "Extract only" mode, which had no effect there, is now a plain label instead
 - **Auto-detect now shows what it detected** ("Auto Detect · French") in Text Translation and AI Rewrite — this also explains why the Formality toggle greys out when the guess isn't English
 - **File-size and character-limit hints now reflect your actual configuration** (Admin → Settings → Features & limits) instead of a hardcoded "10 MB" on the Image tab, and Document Studio now tells you its character limit upfront instead of only after a failed extraction
-
-### v1.8.2-beta.2
-**Settings page UX improvements, building on beta.1's mobile fixes.** No database migration.
 - **Unsaved-changes guard**: every Settings/Sign-in form now tracks whether it actually differs from what was last saved — the Save button stays disabled until there's something to save, a dot marks the tab holding the change, and leaving the admin section (sidebar navigation, reload, tab close) asks for confirmation first instead of silently dropping the edit
 - **SMTP configuration moved** from the General tab to Sign-in, next to the authentication methods that depend on it (OTP by email, password with email verification) — it was only ever used for those, and sits there now the same way OIDC already did
-- **Admin tab bars** (Settings, Services) no longer overflow the screen width on mobile: the tab row scrolls horizontally on its own instead of dragging the whole page sideways, with a subtle fade hinting when there's more to scroll to
-- The Users and Audit log tables also scroll independently when their content is wider than the screen, instead of widening the page
+- **Admin tab bars** (Settings, Services) and the Users/Audit log tables no longer overflow the screen width on mobile: they scroll independently instead of dragging the whole page sideways, with a subtle fade hinting when there's more to scroll to
 - "Reset to defaults" now spells out that it resets every tab, not just the one you're looking at
+- The footer shows the running version, and "Administration" in the account menu now opens the admin dashboard directly instead of the Settings page
 
 ### v1.8.1
 **New technical documentation page in the admin panel**. No database migration.
