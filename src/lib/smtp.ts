@@ -103,6 +103,15 @@ export async function sendVerificationEmail(cfg: SmtpConfig, opts: { to: string;
   })
 }
 
+/** Envoie le lien d'invitation (choix du mot de passe). */
+export async function sendInvitationEmail(cfg: SmtpConfig, opts: { to: string; link: string; siteName: string; days: number }): Promise<void> {
+  await sendMail(cfg, {
+    to: opts.to,
+    subject: `${opts.siteName} — You have been invited`,
+    text: `You have been invited to ${opts.siteName}. Click the link below to choose your password and activate your account:\n\n${opts.link}\n\nThis link is valid for ${opts.days} days. If you were not expecting this invitation, you can ignore this email.`,
+  })
+}
+
 /** Vérifie la connexion et l'authentification SMTP sans envoyer de message. */
 export async function verifySmtpConnection(cfg: SmtpConfig): Promise<{ ok: true } | { ok: false; error: string }> {
   try {

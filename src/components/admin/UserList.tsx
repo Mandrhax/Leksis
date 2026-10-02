@@ -25,6 +25,15 @@ interface UsersPage {
 interface Props {
   initial: UsersPage
   currentUserId: string
+  /** Méthode mot de passe active : l'admin peut générer un lien d'invitation (choix du mot de passe par la personne) */
+  passwordMode: boolean
+}
+
+interface LinkResult {
+  email: string
+  link: string
+  emailSent: boolean
+  days: number
 }
 
 const SEARCH_DEBOUNCE_MS = 300
@@ -48,7 +57,7 @@ function Switch({ on, onClick, disabled, title, label }: {
   )
 }
 
-export function UserList({ initial, currentUserId }: Props) {
+export function UserList({ initial, currentUserId, passwordMode }: Props) {
   const { t } = useI18n()
   const [data, setData]           = useState<UsersPage>(initial)
   const [page, setPage]           = useState(initial.page)
@@ -59,6 +68,8 @@ export function UserList({ initial, currentUserId }: Props) {
   const [confirmResetId, setConfirmResetId] = useState<string | null>(null)
   const [resetResult, setResetResult] = useState<{ email: string; password: string } | null>(null)
   const [copied, setCopied]       = useState(false)
+  const [linkResult, setLinkResult] = useState<LinkResult | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
   const [inviting, setInviting]   = useState(false)
   const [invite, setInvite]       = useState({ email: '', name: '', admin: false })
   const [inviteBusy, setInviteBusy] = useState(false)
@@ -73,6 +84,8 @@ export function UserList({ initial, currentUserId }: Props) {
       case 'not_found':   return t.userList.errNotFound
       case 'not_pending': return t.userList.errNotPending
       case 'exists':      return t.userList.errExists
+      case 'method_not_password': return t.userList.errMethodNotPassword
+      case 'account_disabled': return t.userList.errAccountDisabled
       case 'invalid_email': return t.userList.errInvalidEmail
       case 'domain_not_allowed': return t.userList.errDomainNotAllowed
       default:            return t.userList.toastError
@@ -188,6 +201,35 @@ export function UserList({ initial, currentUserId }: Props) {
     }
   }
 
+  // Renvoie true si le lien a été généré (et affiché)
+  async function generateLink(user: { id: string; email: string }): Promise<boolean> {
+    setBusy(user.id)
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/invite-link`, { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setToast({ message: errorMessage(json.code), type: 'error' })
+        return false
+      }
+      setLinkResult({ email: json.email, link: json.link, emailSent: json.emailSent === true, days: json.days })
+      return true
+    } catch {
+      setToast({ message: t.userList.networkError, type: 'error' })
+      return false
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function copyInviteLink() {
+    if (!linkResult) return
+    try {
+      await navigator.clipboard.writeText(linkResult.link)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch { /* clipboard indisponible : le lien reste sélectionnable à la main */ }
+  }
+
   async function copyResetPassword() {
     if (!resetResult) return
     try {
@@ -216,6 +258,8 @@ export function UserList({ initial, currentUserId }: Props) {
       setInvite({ email: '', name: '', admin: false })
       setInviting(false)
       await load(page, query)
+      // Méthode mot de passe : le lien d'invitation suit tout de suite (la personne n'a pas de mot de passe)
+      if (passwordMode) await generateLink(json.user)
     } catch {
       setToast({ message: t.userList.networkError, type: 'error' })
     } finally {
@@ -348,6 +392,18 @@ export function UserList({ initial, currentUserId }: Props) {
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1">
+                        {passwordMode && !user.disabled && (
+                          <button
+                            type="button"
+                            onClick={() => generateLink(user)}
+                            disabled={busy === user.id}
+                            className="icon-btn disabled:opacity-30"
+                            title={t.userList.linkButton}
+                            aria-label={t.userList.linkButton}
+                          >
+                            <span className="material-symbols-outlined text-[1.1rem] leading-none" aria-hidden="true">link</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => setConfirmResetId(user.id)}
@@ -388,6 +444,36 @@ export function UserList({ initial, currentUserId }: Props) {
       </div>
 
       <p className="mt-4 text-xs text-on-surface-variant max-w-2xl">{t.userList.deleteHint}</p>
+
+      {linkResult && (
+        <div
+          className="fixed inset-0 z-[500] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setLinkResult(null)}
+        >
+          <div
+            className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 max-w-md w-full shadow-lg"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="font-headline font-semibold text-base text-on-surface mb-2">{t.userList.linkTitle}</h3>
+            <p className="text-sm text-on-surface-variant mb-4">{t.userList.linkDesc.replace('{0}', linkResult.email)}</p>
+            <div className="flex items-center gap-2 mb-3">
+              <code className="flex-1 px-3 py-2 rounded-lg bg-surface-container text-xs text-on-surface break-all select-all">
+                {linkResult.link}
+              </code>
+              <button type="button" onClick={copyInviteLink} className="icon-btn shrink-0" title={t.userList.copyLink} aria-label={t.userList.copyLink}>
+                <span className="material-symbols-outlined text-[1.1rem] leading-none" aria-hidden="true">{linkCopied ? 'check' : 'content_copy'}</span>
+              </button>
+            </div>
+            <p className="text-xs text-on-surface-variant mb-5">
+              {linkResult.emailSent && <>{t.userList.linkEmailed} </>}
+              {t.userList.linkValid.replace('{0}', String(linkResult.days))}
+            </p>
+            <div className="flex justify-end">
+              <button type="button" onClick={() => setLinkResult(null)} className="action-btn">{t.userList.close}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {resetResult && (
         <div

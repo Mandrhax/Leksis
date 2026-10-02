@@ -520,6 +520,41 @@ try {
   const newSession = await sessionOf(signupPage)
   check('the approved account can sign in with its password', newSession?.user?.email === newEmail, JSON.stringify(newSession))
 
+  // ── Invitation link: the invited person chooses their own password ──
+  const linkedInvite = await postUser({ email: 'linked@example.com', name: 'Linked One' })
+  check('an admin can invite a user while password sign-in is active', linkedInvite.status === 201, JSON.stringify(linkedInvite))
+  const linkRes = await adminPage.evaluate(id => fetch(`/api/admin/users/${id}/invite-link`, { method: 'POST' }).then(async r => ({ status: r.status, json: await r.json().catch(() => ({})) })), linkedInvite.json.user.id)
+  const inviteLink = linkRes.json.link ?? ''
+  check('an invitation link is generated for them', linkRes.status === 200 && inviteLink.includes('/auth/invite?token='), JSON.stringify(linkRes))
+
+  const inviteCtx = await browser.createBrowserContext()
+  const invitePage = await inviteCtx.newPage()
+  await invitePage.goto(BASE + new URL(inviteLink).pathname + new URL(inviteLink).search, { waitUntil: 'networkidle0' })
+  await invitePage.waitForSelector('#password', { timeout: 10000 })
+  check('the link opens a "choose your password" form for that email', (await invitePage.evaluate(() => document.body.innerText)).includes('linked@example.com'))
+  await invitePage.type('#password', 'my own invited password 1')
+  await invitePage.type('#confirm', 'my own invited password 1')
+  await Promise.all([
+    invitePage.waitForFunction(() => document.body.innerText.includes('Password saved'), { timeout: 10000 }),
+    invitePage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.innerText.includes('Set my password'))?.click()),
+  ])
+  check('choosing a password through the link succeeds', true)
+
+  await invitePage.goto(BASE + new URL(inviteLink).pathname + new URL(inviteLink).search, { waitUntil: 'networkidle0' })
+  check('the same link cannot be used twice', (await invitePage.evaluate(() => document.body.innerText)).includes('invalid or has expired'))
+
+  await invitePage.goto(BASE + '/auth/signin', { waitUntil: 'networkidle0' })
+  await invitePage.type('#email', 'linked@example.com')
+  await invitePage.type('#password', 'my own invited password 1')
+  await Promise.all([
+    invitePage.waitForFunction(() => !location.pathname.startsWith('/auth/signin'), { timeout: 15000 }),
+    invitePage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.innerText.includes('Sign in'))?.click()),
+  ])
+  const linkedSession = await sessionOf(invitePage)
+  check('the invited person signs in with the password they chose', linkedSession?.user?.email === 'linked@example.com', JSON.stringify(linkedSession))
+  const linkAudit = (await db.query("SELECT detail FROM audit_log WHERE action = 'INVITE_LINK'")).rows
+  check('the link generation is audited without the token', linkAudit.length === 1 && !JSON.stringify(linkAudit).includes(inviteLink.split('token=')[1]), JSON.stringify(linkAudit))
+
   // ── Settings: change my own password ────────────────────────────
   const oldPassword = 'a very long password 123'
   const newPassword = 'a different long password 456'

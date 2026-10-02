@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.3-beta.3/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.3-beta.4/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,10 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.3-beta.4
+**Invitation links (beta).** No database migration.
+- **Invitation link** (password sign-in methods): from **Users**, invite someone (or use the link button on any account) to get a one-time link to hand over — they open it and choose their own password, which activates their account. Valid 7 days, a new link replaces the previous one, and it is also emailed when SMTP is configured. The admin never sees or sets the person's password
 
 ### v1.8.3-beta.3
 **Invitation-only access, a health endpoint and HSTS (beta).** No database migration.

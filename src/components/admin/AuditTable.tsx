@@ -34,6 +34,7 @@ export function AuditTable() {
     REJECT_USER:     t.auditTable.actionRejectUser,
     RESET_PASSWORD:  t.auditTable.actionResetPassword,
     INVITE_USER:     t.auditTable.actionInviteUser,
+    INVITE_LINK:     t.auditTable.actionInviteLink,
     AUTO_PURGE_USAGE: t.auditTable.actionAutoPurge,
     AUTO_PURGE_AUDIT: t.auditTable.actionAutoPurge,
   }

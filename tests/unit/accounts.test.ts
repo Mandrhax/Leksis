@@ -14,7 +14,7 @@ vi.mock('@/lib/db', () => ({
 
 import {
   activateVerifiedAccount, consumeEmailToken, createEmailToken, createOrAttachPendingAccount,
-  getAccountByEmail, getOrCreateAccount,
+  getAccountByEmail, getOrCreateAccount, acceptInvitation, peekEmailToken,
 } from '@/lib/accounts'
 
 const schema = readFileSync(new URL('../../docker/init-schema.sql', import.meta.url), 'utf8').replace(/CREATE EXTENSION[^\n]*\n/g, '')
@@ -147,5 +147,54 @@ describe('activateVerifiedAccount', () => {
 
   it('returns false for an unknown email', async () => {
     expect(await activateVerifiedAccount('nobody@x.ch')).toBe(false)
+  })
+})
+
+describe('invitation link (peekEmailToken / acceptInvitation)', () => {
+  it('peeking does not consume the token', async () => {
+    const token = await createEmailToken('inv@x.ch', 'invite')
+    expect(await peekEmailToken(token, 'invite')).toBe('inv@x.ch')
+    expect(await peekEmailToken(token, 'invite')).toBe('inv@x.ch')
+  })
+
+  it('sets the chosen password, activates the account, and works only once', async () => {
+    await pg.db.query("INSERT INTO users (email, status) VALUES ('inv@x.ch', 'pending_verification')")
+    const token = await createEmailToken('inv@x.ch', 'invite')
+    expect(await acceptInvitation(token, 'scrypt:chosen')).toEqual({ ok: true, email: 'inv@x.ch' })
+    const row = await pg.db.query<{ password_hash: string; status: string }>('SELECT password_hash, status FROM users WHERE email = $1', ['inv@x.ch'])
+    expect(row.rows[0]).toEqual({ password_hash: 'scrypt:chosen', status: 'active' })
+    expect(await acceptInvitation(token, 'scrypt:second')).toEqual({ ok: false })
+    const again = await pg.db.query<{ password_hash: string }>('SELECT password_hash FROM users WHERE email = $1', ['inv@x.ch'])
+    expect(again.rows[0].password_hash).toBe('scrypt:chosen')
+  })
+
+  it('rejects a token of another purpose (an email-verification token cannot set a password)', async () => {
+    await pg.db.query("INSERT INTO users (email) VALUES ('inv@x.ch')")
+    const verifyToken = await createEmailToken('inv@x.ch', 'verify_email')
+    expect(await acceptInvitation(verifyToken, 'scrypt:evil')).toEqual({ ok: false })
+    expect(await peekEmailToken(verifyToken, 'invite')).toBeNull()
+  })
+
+  it('rejects an expired token', async () => {
+    await pg.db.query("INSERT INTO users (email) VALUES ('inv@x.ch')")
+    const token = await createEmailToken('inv@x.ch', 'invite', -1000)
+    expect(await peekEmailToken(token, 'invite')).toBeNull()
+    expect(await acceptInvitation(token, 'scrypt:late')).toEqual({ ok: false })
+  })
+
+  it('gives nothing to an account disabled after the link was issued', async () => {
+    await pg.db.query("INSERT INTO users (email, disabled) VALUES ('inv@x.ch', TRUE)")
+    const token = await createEmailToken('inv@x.ch', 'invite')
+    expect(await acceptInvitation(token, 'scrypt:x')).toEqual({ ok: false })
+    const row = await pg.db.query<{ password_hash: string | null }>('SELECT password_hash FROM users WHERE email = $1', ['inv@x.ch'])
+    expect(row.rows[0].password_hash).toBeNull()
+  })
+
+  it('a newer link replaces the previous one', async () => {
+    await pg.db.query("INSERT INTO users (email) VALUES ('inv@x.ch')")
+    const first = await createEmailToken('inv@x.ch', 'invite')
+    const second = await createEmailToken('inv@x.ch', 'invite')
+    expect(await acceptInvitation(first, 'scrypt:old')).toEqual({ ok: false })
+    expect(await acceptInvitation(second, 'scrypt:new')).toEqual({ ok: true, email: 'inv@x.ch' })
   })
 })

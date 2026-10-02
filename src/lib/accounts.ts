@@ -2,6 +2,7 @@ import 'server-only'
 import { randomBytes } from 'node:crypto'
 import { query } from './db'
 
+export const INVITE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000 // un lien d'invitation se transmet à la main : une semaine
 const EMAIL_TOKEN_TTL_MS = 24 * 60 * 60 * 1000 // 24h — plus long que l'OTP (10 min) : un lien de vérification
                                                 // dort dans une boîte mail, un code se tape tout de suite.
 
@@ -99,9 +100,9 @@ export async function activateVerifiedAccount(email: string): Promise<boolean> {
  * la table pour un futur reset de mot de passe sans nouvelle migration). Même logique que otp.ts::generateOtp,
  * opaque (256 bits) au lieu d'un code à 6 chiffres : ce token n'est jamais tapé à la main, seulement cliqué.
  */
-export async function createEmailToken(email: string, purpose: string): Promise<string> {
+export async function createEmailToken(email: string, purpose: string, ttlMs = EMAIL_TOKEN_TTL_MS): Promise<string> {
   const token = randomBytes(32).toString('hex')
-  const expiresAt = new Date(Date.now() + EMAIL_TOKEN_TTL_MS)
+  const expiresAt = new Date(Date.now() + ttlMs)
 
   // Invalider les anciens tokens non utilisés du même email et de la même finalité
   await query(`UPDATE email_tokens SET used = TRUE WHERE email = $1 AND purpose = $2 AND used = FALSE`, [email, purpose])
@@ -128,4 +129,29 @@ export async function consumeEmailToken(token: string, purpose: string): Promise
     [token, purpose],
   )
   return result.rowCount ? result.rows[0].email : null
+}
+
+/** Email associé à un jeton encore valable, SANS le consommer (la page d'invitation vérifie le lien avant d'afficher le formulaire). */
+export async function peekEmailToken(token: string, purpose: string): Promise<string | null> {
+  const result = await query<{ email: string }>(
+    `SELECT email FROM email_tokens WHERE token = $1 AND purpose = $2 AND used = FALSE AND expires_at > NOW()`,
+    [token, purpose],
+  )
+  return result.rowCount ? result.rows[0].email : null
+}
+
+/**
+ * Lien d'invitation : consomme le jeton (une seule fois) puis pose le mot de passe choisi par la personne et
+ * active le compte. Le jeton n'est émis que par un administrateur, pour une adresse précise : le détenteur du
+ * lien est donc la personne invitée (contrairement à l'inscription libre, où n'importe qui connaît l'email).
+ * Un compte désactivé ou supprimé entre-temps ne reçoit rien.
+ */
+export async function acceptInvitation(token: string, passwordHash: string): Promise<{ ok: true; email: string } | { ok: false }> {
+  const email = await consumeEmailToken(token, 'invite')
+  if (!email) return { ok: false }
+  const result = await query(
+    `UPDATE users SET password_hash = $2, status = 'active' WHERE email = $1 AND NOT disabled`,
+    [email, passwordHash],
+  )
+  return (result.rowCount ?? 0) > 0 ? { ok: true, email } : { ok: false }
 }
