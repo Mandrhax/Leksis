@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BrandingForm }  from './BrandingForm'
 import { DesignForm }    from './DesignForm'
 import { GeneralForm }   from './GeneralForm'
@@ -24,6 +24,7 @@ interface Props {
   smtp: SmtpPublicConfig
   oidc: OidcPublicConfig
   authMethod: AuthMethod
+  allowedDomains: string
 }
 
 type Tab = 'identity' | 'appearance' | 'features' | 'tones' | 'general' | 'legal' | 'connexion'
@@ -31,10 +32,18 @@ type Tab = 'identity' | 'appearance' | 'features' | 'tones' | 'general' | 'legal
 // Finer-grained than Tab: the Connexion tab hosts three independently-saved forms.
 type DirtySource = 'identity' | 'appearance' | 'features' | 'tones' | 'general' | 'connexion' | 'smtp' | 'oidc' | 'legal'
 
-export function SettingsTabs({ settings, smtp, oidc, authMethod }: Props) {
+export function SettingsTabs({ settings, smtp, oidc, authMethod, allowedDomains }: Props) {
   const { t } = useI18n()
   const st = t.settingsTabs
   const [tab, setTab]               = useState<Tab>('identity')
+
+  // Lien direct (?tab=connexion), lu après le montage : même raison que callbackUrl (pas de useSearchParams)
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get('tab')
+    if (wanted && (['identity', 'appearance', 'features', 'tones', 'general', 'legal', 'connexion'] as string[]).includes(wanted)) {
+      setTab(wanted as Tab)
+    }
+  }, [])
   const [toast, setToast]           = useState<ToastState>(null)
   const [confirming, setConfirming] = useState(false)
   const [resetting, setResetting]   = useState(false)
@@ -157,7 +166,7 @@ export function SettingsTabs({ settings, smtp, oidc, authMethod }: Props) {
         <LegalForm initial={(settings.legal as Record<string, string> | undefined) ?? {}} onToast={setToast} onDirtyChange={setDirty.legal} />
       </div>
       <div className={tab === 'connexion' ? '' : 'hidden'}>
-        <ConnexionForm initial={{ method: authMethod }} smtp={smtp} oidc={oidc} onToast={setToast} onDirtyChange={setDirty.connexion} />
+        <ConnexionForm initial={{ method: authMethod, allowedDomains }} smtp={smtp} oidc={oidc} onToast={setToast} onDirtyChange={setDirty.connexion} />
         {/* SMTP lives here, not under General: it only matters as a prerequisite for two of the sign-in methods above */}
         <div className="mt-3">
           <SmtpForm initial={smtp} onToast={setToast} onDirtyChange={setDirty.smtp} />

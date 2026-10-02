@@ -51,6 +51,7 @@ export function SignUpForm({ siteName }: { siteName: string }) {
         setError(
           data.code === 'email_taken'      ? t.signUp.errEmailTaken
           : data.code === 'rate_limited'   ? t.signUp.errRateLimited
+          : data.code === 'domain_not_allowed' ? t.signUp.errDomain
           : data.code === 'method_disabled' ? t.signUp.errMethodDisabled
           : data.code === 'invalid'        ? t.signUp.errWeakPassword
           : t.signUp.errGeneric,

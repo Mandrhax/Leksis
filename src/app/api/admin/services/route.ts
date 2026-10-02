@@ -10,7 +10,7 @@ import { getSmtpConfig, getSmtpPublicConfig, isSmtpConfigured } from '@/lib/smtp
 import { isValidEmail } from '@/lib/validators'
 import { AUTH_METHODS } from '@/lib/settings-schema'
 import { getOidcConfig, getOidcPublicConfig, isOidcConfigured } from '@/lib/auth-methods'
-import { parseAllowedDomains } from '@/lib/oidc-access'
+import { isEmailDomainAllowed, parseAllowedDomains } from '@/lib/email-domains'
 
 const AiSchema = z.object({
   service:          z.literal('ai'),
@@ -51,6 +51,7 @@ const SmtpSchema = z.object({
 const AuthSchema = z.object({
   service: z.literal('auth'),
   method:  z.enum(AUTH_METHODS),
+  allowedDomains: z.string().max(500).optional(),
 })
 
 const OidcSchema = z.object({
@@ -61,7 +62,6 @@ const OidcSchema = z.object({
   clearClientSecret: z.boolean().optional(),
   buttonLabel:       z.string().max(60).optional(),
   scopes:            z.string().max(500).optional(),
-  allowedDomains:    z.string().max(500).optional(),
 })
 
 const Schema = z.discriminatedUnion('service', [AiSchema, CaddySchema, SmtpSchema, AuthSchema, OidcSchema])
@@ -172,7 +172,13 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: 'oidc_not_configured' }, { status: 400 })
       }
     }
-    await updateSetting('auth_config', { method: data.method }, session.user.id, session.user.email!)
+    // Même raison : une liste de domaines qui exclut l'adresse de l'administrateur qui enregistre le
+    // verrouillerait lui-même dehors dès sa prochaine requête.
+    const allowedDomains = parseAllowedDomains(data.allowedDomains ?? '').join(', ')
+    if (!isEmailDomainAllowed(session.user.email, allowedDomains)) {
+      return NextResponse.json({ error: 'excludes_self' }, { status: 400 })
+    }
+    await updateSetting('auth_config', { method: data.method, allowedDomains }, session.user.id, session.user.email!)
   } else if (data.service === 'oidc') {
     const existing = await getSetting<Record<string, unknown>>('oidc_config')
     const issuer = data.issuer.replace(/\/+$/, '')
@@ -190,12 +196,10 @@ export async function PATCH(req: NextRequest) {
       clientSecretEnc,
       buttonLabel: data.buttonLabel || 'SSO',
       scopes:      data.scopes || 'openid email profile',
-      allowedDomains: parseAllowedDomains(data.allowedDomains ?? '').join(', '),
     }
     // Le journal d'audit ne reçoit jamais le secret, même chiffré
     await updateSetting('oidc_config', value, session.user.id, session.user.email!, {
       issuer: value.issuer, clientId: value.clientId, buttonLabel: value.buttonLabel, scopes: value.scopes,
-      allowedDomains: value.allowedDomains,
       hasClientSecret: clientSecretEnc !== '',
     })
   } else {

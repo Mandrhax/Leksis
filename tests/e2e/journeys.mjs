@@ -380,6 +380,28 @@ try {
   it = await italianFields()
   check('the Italian names are still there after leaving the page and coming back', it[0] === 'Professionale' && it[1] === 'Alla buona', JSON.stringify(it))
 
+  // ── Allowed email domains (all sign-in methods) ──
+  const patchAuth = body => adminPage.evaluate(b => fetch('/api/admin/services', {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b),
+  }).then(async r => ({ status: r.status, json: await r.json().catch(() => ({})) })), { service: 'auth', ...body })
+
+  const selfLock = await patchAuth({ method: 'otp_display', allowedDomains: 'other.org' })
+  check('a domain list that excludes the saving admin is refused', selfLock.status === 400 && selfLock.json.error === 'excludes_self', JSON.stringify(selfLock))
+
+  const lockOn = await patchAuth({ method: 'otp_display', allowedDomains: 'Example.com, @acme.ch' })
+  check('an admin can restrict sign-in to some domains', lockOn.status === 200, JSON.stringify(lockOn))
+  const outsider = await otp('someone@other.org')
+  check('an email code is refused for a domain outside the list', outsider.status === 403 && (await outsider.json()).code === 'domain_not_allowed', String(outsider.status))
+  const neverCreated = (await db.query("SELECT 1 FROM users WHERE email = 'someone@other.org'")).rowCount
+  check('and no account is created for it', neverCreated === 0)
+  const insider = await otp('colleague@acme.ch')
+  check('a listed domain still gets its code', insider.status === 200, String(insider.status))
+  const stillIn = await sessionOf(adminPage)
+  check('the admin session (listed domain) stays valid', stillIn?.user?.email === 'admin@example.com', JSON.stringify(stillIn))
+  const lockOff = await patchAuth({ method: 'otp_display', allowedDomains: '' })
+  check('clearing the list removes the restriction', lockOff.status === 200 && (await otp('someone@other.org')).status === 200)
+  await db.query("DELETE FROM users WHERE email IN ('someone@other.org', 'colleague@acme.ch')")
+
   // ── Sign-in method: switch to password + admin approval via the Connexion tab, sign up, approve, sign in ──
   await adminPage.goto(BASE + '/admin/settings', { waitUntil: 'networkidle0' })
   await adminPage.evaluate(() => [...document.querySelectorAll('button')].find(b => b.innerText.includes('Sign-in'))?.click())

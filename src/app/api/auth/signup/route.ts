@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { getPublicOrigin } from '@/lib/public-origin'
 import { isValidEmail } from '@/lib/validators'
-import { getAuthMethod } from '@/lib/auth-methods'
+import { getAllowedDomains, getAuthMethod } from '@/lib/auth-methods'
+import { isEmailDomainAllowed } from '@/lib/email-domains'
 import { createEmailToken, createOrAttachPendingAccount } from '@/lib/accounts'
 import { hashPassword } from '@/lib/password'
 import { getSmtpConfig, isSmtpConfigured, sendVerificationEmail } from '@/lib/smtp'
@@ -60,6 +61,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid email address.', code: 'invalid' }, { status: 400 })
   }
   const name = parsed.data.name?.trim() || null
+
+  if (!isEmailDomainAllowed(email, await getAllowedDomains())) {
+    return NextResponse.json({ error: 'This email domain is not allowed.', code: 'domain_not_allowed' }, { status: 403 })
+  }
 
   const emailLimit = checkRateLimit(`signup-email:${email}`, SIGNUP_PER_EMAIL_PER_MIN)
   if (!emailLimit.ok) return rateLimitResponse(emailLimit.retryAfterSec)

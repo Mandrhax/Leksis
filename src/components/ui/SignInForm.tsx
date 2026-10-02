@@ -50,6 +50,7 @@ function OtpSignIn({ t }: { t: Messages }) {
       if (!res.ok) {
         setError(
           data.code === 'account_disabled' ? t.signIn.errorDisabled
+          : data.code === 'domain_not_allowed' ? t.signIn.errorDomain
           : data.code === 'rate_limited'   ? t.signIn.errorRateLimited
           : data.code === 'email_failed'   ? t.signIn.errorEmailFailed
           : t.signIn.errorGeneric,
@@ -216,6 +217,7 @@ function PasswordSignIn({ t }: { t: Messages }) {
       if (result?.code || result?.error || !result?.ok) {
         setError(
           result?.code === 'account_disabled'       ? t.signIn.errorDisabled
+          : result?.code === 'domain_not_allowed'   ? t.signIn.errorDomain
           : result?.code === 'pending_approval'     ? t.signIn.errPendingApproval
           : result?.code === 'pending_verification' ? t.signIn.errPendingVerification
           : t.signIn.errInvalidCredentials,

@@ -8,12 +8,14 @@ import { getUserRole } from '@/lib/users'
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
 import { authConfig } from '@/auth.config'
 import { isOidcIdentityAccepted } from '@/lib/oidc-access'
-import { decryptOidcClientSecret, getAuthMethod, getOidcConfig, isOidcConfigured } from '@/lib/auth-methods'
+import { decryptOidcClientSecret, getAllowedDomains, getAuthMethod, getOidcConfig, isOidcConfigured } from '@/lib/auth-methods'
+import { isEmailDomainAllowed } from '@/lib/email-domains'
 
 // Codes distincts propagés jusqu'au client via signIn(...).code (CredentialsSignin.code devient le paramètre
 // `code` de l'URL de redirection — voir node_modules/@auth/core/errors.js) : SignInForm les traduit,
 // contrairement à un simple null qui ne distingue pas "mauvais mot de passe" de "compte pas encore validé".
 class AccountDisabledError extends CredentialsSignin { code = 'account_disabled' }
+class DomainNotAllowedError extends CredentialsSignin { code = 'domain_not_allowed' }
 class PendingApprovalError extends CredentialsSignin { code = 'pending_approval' }
 class PendingVerificationError extends CredentialsSignin { code = 'pending_verification' }
 
@@ -54,6 +56,7 @@ async function buildProviders(): Promise<NextAuthConfig['providers']> {
 
           const user = await getUserByEmail(email)
           if (!user || user.disabled) return null // compte inconnu ou désactivé
+          if (!isEmailDomainAllowed(user.email, await getAllowedDomains())) return null // domaine plus autorisé
 
           return { id: user.id, email: user.email, name: user.name ?? undefined }
         },
@@ -100,6 +103,9 @@ async function buildProviders(): Promise<NextAuthConfig['providers']> {
           if (account.disabled) throw new AccountDisabledError()
           if (!account.password_hash || !(await verifyPassword(account.password_hash, password))) return null
 
+          // Après la vérification du mot de passe : ne révèle rien à qui ne le connaît pas
+          if (!isEmailDomainAllowed(account.email, await getAllowedDomains())) throw new DomainNotAllowedError()
+
           // status ne gate que ce fournisseur : OTP et OIDC établissent la confiance par possession
           // (boîte mail/code affiché, ou l'IdP lui-même), déjà plus fort que ce que "pending" filtre ici.
           if (account.status === 'pending_approval') throw new PendingApprovalError()
@@ -131,7 +137,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
       if (!user.email) return false
       // Domaine autorisé + email non déclaré « non vérifié » : sinon n'importe quel compte du fournisseur
       // (ou un fournisseur laxiste sur les emails) entrerait, voire usurperait un compte existant par son email.
-      const { allowedDomains } = await getOidcConfig()
+      const allowedDomains = await getAllowedDomains()
       if (!isOidcIdentityAccepted({
         email: user.email,
         emailVerified: typeof profile?.email_verified === 'boolean' ? profile.email_verified : undefined,
@@ -161,6 +167,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
           const role = await getUserRole(token.id)
           if (role === null) return null // compte supprimé : session invalidée
           token.role = role
+          // Domaines restreints après coup : les sessions déjà ouvertes d'un domaine exclu tombent aussi
+          if (!isEmailDomainAllowed(token.email, await getAllowedDomains())) return null
         } catch {
           // Base injoignable : on garde le rôle du jeton plutôt que de déconnecter tout le monde
         }

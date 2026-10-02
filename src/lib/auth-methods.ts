@@ -25,6 +25,15 @@ export async function getAuthMethod(): Promise<AuthMethod> {
   return isSmtpConfigured(smtp) ? 'otp_email' : 'otp_display'
 }
 
+/**
+ * Domaines email autorisés à utiliser la plateforme, toutes méthodes de connexion confondues (texte libre,
+ * voir email-domains.ts) ; chaîne vide = aucune restriction. Stocké dans auth_config avec la méthode.
+ */
+export async function getAllowedDomains(): Promise<string> {
+  const raw = await getSetting<Record<string, unknown>>('auth_config')
+  return typeof raw.allowedDomains === 'string' ? raw.allowedDomains.trim() : ''
+}
+
 export interface OidcConfig {
   issuer: string
   clientId: string
@@ -32,8 +41,6 @@ export interface OidcConfig {
   clientSecretEnc: string
   buttonLabel: string
   scopes: string
-  /** Domaines email autorisés (texte libre, voir oidc-access.ts) ; vide = tous */
-  allowedDomains: string
 }
 
 export interface OidcPublicConfig {
@@ -42,7 +49,6 @@ export interface OidcPublicConfig {
   hasClientSecret: boolean
   buttonLabel: string
   scopes: string
-  allowedDomains: string
 }
 
 const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v.trim() : fallback)
@@ -60,7 +66,6 @@ export async function getOidcConfig(): Promise<OidcConfig> {
     clientSecretEnc: str(raw.clientSecretEnc),
     buttonLabel: str(raw.buttonLabel, 'SSO'),
     scopes: str(raw.scopes, 'openid email profile'),
-    allowedDomains: str(raw.allowedDomains),
   }
 }
 
@@ -73,7 +78,6 @@ export async function getOidcPublicConfig(): Promise<OidcPublicConfig> {
     hasClientSecret: str(raw.clientSecretEnc) !== '',
     buttonLabel: str(raw.buttonLabel, 'SSO'),
     scopes: str(raw.scopes, 'openid email profile'),
-    allowedDomains: str(raw.allowedDomains),
   }
 }
 

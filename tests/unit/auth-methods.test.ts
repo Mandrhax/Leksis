@@ -53,7 +53,6 @@ describe('isOidcConfigured / getOidcConfig / getOidcPublicConfig', () => {
     const clientSecretEnc = encrypt('s3cret')
     settings.oidc_config = {
       issuer: 'https://idp.example.com', clientId: 'leksis', clientSecretEnc, buttonLabel: 'Acme SSO', scopes: 'openid email',
-      allowedDomains: 'acme.ch',
     }
 
     const cfg = await getOidcConfig()
@@ -64,7 +63,6 @@ describe('isOidcConfigured / getOidcConfig / getOidcPublicConfig', () => {
     const pub = await getOidcPublicConfig()
     expect(pub).toEqual({
       issuer: 'https://idp.example.com', clientId: 'leksis', hasClientSecret: true, buttonLabel: 'Acme SSO', scopes: 'openid email',
-      allowedDomains: 'acme.ch',
     })
     expect((pub as unknown as Record<string, unknown>).clientSecretEnc).toBeUndefined()
   })
@@ -78,7 +76,6 @@ describe('isOidcConfigured / getOidcConfig / getOidcPublicConfig', () => {
     const cfg = await getOidcConfig()
     expect(cfg.buttonLabel).toBe('SSO')
     expect(cfg.scopes).toBe('openid email profile')
-    expect(cfg.allowedDomains).toBe('')
   })
 })
 
@@ -90,7 +87,7 @@ describe('getAuthPublicConfig', () => {
     }
     expect(await getAuthPublicConfig()).toEqual({
       method: 'sso_oidc',
-      oidc: { issuer: 'https://idp.example.com', clientId: 'leksis', hasClientSecret: true, buttonLabel: 'Acme', scopes: 'openid', allowedDomains: '' },
+      oidc: { issuer: 'https://idp.example.com', clientId: 'leksis', hasClientSecret: true, buttonLabel: 'Acme', scopes: 'openid' },
     })
   })
 })

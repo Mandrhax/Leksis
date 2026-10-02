@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.3-beta.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.3-beta.2/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,11 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.3-beta.2
+**Allowed email domains for every sign-in method, and a direct link to the Sign-in tab (beta).** No database migration.
+- **Allowed email domains** (Admin → Settings → Sign-in): one or several domains; only addresses on those domains can sign in or sign up, whatever the method (email code, password, SSO) — and sessions already open on another domain end. The list must include the saving admin's own domain. Replaces the SSO-only field of beta.1
+- The dashboard warning now opens the Sign-in tab directly (`/admin/settings?tab=connexion`)
 
 ### v1.8.3-beta.1
 **Sign-in security hardening (beta).** No database migration.

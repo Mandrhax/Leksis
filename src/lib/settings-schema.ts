@@ -71,6 +71,8 @@ export type AuthMethod = typeof AUTH_METHODS[number]
 
 export const AuthConfigSchema = z.object({
   method: z.enum(AUTH_METHODS),
+  /** Domaines email autorisés (texte libre, voir email-domains.ts) ; vide = tous */
+  allowedDomains: z.string().max(500).optional(),
 })
 
 const langCode = z.string().regex(/^(auto|[A-Za-z0-9-]{1,20})$/, 'Invalid language code')
@@ -130,7 +132,7 @@ export const SETTING_DEFAULTS = {
   design:      { buttonRadius: '0.75rem', footerText: '© Leksis', footerLinks: [] },
   general:     { contactEmail: '', globalBanner: '', maintenanceMode: false, maintenanceMessage: '', ...RETENTION_DEFAULTS },
   legal:       { organization: '', contact: '', privacyNotes: '', usageRules: '' },
-  auth_config: { method: 'otp_display' as AuthMethod },
+  auth_config: { method: 'otp_display' as AuthMethod, allowedDomains: '' },
   features: {
     tabs:     { text: true, document: true, image: true, rewrite: true },
     defaults: { sourceLang: 'auto', targetLang: 'en', formality: 'Informal' },

@@ -4,7 +4,8 @@ import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit
 import { isValidEmail } from '@/lib/validators'
 import { getSmtpConfig, isSmtpConfigured, sendOtpEmail } from '@/lib/smtp'
 import { getSetting } from '@/lib/settings'
-import { getAuthMethod } from '@/lib/auth-methods'
+import { getAllowedDomains, getAuthMethod } from '@/lib/auth-methods'
+import { isEmailDomainAllowed } from '@/lib/email-domains'
 
 const OTP_PER_IP_PER_MIN    = 20
 const OTP_PER_EMAIL_PER_MIN = 5
@@ -38,6 +39,11 @@ export async function POST(req: NextRequest) {
 
   const emailLimit = checkRateLimit(`otp-email:${email}`, OTP_PER_EMAIL_PER_MIN)
   if (!emailLimit.ok) return rateLimitResponse(emailLimit.retryAfterSec)
+
+  // Avant toute création de compte ou génération de code
+  if (!isEmailDomainAllowed(email, await getAllowedDomains())) {
+    return NextResponse.json({ error: 'This email domain is not allowed.', code: 'domain_not_allowed' }, { status: 403 })
+  }
 
   try {
     const user = await getOrCreateUser(email)

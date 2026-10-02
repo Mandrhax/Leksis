@@ -9,7 +9,7 @@ import type { AuthMethod } from '@/lib/settings-schema'
 import { useDirtyTracking } from '@/hooks/useDirtyTracking'
 
 interface Props {
-  initial: { method: AuthMethod }
+  initial: { method: AuthMethod; allowedDomains: string }
   smtp: SmtpPublicConfig
   oidc: OidcPublicConfig
   onToast: (t: ToastState) => void
@@ -25,7 +25,8 @@ export function ConnexionForm({ initial, smtp, oidc, onToast, onDirtyChange }: P
 
   const [method, setMethod] = useState<AuthMethod>(initial.method)
   const [saving, setSaving] = useState(false)
-  const { dirty, markSaved } = useDirtyTracking(method)
+  const [allowedDomains, setAllowedDomains] = useState(initial.allowedDomains)
+  const { dirty, markSaved } = useDirtyTracking({ method, allowedDomains })
   useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   const smtpOk = isSmtpConfigured(smtp)
@@ -45,13 +46,14 @@ export function ConnexionForm({ initial, smtp, oidc, onToast, onDirtyChange }: P
       const res = await fetch('/api/admin/services', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ service: 'auth', method }),
+        body: JSON.stringify({ service: 'auth', method, allowedDomains }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
         onToast({
           message: json.error === 'smtp_not_configured' ? cf.errSmtpNotConfigured
             : json.error === 'oidc_not_configured' ? cf.errOidcNotConfigured
+            : json.error === 'excludes_self' ? cf.errExcludesSelf
             : cf.toastError,
           type: 'error',
         })
@@ -95,6 +97,16 @@ export function ConnexionForm({ initial, smtp, oidc, onToast, onDirtyChange }: P
             </span>
           </button>
         ))}
+      </div>
+
+      <div>
+        <label className="block text-sm text-on-surface mb-1.5">{cf.allowedDomainsLabel}</label>
+        <input
+          type="text" value={allowedDomains} onChange={e => setAllowedDomains(e.target.value)}
+          className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+          placeholder="acme.ch, acme.com"
+        />
+        <p className="mt-1 text-xs text-on-surface-variant">{cf.allowedDomainsHint}</p>
       </div>
 
       {dirty && (

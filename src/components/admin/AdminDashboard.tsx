@@ -246,7 +246,7 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-error">{at.openSignInTitle}</p>
             <p className="text-sm text-on-surface-variant mt-1">{at.openSignInText}</p>
-            <Link href="/admin/settings" className="inline-block mt-2 text-sm font-semibold text-primary hover:underline">{at.openSignInAction}</Link>
+            <Link href="/admin/settings?tab=connexion" className="inline-block mt-2 text-sm font-semibold text-primary hover:underline">{at.openSignInAction}</Link>
           </div>
         </div>
       )}
