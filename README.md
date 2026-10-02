@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.3-beta.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.3-beta.3/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,12 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.3-beta.3
+**Invitation-only access, a health endpoint and HSTS (beta).** No database migration.
+- **Invitation only** (Admin → Settings → Sign-in): only accounts created in advance can sign in — no email code, SSO or sign-up creates an account on its own, and the sign-up link is hidden. Admins create accounts from **Users → Invite a user** (active, no password; in password mode, generate one with the reset button)
+- **`GET /api/health`**: public monitoring endpoint (states only: database and AI engine), 200 while the app serves, 503 if the database is down
+- **HSTS** (`Strict-Transport-Security`, 1 year) on the HTTPS block of the Caddyfile, from Admin or `leksis config`
 
 ### v1.8.3-beta.2
 **Allowed email domains for every sign-in method, and a direct link to the Sign-in tab (beta).** No database migration.

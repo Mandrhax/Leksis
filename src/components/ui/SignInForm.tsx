@@ -51,6 +51,7 @@ function OtpSignIn({ t }: { t: Messages }) {
         setError(
           data.code === 'account_disabled' ? t.signIn.errorDisabled
           : data.code === 'domain_not_allowed' ? t.signIn.errorDomain
+          : data.code === 'not_invited'    ? t.signIn.errorNotInvited
           : data.code === 'rate_limited'   ? t.signIn.errorRateLimited
           : data.code === 'email_failed'   ? t.signIn.errorEmailFailed
           : t.signIn.errorGeneric,
@@ -196,7 +197,7 @@ function OtpSignIn({ t }: { t: Messages }) {
   )
 }
 
-function PasswordSignIn({ t }: { t: Messages }) {
+function PasswordSignIn({ t, inviteOnly }: { t: Messages; inviteOnly: boolean }) {
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading]   = useState(false)
@@ -284,12 +285,14 @@ function PasswordSignIn({ t }: { t: Messages }) {
         {loading ? t.signIn.verifying : t.signIn.signInWithPassword}
       </button>
 
-      <Link
-        href="/auth/signup"
-        className="block w-full text-center text-xs text-on-surface-variant hover:text-on-surface transition-colors"
-      >
-        {t.signIn.signUpLink}
-      </Link>
+      {!inviteOnly && (
+        <Link
+          href="/auth/signup"
+          className="block w-full text-center text-xs text-on-surface-variant hover:text-on-surface transition-colors"
+        >
+          {t.signIn.signUpLink}
+        </Link>
+      )}
     </form>
   )
 }
@@ -317,7 +320,7 @@ function SsoSignIn({ t, ssoButtonLabel }: { t: Messages; ssoButtonLabel: string 
   )
 }
 
-export function SignInForm({ siteName, method, ssoButtonLabel }: { siteName: string; method: AuthMethod; ssoButtonLabel?: string }) {
+export function SignInForm({ siteName, method, ssoButtonLabel, inviteOnly = false }: { siteName: string; method: AuthMethod; ssoButtonLabel?: string; inviteOnly?: boolean }) {
   const { t } = useI18n()
   const [verifyBanner, setVerifyBanner] = useState<'ok' | 'invalid' | null>(null)
   const [confirmToken, setConfirmToken] = useState<string | null>(null)
@@ -379,7 +382,7 @@ export function SignInForm({ siteName, method, ssoButtonLabel }: { siteName: str
         <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-8 shadow-sm">
           {isSso
             ? <SsoSignIn t={t} ssoButtonLabel={ssoButtonLabel || 'SSO'} />
-            : isPassword ? <PasswordSignIn t={t} /> : <OtpSignIn t={t} />}
+            : isPassword ? <PasswordSignIn t={t} inviteOnly={inviteOnly} /> : <OtpSignIn t={t} />}
         </div>
 
         <nav className="mt-6 flex items-center justify-center gap-4">

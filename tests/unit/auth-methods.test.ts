@@ -88,6 +88,7 @@ describe('getAuthPublicConfig', () => {
     expect(await getAuthPublicConfig()).toEqual({
       method: 'sso_oidc',
       oidc: { issuer: 'https://idp.example.com', clientId: 'leksis', hasClientSecret: true, buttonLabel: 'Acme', scopes: 'openid' },
+      inviteOnly: false,
     })
   })
 })

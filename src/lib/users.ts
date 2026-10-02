@@ -183,3 +183,24 @@ export async function resetUserPassword(id: string): Promise<ResetPasswordResult
   if (!result.rowCount) return { ok: false, error: 'not_found' }
   return { ok: true, email: result.rows[0].email, password }
 }
+
+export type InviteUserResult =
+  | { ok: true; user: { id: string; email: string; name: string | null; role: string; disabled: boolean; status: string } }
+  | { ok: false; error: 'exists' }
+
+/**
+ * Crée à l'avance le compte d'une personne (mode « invitation seulement » : seuls les comptes existants
+ * peuvent se connecter). Actif d'emblée, sans mot de passe — elle se connecte par la méthode active ; en
+ * mode mot de passe, l'admin lui en génère un depuis la liste (réinitialisation). Jamais d'écrasement : un
+ * email qui a déjà un compte est refusé tel quel (le rôle et le nom existants ne bougent pas).
+ */
+export async function inviteUser(input: { email: string; name?: string | null; role?: 'user' | 'admin' }): Promise<InviteUserResult> {
+  const result = await query<{ id: string; email: string; name: string | null; role: string; disabled: boolean; status: string }>(
+    `INSERT INTO users (email, name, role) VALUES ($1, $2, $3)
+     ON CONFLICT (email) DO NOTHING
+     RETURNING id, email, name, role, disabled, status`,
+    [input.email.trim().toLowerCase(), input.name?.trim() || null, input.role ?? 'user'],
+  )
+  if (!result.rowCount) return { ok: false, error: 'exists' }
+  return { ok: true, user: result.rows[0] }
+}

@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import { I18nProvider } from '@/lib/i18n'
 import { SignUpForm } from '@/components/ui/SignUpForm'
-import { getAuthMethod } from '@/lib/auth-methods'
+import { getAuthMethod, getInviteOnly } from '@/lib/auth-methods'
 
 async function loadSiteName(): Promise<string> {
   try {
@@ -21,7 +21,7 @@ export default async function SignUpPage() {
   // Page inutile (et trompeuse) tant qu'une méthode mot de passe n'est pas active — mieux vaut rediriger
   // que d'afficher un formulaire d'inscription qui échouerait à la soumission.
   const method = await getAuthMethod()
-  if (method !== 'password_admin_approval' && method !== 'password_email_verify') {
+  if ((method !== 'password_admin_approval' && method !== 'password_email_verify') || await getInviteOnly()) {
     redirect('/auth/signin')
   }
 

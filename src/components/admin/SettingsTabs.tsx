@@ -25,6 +25,7 @@ interface Props {
   oidc: OidcPublicConfig
   authMethod: AuthMethod
   allowedDomains: string
+  inviteOnly: boolean
 }
 
 type Tab = 'identity' | 'appearance' | 'features' | 'tones' | 'general' | 'legal' | 'connexion'
@@ -32,7 +33,7 @@ type Tab = 'identity' | 'appearance' | 'features' | 'tones' | 'general' | 'legal
 // Finer-grained than Tab: the Connexion tab hosts three independently-saved forms.
 type DirtySource = 'identity' | 'appearance' | 'features' | 'tones' | 'general' | 'connexion' | 'smtp' | 'oidc' | 'legal'
 
-export function SettingsTabs({ settings, smtp, oidc, authMethod, allowedDomains }: Props) {
+export function SettingsTabs({ settings, smtp, oidc, authMethod, allowedDomains, inviteOnly }: Props) {
   const { t } = useI18n()
   const st = t.settingsTabs
   const [tab, setTab]               = useState<Tab>('identity')
@@ -166,7 +167,7 @@ export function SettingsTabs({ settings, smtp, oidc, authMethod, allowedDomains 
         <LegalForm initial={(settings.legal as Record<string, string> | undefined) ?? {}} onToast={setToast} onDirtyChange={setDirty.legal} />
       </div>
       <div className={tab === 'connexion' ? '' : 'hidden'}>
-        <ConnexionForm initial={{ method: authMethod, allowedDomains }} smtp={smtp} oidc={oidc} onToast={setToast} onDirtyChange={setDirty.connexion} />
+        <ConnexionForm initial={{ method: authMethod, allowedDomains, inviteOnly }} smtp={smtp} oidc={oidc} onToast={setToast} onDirtyChange={setDirty.connexion} />
         {/* SMTP lives here, not under General: it only matters as a prerequisite for two of the sign-in methods above */}
         <div className="mt-3">
           <SmtpForm initial={smtp} onToast={setToast} onDirtyChange={setDirty.smtp} />

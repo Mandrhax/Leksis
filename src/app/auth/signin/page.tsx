@@ -21,7 +21,7 @@ export default async function SignInPage() {
   const [siteName, auth] = await Promise.all([loadSiteName(), getAuthPublicConfig()])
   return (
     <I18nProvider>
-      <SignInForm siteName={siteName} method={auth.method} ssoButtonLabel={auth.oidc.buttonLabel} />
+      <SignInForm siteName={siteName} method={auth.method} ssoButtonLabel={auth.oidc.buttonLabel} inviteOnly={auth.inviteOnly} />
     </I18nProvider>
   )
 }

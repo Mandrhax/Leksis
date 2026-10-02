@@ -59,6 +59,9 @@ export function UserList({ initial, currentUserId }: Props) {
   const [confirmResetId, setConfirmResetId] = useState<string | null>(null)
   const [resetResult, setResetResult] = useState<{ email: string; password: string } | null>(null)
   const [copied, setCopied]       = useState(false)
+  const [inviting, setInviting]   = useState(false)
+  const [invite, setInvite]       = useState({ email: '', name: '', admin: false })
+  const [inviteBusy, setInviteBusy] = useState(false)
   const [toast, setToast]         = useState<ToastState>(null)
   const requestId                 = useRef(0)
   const firstLoad                 = useRef(true)
@@ -69,6 +72,9 @@ export function UserList({ initial, currentUserId }: Props) {
       case 'last_admin':  return t.userList.errLastAdmin
       case 'not_found':   return t.userList.errNotFound
       case 'not_pending': return t.userList.errNotPending
+      case 'exists':      return t.userList.errExists
+      case 'invalid_email': return t.userList.errInvalidEmail
+      case 'domain_not_allowed': return t.userList.errDomainNotAllowed
       default:            return t.userList.toastError
     }
   }, [t])
@@ -192,13 +198,39 @@ export function UserList({ initial, currentUserId }: Props) {
   }
 
   const lastPage = Math.max(Math.ceil(data.total / data.pageSize), 1)
+  async function submitInvite(e: React.FormEvent) {
+    e.preventDefault()
+    setInviteBusy(true)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: invite.email, name: invite.name || undefined, role: invite.admin ? 'admin' : 'user' }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setToast({ message: errorMessage(json.code), type: 'error' })
+        return
+      }
+      setToast({ message: t.userList.toastInvited.replace('{0}', json.user.email), type: 'success' })
+      setInvite({ email: '', name: '', admin: false })
+      setInviting(false)
+      await load(page, query)
+    } catch {
+      setToast({ message: t.userList.networkError, type: 'error' })
+    } finally {
+      setInviteBusy(false)
+    }
+  }
+
   const from = data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1
   const to   = Math.min(data.page * data.pageSize, data.total)
   const th   = 'px-5 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wider'
 
   return (
     <>
-      <div className="mb-4 relative max-w-sm">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="relative w-full max-w-sm">
         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[1.1rem] text-on-surface-variant pointer-events-none" aria-hidden="true">search</span>
         <input
           type="search"
@@ -209,6 +241,35 @@ export function UserList({ initial, currentUserId }: Props) {
           className="w-full pl-10 pr-3 py-2 text-sm rounded-lg border border-outline-variant/30 bg-surface-container-lowest text-on-surface focus:outline-none focus:border-primary"
         />
       </div>
+      <div className="flex-1" />
+      <button type="button" onClick={() => setInviting(v => !v)} className="action-btn">
+        <span className="material-symbols-outlined text-[0.95rem] leading-none" aria-hidden="true">person_add</span>
+        {t.userList.inviteButton}
+      </button>
+      </div>
+
+      {inviting && (
+        <form onSubmit={submitInvite} className="mb-4 bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-4 flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[14rem]">
+            <label className="block text-xs text-on-surface-variant mb-1">{t.userList.inviteEmail}</label>
+            <input type="email" required value={invite.email} onChange={e => setInvite(v => ({ ...v, email: e.target.value }))} autoComplete="off"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-outline-variant/30 bg-surface-container text-on-surface focus:outline-none focus:border-primary" />
+          </div>
+          <div className="flex-1 min-w-[12rem]">
+            <label className="block text-xs text-on-surface-variant mb-1">{t.userList.inviteName}</label>
+            <input type="text" value={invite.name} onChange={e => setInvite(v => ({ ...v, name: e.target.value }))} maxLength={120} autoComplete="off"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-outline-variant/30 bg-surface-container text-on-surface focus:outline-none focus:border-primary" />
+          </div>
+          <label className="flex items-center gap-2 text-sm text-on-surface pb-2">
+            <input type="checkbox" checked={invite.admin} onChange={e => setInvite(v => ({ ...v, admin: e.target.checked }))} />
+            {t.userList.inviteAdmin}
+          </label>
+          <div className="flex items-center gap-2">
+            <button type="submit" disabled={inviteBusy || !invite.email} className="action-btn disabled:opacity-40">{t.userList.inviteSubmit}</button>
+            <button type="button" onClick={() => setInviting(false)} className="text-button">{t.userList.inviteCancel}</button>
+          </div>
+        </form>
+      )}
 
       <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 overflow-x-auto overflow-y-hidden">
         <table className="w-full text-sm">

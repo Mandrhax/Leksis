@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getOrCreateUser, generateOtp } from '@/lib/otp'
+import { getOrCreateUser, generateOtp, getUserByEmail } from '@/lib/otp'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { isValidEmail } from '@/lib/validators'
 import { getSmtpConfig, isSmtpConfigured, sendOtpEmail } from '@/lib/smtp'
 import { getSetting } from '@/lib/settings'
-import { getAllowedDomains, getAuthMethod } from '@/lib/auth-methods'
+import { getAllowedDomains, getAuthMethod, getInviteOnly } from '@/lib/auth-methods'
 import { isEmailDomainAllowed } from '@/lib/email-domains'
 
 const OTP_PER_IP_PER_MIN    = 20
@@ -46,6 +46,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Invitation seulement : jamais de création de compte ici, ni de code pour un inconnu
+    if (await getInviteOnly() && !(await getUserByEmail(email))) {
+      return NextResponse.json({ error: 'Access is by invitation only.', code: 'not_invited' }, { status: 403 })
+    }
     const user = await getOrCreateUser(email)
     if (user.disabled) {
       return NextResponse.json({ error: 'This account is disabled.', code: 'account_disabled' }, { status: 403 })

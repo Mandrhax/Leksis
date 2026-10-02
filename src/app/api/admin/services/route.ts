@@ -52,6 +52,7 @@ const AuthSchema = z.object({
   service: z.literal('auth'),
   method:  z.enum(AUTH_METHODS),
   allowedDomains: z.string().max(500).optional(),
+  inviteOnly: z.boolean().optional(),
 })
 
 const OidcSchema = z.object({
@@ -178,7 +179,7 @@ export async function PATCH(req: NextRequest) {
     if (!isEmailDomainAllowed(session.user.email, allowedDomains)) {
       return NextResponse.json({ error: 'excludes_self' }, { status: 400 })
     }
-    await updateSetting('auth_config', { method: data.method, allowedDomains }, session.user.id, session.user.email!)
+    await updateSetting('auth_config', { method: data.method, allowedDomains, inviteOnly: data.inviteOnly === true }, session.user.id, session.user.email!)
   } else if (data.service === 'oidc') {
     const existing = await getSetting<Record<string, unknown>>('oidc_config')
     const issuer = data.issuer.replace(/\/+$/, '')

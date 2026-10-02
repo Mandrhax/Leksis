@@ -8,7 +8,7 @@ import { getUserRole } from '@/lib/users'
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
 import { authConfig } from '@/auth.config'
 import { isOidcIdentityAccepted } from '@/lib/oidc-access'
-import { decryptOidcClientSecret, getAllowedDomains, getAuthMethod, getOidcConfig, isOidcConfigured } from '@/lib/auth-methods'
+import { decryptOidcClientSecret, getAllowedDomains, getAuthMethod, getInviteOnly, getOidcConfig, isOidcConfigured } from '@/lib/auth-methods'
 import { isEmailDomainAllowed } from '@/lib/email-domains'
 
 // Codes distincts propagés jusqu'au client via signIn(...).code (CredentialsSignin.code devient le paramètre
@@ -143,7 +143,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
         emailVerified: typeof profile?.email_verified === 'boolean' ? profile.email_verified : undefined,
         allowedDomains,
       })) return false
-      const acct = await getOrCreateAccount(user.email, user.name)
+      // Invitation seulement : l'identité SSO doit déjà avoir un compte (pas d'auto-création au premier login)
+      const acct = (await getInviteOnly())
+        ? await getAccountByEmail(user.email)
+        : await getOrCreateAccount(user.email, user.name)
+      if (!acct) return false
       return !acct.disabled
     },
     async jwt({ token, user, account }) {

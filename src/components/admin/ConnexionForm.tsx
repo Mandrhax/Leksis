@@ -9,7 +9,7 @@ import type { AuthMethod } from '@/lib/settings-schema'
 import { useDirtyTracking } from '@/hooks/useDirtyTracking'
 
 interface Props {
-  initial: { method: AuthMethod; allowedDomains: string }
+  initial: { method: AuthMethod; allowedDomains: string; inviteOnly: boolean }
   smtp: SmtpPublicConfig
   oidc: OidcPublicConfig
   onToast: (t: ToastState) => void
@@ -26,7 +26,8 @@ export function ConnexionForm({ initial, smtp, oidc, onToast, onDirtyChange }: P
   const [method, setMethod] = useState<AuthMethod>(initial.method)
   const [saving, setSaving] = useState(false)
   const [allowedDomains, setAllowedDomains] = useState(initial.allowedDomains)
-  const { dirty, markSaved } = useDirtyTracking({ method, allowedDomains })
+  const [inviteOnly, setInviteOnly] = useState(initial.inviteOnly)
+  const { dirty, markSaved } = useDirtyTracking({ method, allowedDomains, inviteOnly })
   useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   const smtpOk = isSmtpConfigured(smtp)
@@ -46,7 +47,7 @@ export function ConnexionForm({ initial, smtp, oidc, onToast, onDirtyChange }: P
       const res = await fetch('/api/admin/services', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ service: 'auth', method, allowedDomains }),
+        body: JSON.stringify({ service: 'auth', method, allowedDomains, inviteOnly }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -108,6 +109,14 @@ export function ConnexionForm({ initial, smtp, oidc, onToast, onDirtyChange }: P
         />
         <p className="mt-1 text-xs text-on-surface-variant">{cf.allowedDomainsHint}</p>
       </div>
+
+      <label className="flex items-start gap-2.5 cursor-pointer">
+        <input type="checkbox" checked={inviteOnly} onChange={e => setInviteOnly(e.target.checked)} className="mt-0.5" />
+        <span>
+          <span className="block text-sm text-on-surface">{cf.inviteOnlyLabel}</span>
+          <span className="block text-xs text-on-surface-variant mt-0.5">{cf.inviteOnlyHint}</span>
+        </span>
+      </label>
 
       {dirty && (
         <p className="text-xs text-error">{cf.switchWarning}</p>

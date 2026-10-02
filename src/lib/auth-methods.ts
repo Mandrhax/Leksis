@@ -34,6 +34,15 @@ export async function getAllowedDomains(): Promise<string> {
   return typeof raw.allowedDomains === 'string' ? raw.allowedDomains.trim() : ''
 }
 
+/**
+ * Mode « invitation seulement » : seuls les comptes que l'admin a créés à l'avance peuvent se connecter,
+ * aucune méthode ne crée plus de compte toute seule (code, SSO, inscription). Stocké dans auth_config.
+ */
+export async function getInviteOnly(): Promise<boolean> {
+  const raw = await getSetting<Record<string, unknown>>('auth_config')
+  return raw.inviteOnly === true
+}
+
 export interface OidcConfig {
   issuer: string
   clientId: string
@@ -92,9 +101,9 @@ export function decryptOidcClientSecret(cfg: Pick<OidcConfig, 'clientSecretEnc'>
 }
 
 /** Vue publique combinée, consommée par la page de connexion pour savoir quoi afficher — jamais de secret. */
-export async function getAuthPublicConfig(): Promise<{ method: AuthMethod; oidc: OidcPublicConfig }> {
-  const [method, oidc] = await Promise.all([getAuthMethod(), getOidcPublicConfig()])
-  return { method, oidc }
+export async function getAuthPublicConfig(): Promise<{ method: AuthMethod; oidc: OidcPublicConfig; inviteOnly: boolean }> {
+  const [method, oidc, inviteOnly] = await Promise.all([getAuthMethod(), getOidcPublicConfig(), getInviteOnly()])
+  return { method, oidc, inviteOnly }
 }
 
 export interface OidcTestResult {

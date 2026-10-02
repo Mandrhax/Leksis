@@ -16,7 +16,7 @@ vi.mock('@/lib/db', () => ({
     })),
 }))
 
-import { approveUser, changeUser, getUserRole, listUsers, removeUser, resetUserPassword } from '@/lib/users'
+import { approveUser, changeUser, getUserRole, inviteUser, listUsers, removeUser, resetUserPassword } from '@/lib/users'
 import { verifyPassword } from '@/lib/password'
 
 const schema = readFileSync(new URL('../../docker/init-schema.sql', import.meta.url), 'utf8').replace(/CREATE EXTENSION[^\n]*\n/g, '')
@@ -202,5 +202,21 @@ describe('resetUserPassword', () => {
     const admin = await addUser('a@x.ch', 'admin')
     const result = await resetUserPassword(admin)
     expect(result.ok).toBe(true)
+  })
+})
+
+describe('inviteUser', () => {
+  it('creates an active account with the given role and name', async () => {
+    const result = await inviteUser({ email: 'New@X.ch', name: 'New One', role: 'admin' })
+    expect(result).toMatchObject({ ok: true, user: { email: 'new@x.ch', name: 'New One', role: 'admin', status: 'active', disabled: false } })
+    const row = await pg.db.query<{ password_hash: string | null }>('SELECT password_hash FROM users WHERE email = $1', ['new@x.ch'])
+    expect(row.rows[0].password_hash).toBeNull()
+  })
+
+  it('refuses an email that already has an account, and changes nothing', async () => {
+    await addUser('dup@x.ch', 'user', 'Original')
+    expect(await inviteUser({ email: 'dup@x.ch', role: 'admin' })).toEqual({ ok: false, error: 'exists' })
+    const row = await pg.db.query<{ role: string; name: string }>('SELECT role, name FROM users WHERE email = $1', ['dup@x.ch'])
+    expect(row.rows[0]).toEqual({ role: 'user', name: 'Original' })
   })
 })

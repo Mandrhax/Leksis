@@ -407,6 +407,26 @@ try {
   check('clearing the list removes the restriction', lockOff.status === 200 && (await otp('someone@other.org')).status === 200)
   await db.query("DELETE FROM users WHERE email IN ('someone@other.org', 'colleague@acme.ch')")
 
+  // ── Invitation only: no account is created on its own; an admin creates them in advance ──
+  const inviteOn = await patchAuth({ method: 'otp_display', allowedDomains: '', inviteOnly: true })
+  check('an admin can switch to invitation only', inviteOn.status === 200, JSON.stringify(inviteOn))
+  const stranger = await otp('stranger@example.com')
+  check('an email code is refused for someone who was not invited', stranger.status === 403 && (await stranger.json()).code === 'not_invited', String(stranger.status))
+  check('and no account is created for them', (await db.query("SELECT 1 FROM users WHERE email = 'stranger@example.com'")).rowCount === 0)
+  const postUser = body => adminPage.evaluate(b => fetch('/api/admin/users', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b),
+  }).then(async r => ({ status: r.status, json: await r.json().catch(() => ({})) })), body)
+  const invited = await postUser({ email: 'Invited@Example.com', name: 'Invited One' })
+  check('an admin can invite a user', invited.status === 201 && invited.json.user?.email === 'invited@example.com', JSON.stringify(invited))
+  check('inviting the same email again is refused', (await postUser({ email: 'invited@example.com' })).status === 409)
+  check('an invalid email is refused', (await postUser({ email: 'not-an-email' })).status === 400)
+  const invitedCode = await otp('invited@example.com')
+  check('the invited person gets their code', invitedCode.status === 200, String(invitedCode.status))
+  check('the invitation is audited', (await db.query("SELECT 1 FROM audit_log WHERE action = 'INVITE_USER'")).rowCount === 1)
+  const inviteOff = await patchAuth({ method: 'otp_display', allowedDomains: '', inviteOnly: false })
+  check('switching invitation only off lets codes be requested for new emails again', inviteOff.status === 200 && (await otp('stranger@example.com')).status === 200)
+  await db.query("DELETE FROM users WHERE email IN ('stranger@example.com', 'invited@example.com')")
+
   // ── Sign-in method: switch to password + admin approval via the Connexion tab, sign up, approve, sign in ──
   await adminPage.goto(BASE + '/admin/settings', { waitUntil: 'networkidle0' })
   await adminPage.evaluate(() => [...document.querySelectorAll('button')].find(b => b.innerText.includes('Sign-in'))?.click())
