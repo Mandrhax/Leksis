@@ -7,6 +7,7 @@ import { verifyPassword } from '@/lib/password'
 import { getUserRole } from '@/lib/users'
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
 import { authConfig } from '@/auth.config'
+import { isOidcIdentityAccepted } from '@/lib/oidc-access'
 import { decryptOidcClientSecret, getAuthMethod, getOidcConfig, isOidcConfigured } from '@/lib/auth-methods'
 
 // Codes distincts propagés jusqu'au client via signIn(...).code (CredentialsSignin.code devient le paramètre
@@ -125,9 +126,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
     ...authConfig.callbacks,
     // Équivalent d'authorize() pour OIDC, qui n'en a pas : premier login SSO → auto-provisioning
     // (role='user'/status='active' par défaut de colonne, comme otp.ts::getOrCreateUser).
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (account?.provider !== 'oidc') return true
       if (!user.email) return false
+      // Domaine autorisé + email non déclaré « non vérifié » : sinon n'importe quel compte du fournisseur
+      // (ou un fournisseur laxiste sur les emails) entrerait, voire usurperait un compte existant par son email.
+      const { allowedDomains } = await getOidcConfig()
+      if (!isOidcIdentityAccepted({
+        email: user.email,
+        emailVerified: typeof profile?.email_verified === 'boolean' ? profile.email_verified : undefined,
+        allowedDomains,
+      })) return false
       const acct = await getOrCreateAccount(user.email, user.name)
       return !acct.disabled
     },

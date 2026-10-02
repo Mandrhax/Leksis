@@ -425,6 +425,28 @@ try {
   }
   check('the new account is pending_approval with a password hash set', newUser?.status === 'pending_approval' && !!newUser?.password_hash, JSON.stringify(newUser))
 
+  // Anti pré-piratage : s'inscrire avec l'email de l'admin (compte sans mot de passe) ne doit rien modifier
+  const hijack = await fetch(BASE + '/api/auth/signup', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'admin@example.com', password: 'attacker password 123' }),
+  })
+  const adminRow = (await db.query("SELECT status, password_hash FROM users WHERE email = 'admin@example.com'")).rows[0]
+  check('signing up with an existing passwordless account (the admin) is refused and changes nothing',
+    hijack.status === 409 && adminRow.status === 'active' && adminRow.password_hash === null, `${hijack.status} ${JSON.stringify(adminRow)}`)
+
+  // Un GET sur le lien de vérification (scanner de messagerie) ne doit pas activer le compte
+  await db.query("INSERT INTO users (email, password_hash, status) VALUES ('pv@example.com', 'scrypt:x', 'pending_verification')")
+  await db.query("INSERT INTO email_tokens (email, token, purpose, expires_at) VALUES ('pv@example.com', 'e2e-verify-token', 'verify_email', NOW() + INTERVAL '1 hour')")
+  const prefetch = await fetch(BASE + '/api/auth/verify-email?token=e2e-verify-token', { redirect: 'manual' })
+  const pvAfterGet = (await db.query("SELECT status FROM users WHERE email = 'pv@example.com'")).rows[0]
+  check('opening the email link (GET) does not activate the account', prefetch.status >= 300 && prefetch.status < 400 && pvAfterGet.status === 'pending_verification', `${prefetch.status} ${pvAfterGet.status}`)
+  const confirm = await fetch(BASE + '/api/auth/verify-email', {
+    method: 'POST', redirect: 'manual',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'token=e2e-verify-token',
+  })
+  const pvAfterPost = (await db.query("SELECT status FROM users WHERE email = 'pv@example.com'")).rows[0]
+  check('confirming with a POST activates the account', confirm.status === 303 && pvAfterPost.status === 'active', `${confirm.status} ${pvAfterPost.status}`)
+
   await adminPage.goto(BASE + '/admin/users', { waitUntil: 'networkidle0' })
   await adminPage.type('input[type=search]', 'newbie')
   await adminPage.waitForFunction(() => document.body.innerText.includes('Pending approval'), { timeout: 10000 })

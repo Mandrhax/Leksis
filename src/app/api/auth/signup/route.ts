@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { checkRateLimit, getClientIp, getRequestOrigin, rateLimitResponse } from '@/lib/rate-limit'
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
+import { getPublicOrigin } from '@/lib/public-origin'
 import { isValidEmail } from '@/lib/validators'
 import { getAuthMethod } from '@/lib/auth-methods'
 import { createEmailToken, createOrAttachPendingAccount } from '@/lib/accounts'
@@ -29,7 +30,7 @@ async function sendVerification(req: NextRequest, email: string): Promise<NextRe
   try {
     const token = await createEmailToken(email, 'verify_email')
     const branding = await getSetting<{ siteName?: string }>('branding')
-    const link = `${getRequestOrigin(req)}/api/auth/verify-email?token=${token}`
+    const link = `${await getPublicOrigin(req)}/api/auth/verify-email?token=${token}`
     await sendVerificationEmail(smtp, { to: email, link, siteName: branding.siteName || 'Leksis' })
     return null
   } catch (err) {
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, status: 'pending_approval' })
     }
 
-    // 'created' / 'attached' / 'resend_verification' : n'envoyer un email que si ce mode en dépend —
+    // 'created' / 'resend_verification' : n'envoyer un email que si ce mode en dépend —
     // un 'resend_verification' hérité d'un ancien changement de méthode ne doit pas forcer un envoi
     // alors que l'admin est repassé en validation manuelle (SMTP potentiellement plus configuré du tout).
     if (method === 'password_email_verify') {

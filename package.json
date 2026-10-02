@@ -1,6 +1,6 @@
 {
   "name": "leksis",
-  "version": "1.8.2",
+  "version": "1.8.3-beta.1",
   "private": true,
   "scripts": {
     "dev": "next dev",

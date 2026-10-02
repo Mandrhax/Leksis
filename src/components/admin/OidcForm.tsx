@@ -11,6 +11,7 @@ interface Data {
   clientId: string
   buttonLabel: string
   scopes: string
+  allowedDomains: string
 }
 
 interface TestResult {
@@ -33,6 +34,7 @@ export function OidcForm({ initial, onToast, onDirtyChange }: Props) {
     clientId:    initial.clientId,
     buttonLabel: initial.buttonLabel,
     scopes:      initial.scopes,
+    allowedDomains: initial.allowedDomains,
   })
   const [clientSecret, setClientSecret] = useState('')
   const [hasClientSecret, setHasClientSecret] = useState(initial.hasClientSecret)
@@ -65,6 +67,7 @@ export function OidcForm({ initial, onToast, onDirtyChange }: Props) {
           clientId: data.clientId,
           buttonLabel: data.buttonLabel,
           scopes: data.scopes,
+          allowedDomains: data.allowedDomains,
           ...(clientSecret ? { clientSecret } : {}),
           ...(clearClientSecret ? { clearClientSecret: true } : {}),
         }),
@@ -136,6 +139,11 @@ export function OidcForm({ initial, onToast, onDirtyChange }: Props) {
               </p>
             )}
             {clearClientSecret && <p className="mt-1 text-xs text-on-surface-variant">{of.clientSecretWillRemove}</p>}
+          </div>
+          <div>
+            <label className="block text-sm text-on-surface mb-1.5">{of.allowedDomainsLabel}</label>
+            <input type="text" value={data.allowedDomains} onChange={e => field('allowedDomains', e.target.value)} className={inputCls} placeholder="acme.ch" />
+            <p className="mt-1 text-xs text-on-surface-variant">{of.allowedDomainsHint}</p>
           </div>
         </div>
 

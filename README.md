@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.3-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,14 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.3-beta.1
+**Sign-in security hardening (beta).** No database migration.
+- **Password sign-up can no longer take over an existing account**: signing up with the email of an account that has no password (the installer's admin, an email-code or SSO account) is refused and changes nothing
+- **The email verification link no longer activates anything by itself** — opening it (or a mail scanner following it) leads to the sign-in page, which asks for one click on "Confirm my email address"
+- **SSO: allowed email domains** (Admin → Settings → Sign-in → SSO): only the listed domains can sign in; an identity whose email the provider reports as unverified is refused
+- **Verification links use the configured domain** in HTTPS mode, instead of the request's `Host` header
+- **Admin dashboard warning** while the sign-in method shows the code on screen (anyone reaching the server can sign in as any email); the installer now prints the same warning
 
 ### v1.8.2
 **Workspace UX pass, plus Settings page UX improvements (tested through five betas).** No database migration.

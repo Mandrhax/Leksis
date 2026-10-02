@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { requireAdmin } from '@/lib/admin-guard'
 import { query }        from '@/lib/db'
 import { getSetting }   from '@/lib/settings'
+import { getAuthMethod } from '@/lib/auth-methods'
 import { labelAuditResources } from '@/lib/audit'
 import { AdminDashboard } from '@/components/admin/AdminDashboard'
 import pkg from '../../../../package.json'
@@ -78,6 +79,7 @@ export default async function AdminDashboardPage() {
       trend={trend}
       featureCounts={featureCounts}
       lastBackupAt={systemStatus.lastBackupAt ?? null}
+      openSignIn={(await getAuthMethod()) === 'otp_display'}
     />
   )
 }

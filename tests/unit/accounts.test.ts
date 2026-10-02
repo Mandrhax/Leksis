@@ -65,20 +65,16 @@ describe('createOrAttachPendingAccount', () => {
     })
   })
 
-  it('attaches a password to an existing OTP/OIDC account without a password_hash', async () => {
-    await pg.db.query("INSERT INTO users (email, name) VALUES ('otp@x.ch', 'Otp User')")
-    const result = await createOrAttachPendingAccount('otp@x.ch', null, 'scrypt:hash', 'pending_verification')
-    expect(result).toMatchObject({
-      outcome: 'attached',
-      account: { email: 'otp@x.ch', name: 'Otp User', status: 'pending_verification', password_hash: 'scrypt:hash' },
-    })
-  })
-
-  it('never invents a password for an OTP/OIDC account: it always writes the one it was given', async () => {
-    await pg.db.query("INSERT INTO users (email) VALUES ('otp2@x.ch')")
-    await createOrAttachPendingAccount('otp2@x.ch', null, 'scrypt:mine', 'pending_approval')
-    const row = await pg.db.query<{ password_hash: string }>('SELECT password_hash FROM users WHERE email = $1', ['otp2@x.ch'])
-    expect(row.rows[0].password_hash).toBe('scrypt:mine')
+  // Anti pré-piratage : quiconque connaît l'email d'un compte existant sans mot de passe (admin d'installation,
+  // compte OTP/SSO) ne doit pas pouvoir y poser le sien — la victime n'aurait qu'à cliquer le lien de
+  // vérification (ou un scanner de messagerie le ferait pour elle).
+  it('refuses to attach a password to an existing account without a password_hash, and writes nothing', async () => {
+    await pg.db.query("INSERT INTO users (email, name, role) VALUES ('otp@x.ch', 'Otp User', 'admin')")
+    const result = await createOrAttachPendingAccount('otp@x.ch', 'Mallory', 'scrypt:evil', 'pending_verification')
+    expect(result).toEqual({ outcome: 'already_active' })
+    const row = await pg.db.query<{ password_hash: string | null; status: string; name: string }>(
+      'SELECT password_hash, status, name FROM users WHERE email = $1', ['otp@x.ch'])
+    expect(row.rows[0]).toEqual({ password_hash: null, status: 'active', name: 'Otp User' })
   })
 
   it('reports an already-active account without writing anything', async () => {

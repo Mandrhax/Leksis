@@ -32,6 +32,8 @@ export interface OidcConfig {
   clientSecretEnc: string
   buttonLabel: string
   scopes: string
+  /** Domaines email autorisés (texte libre, voir oidc-access.ts) ; vide = tous */
+  allowedDomains: string
 }
 
 export interface OidcPublicConfig {
@@ -40,6 +42,7 @@ export interface OidcPublicConfig {
   hasClientSecret: boolean
   buttonLabel: string
   scopes: string
+  allowedDomains: string
 }
 
 const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v.trim() : fallback)
@@ -57,6 +60,7 @@ export async function getOidcConfig(): Promise<OidcConfig> {
     clientSecretEnc: str(raw.clientSecretEnc),
     buttonLabel: str(raw.buttonLabel, 'SSO'),
     scopes: str(raw.scopes, 'openid email profile'),
+    allowedDomains: str(raw.allowedDomains),
   }
 }
 
@@ -69,6 +73,7 @@ export async function getOidcPublicConfig(): Promise<OidcPublicConfig> {
     hasClientSecret: str(raw.clientSecretEnc) !== '',
     buttonLabel: str(raw.buttonLabel, 'SSO'),
     scopes: str(raw.scopes, 'openid email profile'),
+    allowedDomains: str(raw.allowedDomains),
   }
 }
 

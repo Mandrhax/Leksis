@@ -54,6 +54,8 @@ interface Props {
   trend:          TrendPoint[]
   featureCounts:  FeatureCounts
   lastBackupAt:   string | null
+  /** Méthode de connexion « code affiché à l'écran » : accès ouvert à quiconque atteint le serveur */
+  openSignIn:     boolean
 }
 
 const ICON_MAP: Record<string, string> = {
@@ -154,7 +156,7 @@ function FeatureBreakdown({ counts, t }: { counts: FeatureCounts; t: Messages })
   )
 }
 
-export function AdminDashboard({ stats, recentActivity, appVersion, trend, featureCounts, lastBackupAt }: Props) {
+export function AdminDashboard({ stats, recentActivity, appVersion, trend, featureCounts, lastBackupAt, openSignIn }: Props) {
   const { t, locale } = useI18n()
   const router = useRouter()
   const at = t.adminPages
@@ -237,6 +239,17 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
           {at.dashboardRefresh}
         </button>
       </div>
+
+      {openSignIn && (
+        <div role="alert" className="mb-6 flex items-start gap-3 rounded-xl border border-error/30 bg-error/5 p-4">
+          <span className="material-symbols-outlined text-error text-xl leading-none mt-0.5" aria-hidden="true">warning</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-error">{at.openSignInTitle}</p>
+            <p className="text-sm text-on-surface-variant mt-1">{at.openSignInText}</p>
+            <Link href="/admin/settings" className="inline-block mt-2 text-sm font-semibold text-primary hover:underline">{at.openSignInAction}</Link>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-6">
         {/* Service health */}

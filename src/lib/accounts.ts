@@ -46,14 +46,15 @@ export async function getOrCreateAccount(email: string, name?: string | null): P
 }
 
 export type CreateOrAttachResult =
-  | { outcome: 'created' | 'attached'; account: Account }
+  | { outcome: 'created'; account: Account }
   | { outcome: 'resend_verification'; account: Account }
   | { outcome: 'already_pending' | 'already_active' }
 
 /**
  * Inscription par mot de passe (/api/auth/signup, tranche 3) :
  *  - email inconnu → nouveau compte, statut `status`.
- *  - compte OTP/OIDC existant sans mot de passe → on l'attache, jamais de mot de passe inventé pour lui.
+ *  - compte existant sans mot de passe (OTP/OIDC/admin d'installation) → refusé comme 'already_active', rien
+ *    n'est écrit : sinon n'importe qui pourrait y poser son mot de passe (pré-piratage).
  *  - compte déjà en attente de vérification email → 'resend_verification' (le premier email a pu se perdre,
  *    l'appelant renvoie un nouveau token plutôt que de bloquer).
  *  - compte déjà en attente de validation admin, ou déjà actif → signalé tel quel, aucune écriture.
@@ -75,18 +76,13 @@ export async function createOrAttachPendingAccount(
     return { outcome: 'created', account: result.rows[0] }
   }
 
-  if (existing.password_hash) {
-    if (existing.status === 'active') return { outcome: 'already_active' }
-    if (existing.status === 'pending_verification') return { outcome: 'resend_verification', account: existing }
-    return { outcome: 'already_pending' }
-  }
+  // Compte sans mot de passe (admin d'installation, OTP, SSO) : jamais de mot de passe posé par un inconnu
+  // qui connaît l'email. Le propriétaire passe par un administrateur (réinitialisation) ou sa méthode habituelle.
+  if (!existing.password_hash) return { outcome: 'already_active' }
 
-  const result = await query<Account>(
-    `UPDATE users SET password_hash = $2, status = $3, name = COALESCE($4, name) WHERE email = $1
-     RETURNING ${ACCOUNT_COLUMNS}`,
-    [email, passwordHash, status, name],
-  )
-  return { outcome: 'attached', account: result.rows[0] }
+  if (existing.status === 'active') return { outcome: 'already_active' }
+  if (existing.status === 'pending_verification') return { outcome: 'resend_verification', account: existing }
+  return { outcome: 'already_pending' }
 }
 
 /** Marque un compte comme actif une fois son email vérifié. Sans effet si le statut a changé entre-temps. */

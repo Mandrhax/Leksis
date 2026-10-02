@@ -318,12 +318,18 @@ function SsoSignIn({ t, ssoButtonLabel }: { t: Messages; ssoButtonLabel: string 
 export function SignInForm({ siteName, method, ssoButtonLabel }: { siteName: string; method: AuthMethod; ssoButtonLabel?: string }) {
   const { t } = useI18n()
   const [verifyBanner, setVerifyBanner] = useState<'ok' | 'invalid' | null>(null)
+  const [confirmToken, setConfirmToken] = useState<string | null>(null)
 
   // Lu après le montage (pas useSearchParams) : même raison que callbackUrl plus bas, évite une frontière
   // Suspense qui retarderait l'hydratation.
   useEffect(() => {
-    const v = new URLSearchParams(window.location.search).get('verify')
+    const params = new URLSearchParams(window.location.search)
+    const v = params.get('verify')
     if (v === 'ok' || v === 'invalid') setVerifyBanner(v)
+    // Le lien de l'email n'active rien tout seul (un scanner de messagerie le suit automatiquement) :
+    // il faut cliquer ce bouton, qui envoie le jeton en POST.
+    const token = params.get('token')
+    if (v === 'confirm' && token) setConfirmToken(token)
   }, [])
 
   const isPassword = method === 'password_admin_approval' || method === 'password_email_verify'
@@ -357,6 +363,14 @@ export function SignInForm({ siteName, method, ssoButtonLabel }: { siteName: str
           }`}>
             {verifyBanner === 'ok' ? t.signIn.verifyOk : t.signIn.verifyInvalid}
           </div>
+        )}
+
+        {confirmToken && (
+          <form method="POST" action="/api/auth/verify-email" className="mb-4 rounded-lg border border-primary/20 bg-primary-container/30 p-4 text-center">
+            <input type="hidden" name="token" value={confirmToken} />
+            <p className="mb-3 text-xs text-on-surface">{t.signIn.verifyConfirmText}</p>
+            <button type="submit" className="action-btn">{t.signIn.verifyConfirmButton}</button>
+          </form>
         )}
 
         {/* Card */}

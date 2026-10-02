@@ -10,6 +10,7 @@ import { getSmtpConfig, getSmtpPublicConfig, isSmtpConfigured } from '@/lib/smtp
 import { isValidEmail } from '@/lib/validators'
 import { AUTH_METHODS } from '@/lib/settings-schema'
 import { getOidcConfig, getOidcPublicConfig, isOidcConfigured } from '@/lib/auth-methods'
+import { parseAllowedDomains } from '@/lib/oidc-access'
 
 const AiSchema = z.object({
   service:          z.literal('ai'),
@@ -60,6 +61,7 @@ const OidcSchema = z.object({
   clearClientSecret: z.boolean().optional(),
   buttonLabel:       z.string().max(60).optional(),
   scopes:            z.string().max(500).optional(),
+  allowedDomains:    z.string().max(500).optional(),
 })
 
 const Schema = z.discriminatedUnion('service', [AiSchema, CaddySchema, SmtpSchema, AuthSchema, OidcSchema])
@@ -188,10 +190,12 @@ export async function PATCH(req: NextRequest) {
       clientSecretEnc,
       buttonLabel: data.buttonLabel || 'SSO',
       scopes:      data.scopes || 'openid email profile',
+      allowedDomains: parseAllowedDomains(data.allowedDomains ?? '').join(', '),
     }
     // Le journal d'audit ne reçoit jamais le secret, même chiffré
     await updateSetting('oidc_config', value, session.user.id, session.user.email!, {
       issuer: value.issuer, clientId: value.clientId, buttonLabel: value.buttonLabel, scopes: value.scopes,
+      allowedDomains: value.allowedDomains,
       hasClientSecret: clientSecretEnc !== '',
     })
   } else {

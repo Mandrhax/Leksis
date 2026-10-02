@@ -16,12 +16,12 @@
 # Options: -y/--yes  --answers FILE  --dir DIR  --no-tui  -h/--help
 #
 # Run from a server via curl (stdin-safe):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.2/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.3-beta.1/install.sh)
 # ============================================================
 set -eEuo pipefail
 
 # ── VERSION (bumped at release; package.json wins when present) ──
-VERSION="1.8.2"
+VERSION="1.8.3-beta.1"
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "$0")"
 _pkg="$(dirname "$SCRIPT_PATH")/package.json"
 if [[ -f "$_pkg" ]]; then
@@ -2213,6 +2213,10 @@ cmd_install() {
     say ""
     p_info "To switch to HTTPS later: Admin → Services → Caddy → HTTPS (or:  leksis config)."
   fi
+  say ""
+  p_warn "Security: until you choose a sign-in method, the login code is shown on screen —"
+  p_warn "anyone who can reach this server can sign in with any email, including the admin's."
+  p_warn "Sign in now and pick email code, password or SSO in Admin → Settings → Sign-in."
   say ""
   say "  Useful commands (run as root):"
   say "    leksis status   - service status"
