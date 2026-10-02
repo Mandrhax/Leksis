@@ -1767,7 +1767,7 @@ caddyfile_content() {
   printf '{\n  admin 0.0.0.0:2019\n  servers {\n    trusted_proxies static %s\n  }\n}\n\n' "$tp"
   case "$mode" in
     https)
-      printf '%s {\n    encode gzip\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' "$host"
+      printf '%s {\n    encode gzip\n    header Strict-Transport-Security "max-age=31536000"\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' "$host"
       if [[ "$fallback" == "true" ]]; then
         printf '\n:80 {\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n'
       fi ;;

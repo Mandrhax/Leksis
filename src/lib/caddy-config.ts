@@ -110,7 +110,9 @@ export function generateCaddyfile(config: CaddyConfig): string {
     '',
   ]
   if (config.mode === 'https') {
-    lines.push(`${config.host} {`, '    encode gzip', ...proxy(), '}')
+    // HSTS seulement sur le bloc HTTPS (un navigateur l'ignore de toute façon sur HTTP) : 1 an, sans
+    // includeSubDomains ni preload — ni les sous-domaines ni la liste de préchargement ne sont à nous.
+    lines.push(`${config.host} {`, '    encode gzip', '    header Strict-Transport-Security "max-age=31536000"', ...proxy(), '}')
     if (config.keepHttpFallback) lines.push('', ':80 {', ...proxy(), '}')
   } else {
     lines.push(':80 {')

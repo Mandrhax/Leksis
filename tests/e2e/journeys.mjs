@@ -380,6 +380,11 @@ try {
   it = await italianFields()
   check('the Italian names are still there after leaving the page and coming back', it[0] === 'Professionale' && it[1] === 'Alla buona', JSON.stringify(it))
 
+  // ── Health endpoint: public, states only ──
+  const healthRes = await fetch(BASE + '/api/health', { redirect: 'manual' })
+  const health = await healthRes.json().catch(() => ({}))
+  check('/api/health answers without a session, with states only', healthRes.status === 200 && health.status === 'ok' && health.checks?.database === 'ok' && Object.keys(health).length === 2, `${healthRes.status} ${JSON.stringify(health)}`)
+
   // ── Allowed email domains (all sign-in methods) ──
   const patchAuth = body => adminPage.evaluate(b => fetch('/api/admin/services', {
     method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b),

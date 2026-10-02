@@ -87,6 +87,13 @@ describe('generateCaddyfile', () => {
     expect(without).toContain('leksis.example.com {')
     expect(without).not.toContain(':80 {')
   })
+  it('https: HSTS on the domain block only — never on the plain-HTTP blocks', () => {
+    const f = generateCaddyfile({ ...base, mode: 'https', host: 'leksis.example.com' })
+    expect(f).toContain('header Strict-Transport-Security "max-age=31536000"')
+    expect(f.indexOf('Strict-Transport-Security')).toBeLessThan(f.indexOf(':80 {'))
+    expect(generateCaddyfile({ ...base, mode: 'http' })).not.toContain('Strict-Transport-Security')
+    expect(generateCaddyfile({ ...base, mode: 'proxy' })).not.toContain('Strict-Transport-Security')
+  })
   it('never emits the empty X-Forwarded-* override', () => {
     expect(generateCaddyfile({ ...base, mode: 'http' })).not.toContain('X-Forwarded')
   })
