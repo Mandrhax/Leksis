@@ -290,7 +290,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
   const spinner = <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
 
   return (
-    <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-5">
+    <form onSubmit={e => e.preventDefault()} className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-5">
       <div className="flex items-center gap-2">
         <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none" aria-hidden="true">
           {activeTab === 'config' ? 'settings_ethernet' : 'smart_toy'}
@@ -535,7 +535,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
 
       <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-outline-variant/10">
         {activeTab === 'config' && (
-          <button
+          <button type="button"
             onClick={handleTest}
             disabled={testing || warming || !baseUrl}
             className="text-button disabled:opacity-40"
@@ -547,7 +547,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
           </button>
         )}
         {activeTab === 'models' && canPull && (
-          <button
+          <button type="button"
             onClick={handleWarmup}
             disabled={warming || testing || !baseUrl}
             className="text-button disabled:opacity-40"
@@ -559,13 +559,13 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
           </button>
         )}
         <div className="flex-1" />
-        <button onClick={() => handleSave()} disabled={saving || !baseUrl || (provider === 'ollama' && !numCtxValid) || !maxConcurrentValid} className="action-btn disabled:opacity-40">
+        <button type="button" onClick={() => handleSave()} disabled={saving || !baseUrl || (provider === 'ollama' && !numCtxValid) || !maxConcurrentValid} className="action-btn disabled:opacity-40">
           {saving ? spinner : (
             <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>
           )}
           {of.save}
         </button>
       </div>
-    </div>
+    </form>
   )
 }

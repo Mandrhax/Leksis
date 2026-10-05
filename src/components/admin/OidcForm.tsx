@@ -104,7 +104,7 @@ export function OidcForm({ initial, onToast, onDirtyChange }: Props) {
   const spinner = <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
 
   return (
-    <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
+    <form onSubmit={e => e.preventDefault()} className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
       <div className="flex items-center gap-2">
         <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none" aria-hidden="true">badge</span>
         <h3 className="font-headline font-semibold text-base text-on-surface">{of.title}</h3>
@@ -164,17 +164,17 @@ export function OidcForm({ initial, onToast, onDirtyChange }: Props) {
       )}
 
       <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-outline-variant/10">
-        <button onClick={runTest} disabled={testing || saving || !data.issuer} className="text-button disabled:opacity-40">
+        <button type="button" onClick={runTest} disabled={testing || saving || !data.issuer} className="text-button disabled:opacity-40">
           {testing ? spinner : <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">network_check</span>}
           {of.testConnection}
         </button>
 
         <div className="flex-1" />
-        <button onClick={handleSave} disabled={saving || testing || !canSave || !dirty} className="action-btn disabled:opacity-40">
+        <button type="button" onClick={handleSave} disabled={saving || testing || !canSave || !dirty} className="action-btn disabled:opacity-40">
           {saving ? spinner : <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>}
           {of.save}
         </button>
       </div>
-    </div>
+    </form>
   )
 }
