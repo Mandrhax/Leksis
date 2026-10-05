@@ -540,13 +540,13 @@ Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git e
 
 ### Workflow release
 
-1. Bumper **trois fichiers** :
-   - `package.json` → `"version": "X.Y.Z"`
+1. Bumper **quatre fichiers** :
+   - `package.json` **et** `package-lock.json` → `"version": "X.Y.Z"` — les deux d'un coup avec `npm version X.Y.Z --no-git-tag-version` (le lockfile avait dérivé jusqu'à `1.7.0-beta.1`)
    - `install.sh` → `VERSION="X.Y.Z"` (ligne ~24) **et** l'URL `raw.githubusercontent.com` du commentaire d'en-tête (ligne ~19) — les autres URLs sont dérivées de `VERSION` (`RAW_URL`)
    - `README.md` → l'URL du one-liner (`…/Leksis/vX.Y.Z/install.sh`) et une entrée « What's new » pour la version
 2. Commit et push sur `main` :
    ```bash
-   git add package.json install.sh README.md
+   git add package.json package-lock.json install.sh README.md
    git commit -m "chore(release): prepare vX.Y.Z"
    git push origin main
    ```
@@ -562,7 +562,7 @@ Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git e
    ```
 
 ### Règles
-- Ne jamais bumper la version dans un seul fichier sans les autres (`package.json`, `install.sh`, `README.md`)
+- Ne jamais bumper la version dans un seul fichier sans les autres (`package.json`, `package-lock.json`, `install.sh`, `README.md`)
 - Le README étant lu depuis `main`, un README commité après le tag n'est pas dans le tag : il sera embarqué à la release suivante
 - Si un hotfix doit corriger le tag avant toute installation réelle : `git tag -f vX.Y.Z && git push origin vX.Y.Z --force`
 - Le développement courant se fait sur `main` sans impact sur les utilisateurs installés (sauf pour les évolutions lourdes : voir ci-dessous)
@@ -570,7 +570,7 @@ Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git e
 ### Canal beta (versions de test)
 
 - **`main` = stable uniquement.** Les évolutions lourdes se font sur la branche `dev` (ou des sous-branches `feature/*` mergées dans `dev`). Un hotfix fait sur `main` est ensuite reporté avec `git switch dev && git merge main`
-- **Versions de test = tags pré-release semver** posés sur `dev` : `v1.1.0-beta.1`, `-beta.2`, … Bumper les 3 fichiers (`package.json`, `install.sh`, `README.md`) vers `X.Y.Z-beta.N` comme pour une release stable, puis `git tag vX.Y.Z-beta.N && git push origin vX.Y.Z-beta.N` et `gh release create vX.Y.Z-beta.N --prerelease`
+- **Versions de test = tags pré-release semver** posés sur `dev` : `v1.1.0-beta.1`, `-beta.2`, … Bumper les 4 fichiers (`package.json`, `package-lock.json`, `install.sh`, `README.md`) vers `X.Y.Z-beta.N` comme pour une release stable, puis `git tag vX.Y.Z-beta.N && git push origin vX.Y.Z-beta.N` et `gh release create vX.Y.Z-beta.N --prerelease`
 - Installation de test : le même one-liner que le stable, avec l'URL du tag beta (`…/Leksis/vX.Y.Z-beta.N/install.sh`)
 - **Canaux dans `install.sh`** : `detect_channel <tag>` renvoie `beta` si le tag courant contient un `-` (ou si `LEKSIS_CHANNEL=beta`), sinon `stable`. `latest_tag <dir> <canal>` renvoie le plus haut tag semver du canal (tri `versionsort.suffix=-` : `v1.1.0` > `v1.1.0-beta.2`). Une installation stable **ne voit jamais** les pré-releases ; une installation beta suit les betas puis la release stable suivante. Ne jamais réintroduire `git describe … rev-list --tags` pour choisir la dernière version
 - **Publier la stable** : quand la beta est validée, merger `dev` → `main`, bumper vers `X.Y.Z` (sans suffixe) et suivre le workflow release ci-dessus
