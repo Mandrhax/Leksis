@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         'Content-Type':            att.mime,
         'Content-Length':          String(att.data.length),
         'Cache-Control':           'private, max-age=3600',
-        'Content-Security-Policy': "default-src 'none'; sandbox",
+        'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'; sandbox",
         'X-Content-Type-Options':  'nosniff',
       },
     })

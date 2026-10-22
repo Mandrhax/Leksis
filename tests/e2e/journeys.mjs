@@ -62,7 +62,9 @@ await db.exec(`
   INSERT INTO usage_log (user_id, user_email, feature, created_at) VALUES ('new', 'new@x.ch', 'translate', NOW() - INTERVAL '1 day');
   INSERT INTO audit_log (user_id, user_email, action, resource, created_at) SELECT 'old', 'old@x.ch', 'OLD', 'x', NOW() - INTERVAL '800 days' FROM generate_series(1, 4);
 `)
-const dbServer = new PGLiteSocketServer({ db, port: DB_PORT, host: '127.0.0.1', maxConnections: 10 })
+// Beyond maxConnections the socket server drops the connection (ECONNRESET): keep it well above the app's pool (10),
+// which can briefly hold more sockets than that while old ones close
+const dbServer = new PGLiteSocketServer({ db, port: DB_PORT, host: '127.0.0.1', maxConnections: 50 })
 await dbServer.start()
 
 // ── Fake AI server (Ollama API) ─────────────────────────────────
@@ -696,14 +698,17 @@ try {
   writeFileSync(pngPath, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'))
 
   await signupPage.goto(BASE + '/', { waitUntil: 'networkidle0' })
+  // The header controls exist twice (mobile row hidden on desktop): click the visible one
+  const clickVisible = (page, selector) => page.evaluate(sel =>
+    [...document.querySelectorAll(sel)].find(el => el.offsetParent !== null).click(), selector)
   // The help window ends with a link to the feedback form
-  await signupPage.click('button[aria-label="Help & Tips"]')
+  await clickVisible(signupPage, 'button[aria-label="Help & Tips"]')
   await signupPage.waitForSelector('[role=dialog]', { timeout: 10000 })
   check('the help window offers to report a problem', await signupPage.evaluate(() =>
     [...document.querySelectorAll('[role=dialog] button')].some(b => b.innerText.includes('Report a problem'))))
   await signupPage.keyboard.press('Escape')
   // Header icon next to the help button
-  await signupPage.click('button[aria-label="Report a problem or suggest an improvement"]')
+  await clickVisible(signupPage, 'button[aria-label="Report a problem or suggest an improvement"]')
   await signupPage.waitForSelector('[role=dialog] textarea', { timeout: 10000 })
   await signupPage.evaluate(() => [...document.querySelectorAll('[role=dialog] [role=radio]')].find(b => b.innerText.includes('Translation')).click())
   await signupPage.type('[role=dialog] textarea', 'The term "contract" should be "contrat de travail"')

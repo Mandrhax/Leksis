@@ -34,8 +34,9 @@ const nextConfig = {
   serverExternalPackages: ['@napi-rs/canvas', 'pdfjs-dist', 'pdf-parse'],
   async headers() {
     return [
-      // /api/site-assets pose ses propres en-têtes (CSP « sandbox » pour les images téléversées)
-      { source: '/((?!api/site-assets).*)', headers: securityHeaders },
+      // /api/site-assets et les images jointes aux retours (/api/admin/feedback/attachments) posent leurs propres
+      // en-têtes (CSP « sandbox » pour les images téléversées) : la CSP globale l'écraserait
+      { source: '/((?!api/site-assets|api/admin/feedback/attachments).*)', headers: securityHeaders },
     ]
   },
 }
