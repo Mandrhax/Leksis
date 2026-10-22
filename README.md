@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.9.0-beta.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.9.0/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,16 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.9.0
+**Security update — update now — and a feedback inbox (tested through two betas).** One small **database migration** (`005-feedback`, creates two tables): `leksis update` takes a backup first and applies it. The feedback button and inbox fail briefly between the app restart and the migration.
+- **Security: Next.js 16.4.2.** Fixes the vulnerabilities published on 22 October 2026, including two **critical unauthenticated remote code executions** (GHSA-673q-mjm6-r5xr in `use cache` functions, GHSA-2464-fhr4-w9xw in the image optimisation API) and a denial of service through Server Actions (GHSA-p3m5-59mp-jv5r). All earlier versions of Leksis are affected
+- **"Report a problem or suggest an improvement"**: users send a message to the administrators — type (Problem, Improvement, **Translation** for a translation to improve or a glossary term to add or fix, or Other), text and up to 5 images (paste a screenshot with Ctrl+V, drop or pick files), with optional technical details (current tab, interface language, version, browser). No email needed
+- Easy to find: **icon in the header** next to help, a link **at the bottom of the help window**, a link in the footer, and **"Report a translation problem" under each result**, which opens the form with the type already chosen. The result itself is never attached automatically
+- Images are redrawn in the browser before sending (correct orientation, very large pictures scaled down, metadata such as a phone photo's location removed); the server accepts PNG, JPEG and WebP only and serves them to administrators only
+- **Admin → Feedback**: an inbox with status (New, In progress, Done, Archived) and type filters, an internal note, full-size images and deletion. A badge in the admin menu and a banner on the dashboard show new messages; status changes and deletions are recorded in the audit log
+- Can be switched off in Settings → Features & limits. Messages are deleted automatically after 365 days by default (Settings → General), are kept when the author's account is deleted, and are included in `leksis backup` but not in the JSON configuration export
+- The privacy policy (EN/DE/FR/IT) states what is stored, that only administrators can read it, and for how long, while the button is enabled
 
 ### v1.9.0-beta.2
 **Easier to find "Report a problem" (beta).** No new database migration (beta.1's migration `005` is enough).
