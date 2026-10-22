@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.4-beta.4/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.4/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,15 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.4
+**Admin overhaul, translation register and glossary (tested through four betas).** One small **database migration** (`004-glossary-match-variants`): `leksis update` takes a backup first and applies it. The app fails briefly between its restart and the migration.
+- **Admin interface**: one shared design system for cards, section titles, labels, fields and buttons, and consistent wording in EN/FR/DE/IT (uniform save, error and network messages)
+- **Translation register preserved** when the source is not English: an informal source ("tu") stays informal ("du"), a formal one ("vous") stays formal ("Sie"). Applies to text and document translation
+- **Glossary applied to document translation** (it was only used for text and rewriting), including regional variants (a French → German term also applies to French (Switzerland) → German (Switzerland)), whole-word matching ignoring case and accents, and optional word-ending variants per term (plurals, conjugations — on by default for new terms)
+- **Glossary admin**: edit a term in place, search, pagination, duplicate detection, and a reliable CSV import (comma, semicolon or tab separated, quoted terms, one transaction, per-line report of rejected rows) with a complete CSV export
+- **Audit log** for glossary changes (create/delete a glossary, add/edit/delete a term, CSV import), shown with the glossary name
+- The copy button now shows "Copy" on hover in the Text, Image and Rewrite tabs
 
 ### v1.8.4-beta.4
 **Glossary editing and CSV import (beta).** No new database migration (beta.3's migration `004` is enough).
