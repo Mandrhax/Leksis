@@ -137,6 +137,39 @@ CREATE TABLE IF NOT EXISTS user_glossary_prefs (
 );
 
 -- ============================================================
+-- feedback — "Report a problem or suggest an improvement" messages, read by administrators (Admin → Feedback)
+-- user_email is kept as written: a deleted account leaves its messages behind (user_id becomes NULL).
+-- context: optional details the user chose to attach (active tab, interface language, app version, browser).
+-- ============================================================
+CREATE TABLE IF NOT EXISTS feedback (
+  id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id     TEXT REFERENCES users(id) ON DELETE SET NULL,
+  user_email  TEXT NOT NULL,
+  category    TEXT NOT NULL CHECK (category IN ('problem', 'improvement', 'translation', 'other')),
+  message     TEXT NOT NULL,
+  context     JSONB,
+  status      TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'in_progress', 'done', 'archived')),
+  admin_note  TEXT NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS feedback_created_at_idx ON feedback(created_at DESC);
+CREATE INDEX IF NOT EXISTS feedback_status_idx ON feedback(status);
+
+-- feedback_attachments — images attached to a message (PNG / JPEG / WebP, checked by magic bytes). Stored in the
+-- database rather than in the uploads volume: only administrators may read them, and they go with pg_dump backups.
+CREATE TABLE IF NOT EXISTS feedback_attachments (
+  id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  feedback_id TEXT NOT NULL REFERENCES feedback(id) ON DELETE CASCADE,
+  position    INTEGER NOT NULL DEFAULT 0,
+  mime        TEXT NOT NULL,
+  size        INTEGER NOT NULL,
+  data        BYTEA NOT NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS feedback_attachments_feedback_id_idx ON feedback_attachments(feedback_id);
+
+-- ============================================================
 -- To add the first admin user after deployment, use the
 -- install.sh script, or run manually:
 --

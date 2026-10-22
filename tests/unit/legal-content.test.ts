@@ -12,6 +12,8 @@ const BASE: LegalContext = {
   usageRules: '',
   usageRetentionDays: 365,
   auditRetentionDays: 730,
+  feedbackEnabled: true,
+  feedbackRetentionDays: 365,
   aiScope: 'local',
   features: { text: true, document: true, image: true, rewrite: true },
   limits: { maxTextChars: 5000, maxDocChars: 12000, maxImageMB: 10, rateLimitPerMin: 30 },
@@ -58,6 +60,24 @@ describe('privacy policy — retention', () => {
     const text = flat(buildPrivacyPolicy(ctx({ usageRetentionDays: 0, auditRetentionDays: 0 })))
     expect(text).toContain('Usage log entries are kept until an administrator deletes them.')
     expect(text).toContain('Audit log entries are kept until an administrator deletes them.')
+  })
+})
+
+describe('privacy policy — user feedback', () => {
+  it('says feedback is stored and for how long when the button is enabled', () => {
+    const text = flat(buildPrivacyPolicy(ctx({ feedbackEnabled: true, feedbackRetentionDays: 30 })))
+    expect(text).toContain('Report a problem or suggest an improvement')
+    expect(text).toContain('Only administrators can read them.')
+    expect(text).toContain('Feedback messages and their images are deleted automatically after 30 days.')
+  })
+
+  it('does not mention feedback when the button is disabled, in any language', () => {
+    for (const locale of ['en', 'de', 'fr', 'it'] as const) {
+      const on = buildPrivacyPolicy(ctx({ feedbackEnabled: true }), locale)
+      const off = buildPrivacyPolicy(ctx({ feedbackEnabled: false }), locale)
+      const items = (d: LegalDocument) => d.sections.flatMap(s => s.items ?? []).length
+      expect(items(on) - items(off)).toBe(2) // one "what is processed" item, one retention item
+    }
   })
 })
 

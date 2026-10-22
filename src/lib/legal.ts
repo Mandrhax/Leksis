@@ -44,6 +44,8 @@ export async function loadLegalContext(): Promise<LegalContext> {
     usageRules:         str(legal.usageRules),
     usageRetentionDays: num(general.usageRetentionDays, RETENTION_DEFAULTS.usageRetentionDays),
     auditRetentionDays: num(general.auditRetentionDays, RETENTION_DEFAULTS.auditRetentionDays),
+    feedbackEnabled:    features.feedback !== false,
+    feedbackRetentionDays: num(general.feedbackRetentionDays, RETENTION_DEFAULTS.feedbackRetentionDays),
     aiScope,
     features: {
       text:     tabs.text     !== false,

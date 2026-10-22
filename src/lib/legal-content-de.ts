@@ -75,6 +75,7 @@ export function buildPrivacyPolicy(c: LegalContext): LegalDocument {
         'Nutzungsprotokoll: für jede KI-Anfrage das Datum, Ihre E-Mail-Adresse, die verwendete Funktion, die Sprachen, das Modell und die Anzahl der Zeichen. Der Inhalt selbst wird nie erfasst.',
         'Audit-Protokoll: für Administratoren eine Aufzeichnung administrativer Aktionen mit der E-Mail-Adresse des Administrators.',
         'Glossare: von Administratoren definierte Begriffe sowie Ihre Wahl, welche Glossare Sie deaktivieren.',
+        ...(c.feedbackEnabled ? ['Rückmeldungen: Wenn Sie „Problem melden oder Verbesserung vorschlagen“ verwenden, werden Ihre Nachricht, die angehängten Bilder und, falls Sie dies wählen, technische Angaben (aktiver Tab, Sprache der Oberfläche, Version, Browser) mit Ihrer E-Mail-Adresse gespeichert. Nur die Administratoren können sie lesen.'] : []),
       ],
     },
     aiDestination(c),
@@ -93,6 +94,7 @@ export function buildPrivacyPolicy(c: LegalContext): LegalDocument {
       items: [
         retention(c.usageRetentionDays, 'Einträge des Nutzungsprotokolls'),
         retention(c.auditRetentionDays, 'Einträge des Audit-Protokolls'),
+        ...(c.feedbackEnabled ? [retention(c.feedbackRetentionDays, 'Rückmeldungen (Nachrichten und Bilder)')] : []),
         'Anmeldecodes laufen nach 10 Minuten ab.',
         'Konten werden aufbewahrt, bis ein Administrator sie löscht.',
         'Eingereichte Inhalte werden nicht aufbewahrt (siehe oben).',

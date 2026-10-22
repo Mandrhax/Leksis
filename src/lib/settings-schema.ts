@@ -38,7 +38,7 @@ export const DesignSchema = z.object({
 })
 
 /** Conservation des journaux, en jours (0 = indéfiniment) : appliquée automatiquement par lib/retention.ts */
-export const RETENTION_DEFAULTS = { usageRetentionDays: 365, auditRetentionDays: 730 } as const
+export const RETENTION_DEFAULTS = { usageRetentionDays: 365, auditRetentionDays: 730, feedbackRetentionDays: 365 } as const
 export const RETENTION_MAX_DAYS = 3650
 
 export const GeneralSchema = z.object({
@@ -48,6 +48,7 @@ export const GeneralSchema = z.object({
   maintenanceMessage: z.string().max(1000),
   usageRetentionDays: z.number().int().min(0).max(RETENTION_MAX_DAYS),
   auditRetentionDays: z.number().int().min(0).max(RETENTION_MAX_DAYS),
+  feedbackRetentionDays: z.number().int().min(0).max(RETENTION_MAX_DAYS),
 }).partial()
 
 /**
@@ -80,6 +81,8 @@ export const AuthConfigSchema = z.object({
 const langCode = z.string().regex(/^(auto|[A-Za-z0-9-]{1,20})$/, 'Invalid language code')
 
 export const FeaturesSchema = z.object({
+  /** Bouton « Signaler un problème ou suggérer une amélioration » (menu du compte) */
+  feedback: z.boolean().optional(),
   tabs: z.object({
     text: z.boolean().optional(), document: z.boolean().optional(),
     image: z.boolean().optional(), rewrite: z.boolean().optional(),
@@ -136,6 +139,7 @@ export const SETTING_DEFAULTS = {
   legal:       { organization: '', contact: '', privacyNotes: '', usageRules: '' },
   auth_config: { method: 'otp_display' as AuthMethod, allowedDomains: '', inviteOnly: false },
   features: {
+    feedback: true,
     tabs:     { text: true, document: true, image: true, rewrite: true },
     defaults: { sourceLang: 'auto', targetLang: 'en', formality: 'Informal' },
     limits:   {

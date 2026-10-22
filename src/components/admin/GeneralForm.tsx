@@ -13,6 +13,7 @@ interface GeneralData {
   maintenanceMessage: string
   usageRetentionDays: number
   auditRetentionDays: number
+  feedbackRetentionDays: number
 }
 
 interface Props {
@@ -30,6 +31,7 @@ export function GeneralForm({ initial, onToast, onDirtyChange }: Props) {
     maintenanceMessage: initial.maintenanceMessage ?? '',
     usageRetentionDays: initial.usageRetentionDays ?? RETENTION_DEFAULTS.usageRetentionDays,
     auditRetentionDays: initial.auditRetentionDays ?? RETENTION_DEFAULTS.auditRetentionDays,
+    feedbackRetentionDays: initial.feedbackRetentionDays ?? RETENTION_DEFAULTS.feedbackRetentionDays,
   })
   const [saving, setSaving] = useState(false)
   const { dirty, markSaved } = useDirtyTracking(data)
@@ -80,6 +82,7 @@ export function GeneralForm({ initial, onToast, onDirtyChange }: Props) {
         {([
           ['usageRetentionDays', t.generalForm.usageRetentionLabel],
           ['auditRetentionDays', t.generalForm.auditRetentionLabel],
+          ['feedbackRetentionDays', t.generalForm.feedbackRetentionLabel],
         ] as const).map(([field, label]) => (
           <div key={field}>
             <label className="adm-label">{label}</label>

@@ -25,6 +25,8 @@ const ACTION_ICONS: Record<string, string> = {
   DELETE_GLOSSARY_TERM: 'menu_book',
   IMPORT_GLOSSARY_CSV:  'upload_file',
   IMPORT_GLOSSARIES:    'menu_book',
+  UPDATE_FEEDBACK:      'feedback',
+  DELETE_FEEDBACK:      'feedback',
 }
 
 export function AuditTable() {
@@ -44,6 +46,7 @@ export function AuditTable() {
     INVITE_LINK:     t.auditTable.actionInviteLink,
     AUTO_PURGE_USAGE: t.auditTable.actionAutoPurge,
     AUTO_PURGE_AUDIT: t.auditTable.actionAutoPurge,
+    AUTO_PURGE_FEEDBACK: t.auditTable.actionAutoPurge,
     CREATE_GLOSSARY:        t.auditTable.actionCreateGlossary,
     DELETE_GLOSSARY:        t.auditTable.actionDeleteGlossary,
     ADD_GLOSSARY_TERM:      t.auditTable.actionAddGlossaryTerm,
@@ -51,6 +54,8 @@ export function AuditTable() {
     DELETE_GLOSSARY_TERM:   t.auditTable.actionDeleteGlossaryTerm,
     IMPORT_GLOSSARY_CSV:    t.auditTable.actionImportGlossaryCsv,
     IMPORT_GLOSSARIES:      t.auditTable.actionImportGlossaries,
+    UPDATE_FEEDBACK:        t.auditTable.actionUpdateFeedback,
+    DELETE_FEEDBACK:        t.auditTable.actionDeleteFeedback,
   }
 
   const [rows, setRows]       = useState<AuditEntry[]>([])

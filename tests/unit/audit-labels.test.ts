@@ -36,6 +36,18 @@ describe('labelAuditResources', () => {
     expect(rows.map(r => r.resource_label)).toEqual(['user:old@x.ch', 'user:gone-2', 'user:gone-3'])
   })
 
+  it("shows a feedback message by its author's email, or the email kept in the entry once it is deleted", async () => {
+    const f = await pg.db.query<{ id: string }>(
+      "INSERT INTO feedback (user_email, category, message) VALUES ('ann@x.ch', 'improvement', 'x') RETURNING id",
+    )
+    const rows = await labelAuditResources([
+      { resource: `feedback:${f.rows[0].id}`, detail: { before: 'new', after: 'done' } },
+      { resource: 'feedback:gone', detail: { email: 'old@x.ch', category: 'problem' } },
+      { resource: 'feedback:gone-2' },
+    ])
+    expect(rows.map(r => r.resource_label)).toEqual(['feedback:ann@x.ch', 'feedback:old@x.ch', 'feedback:gone-2'])
+  })
+
   it('leaves other resources alone and does not query when there is no user resource', async () => {
     const rows = await labelAuditResources([{ resource: 'settings:general' }, { resource: 'usage_log' }])
     expect(rows.map(r => r.resource_label)).toEqual(['settings:general', 'usage_log'])

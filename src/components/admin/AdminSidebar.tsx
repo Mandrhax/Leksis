@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useI18n } from '@/lib/i18n'
 import { useAdminLeaveGuard } from '@/lib/admin-dirty'
+import { FEEDBACK_CHANGED_EVENT } from '@/lib/feedback-schema'
 
 type ServiceKey = 'ollama' | 'db' | 'caddy'
 type ServiceStatus = Record<ServiceKey, boolean | null>
@@ -30,6 +31,24 @@ function useServiceStatus(): ServiceStatus {
   return status
 }
 
+/** Nombre de retours non lus ; recompté quand la boîte de réception change un statut ou supprime un message */
+function useNewFeedbackCount(): number {
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    let cancelled = false
+    const refresh = () => {
+      fetch('/api/admin/feedback/count', { cache: 'no-store' })
+        .then(r => (r.ok ? r.json() : null))
+        .then(d => { if (!cancelled && d && typeof d.new === 'number') setCount(d.new) })
+        .catch(() => {})
+    }
+    refresh()
+    window.addEventListener(FEEDBACK_CHANGED_EVENT, refresh)
+    return () => { cancelled = true; window.removeEventListener(FEEDBACK_CHANGED_EVENT, refresh) }
+  }, [])
+  return count
+}
+
 function StatusDot({ ok }: { ok: boolean | null }) {
   if (ok === null) return <span className="w-1.5 h-1.5 rounded-full bg-outline-variant/40 inline-block flex-shrink-0" />
   return (
@@ -53,12 +72,15 @@ function NavLink({
   icon,
   label,
   status,
+  badge,
 }: {
   href: string
   icon: string
   label: string
   /** Undefined = no status dot; null = check in progress. */
   status?: boolean | null
+  /** Compteur affiché à droite (masqué à 0) */
+  badge?: number
 }) {
   const pathname = usePathname()
   const confirmLeave = useAdminLeaveGuard()
@@ -78,6 +100,11 @@ function NavLink({
       </span>
       <span className="flex-1">{label}</span>
       {status !== undefined && <StatusDot ok={status} />}
+      {badge ? (
+        <span className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary text-on-primary text-[11px] font-bold flex items-center justify-center">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      ) : null}
     </Link>
   )
 }
@@ -85,6 +112,7 @@ function NavLink({
 export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useI18n()
   const svcStatus = useServiceStatus()
+  const newFeedback = useNewFeedbackCount()
   const confirmLeave = useAdminLeaveGuard()
 
   return (
@@ -121,6 +149,7 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
 
         <SectionLabel>{t.adminSidebar.navSectionManagement}</SectionLabel>
         <NavLink href="/admin/users"    icon="group"          label={t.adminSidebar.navUsers}    />
+        <NavLink href="/admin/feedback" icon="feedback"       label={t.adminSidebar.navFeedback} badge={newFeedback} />
         <NavLink href="/admin/glossary" icon="menu_book"      label={t.adminSidebar.navGlossary} />
         <NavLink href="/admin/usage"    icon="bar_chart"      label={t.adminSidebar.navUsage}    />
         <NavLink href="/admin/audit"    icon="manage_history" label={t.adminSidebar.navAudit}    />

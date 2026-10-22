@@ -8,7 +8,8 @@
 // Database: an in-memory PGlite exposed on a local port, loaded from docker/init-schema.sql — no Docker needed.
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
-import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { PGlite } from '@electric-sql/pglite'
@@ -687,6 +688,80 @@ try {
   await glossaryApi('/api/admin/glossary/' + gid, { method: 'DELETE' })
   const gone = (await db.query('SELECT 1 FROM glossary_entries WHERE glossary_id = $1', [gid])).rowCount === 0
   check('deleting a glossary removes its terms', gone)
+
+  // ── Feedback: a user reports a translation issue with an image, an admin reads, classifies and deletes it ──
+  const feedbackProblems = []
+  signupPage.on('pageerror', e => feedbackProblems.push('pageerror: ' + e.message.split('\n')[0]))
+  const pngPath = join(tmpdir(), 'leksis-e2e-feedback.png')
+  writeFileSync(pngPath, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'))
+
+  await signupPage.goto(BASE + '/', { waitUntil: 'networkidle0' })
+  await signupPage.evaluate(re => [...document.querySelectorAll('button')].find(b => new RegExp(re, 'i').test(b.getAttribute('aria-label') || '')).click(), accountLabel.source)
+  await signupPage.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.innerText.includes('Report a problem')), { timeout: 10000 })
+  await signupPage.evaluate(() => [...document.querySelectorAll('button')].find(b => b.innerText.includes('Report a problem')).click())
+  await signupPage.waitForSelector('[role=dialog] textarea', { timeout: 10000 })
+  await signupPage.evaluate(() => [...document.querySelectorAll('[role=dialog] [role=radio]')].find(b => b.innerText.includes('Translation')).click())
+  await signupPage.type('[role=dialog] textarea', 'The term "contract" should be "contrat de travail"')
+  const fileInput = await signupPage.$('[role=dialog] input[type=file]')
+  await fileInput.uploadFile(pngPath)
+  await signupPage.waitForFunction(() => document.querySelectorAll('[role=dialog] img').length === 1, { timeout: 10000 })
+  await Promise.all([
+    signupPage.waitForFunction(() => document.body.innerText.includes('Your message has been sent'), { timeout: 10000 }),
+    signupPage.evaluate(() => [...document.querySelectorAll('[role=dialog] button.action-btn')].find(b => b.innerText.includes('Send')).click()),
+  ])
+  const fb = (await db.query("SELECT id, user_email, category, message, context, status FROM feedback")).rows
+  const fbAtt = fb[0] ? (await db.query('SELECT mime, data FROM feedback_attachments WHERE feedback_id = $1', [fb[0].id])).rows : []
+  check('a user can send feedback with an image from the account menu',
+    fb.length === 1 && fb[0].user_email === newEmail && fb[0].category === 'translation' && fb[0].status === 'new'
+      && fb[0].context?.tab === 'text' && fb[0].context?.appVersion && fbAtt.length === 1 && fbAtt[0].mime === 'image/png'
+      && Buffer.from(fbAtt[0].data).subarray(1, 4).toString() === 'PNG',
+    JSON.stringify(fb[0]))
+
+  const svgUpload = await signupPage.evaluate(async () => {
+    const form = new FormData()
+    form.append('category', 'problem')
+    form.append('message', 'svg')
+    form.append('includeContext', 'false')
+    form.append('images', new File(['<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'], 'x.png', { type: 'image/png' }))
+    const r = await fetch('/api/feedback', { method: 'POST', body: form })
+    return { status: r.status, code: (await r.json()).code }
+  })
+  check('an SVG disguised as a PNG is refused', svgUpload.status === 400 && svgUpload.code === 'unsupported_format', JSON.stringify(svgUpload))
+
+  const userReadsAdmin = await signupPage.evaluate(id => fetch('/api/admin/feedback/' + id).then(r => r.status), fb[0]?.id)
+  check('a user cannot read the feedback inbox', userReadsAdmin === 403 || userReadsAdmin === 404, String(userReadsAdmin))
+
+  await adminPage.goto(BASE + '/admin/feedback', { waitUntil: 'networkidle0' })
+  await adminPage.waitForFunction(() => document.body.innerText.includes('contrat de travail'), { timeout: 10000 })
+  check('the admin sidebar shows one new feedback message',
+    await adminPage.evaluate(() => [...document.querySelectorAll('nav a')].find(a => a.getAttribute('href') === '/admin/feedback')?.innerText.includes('1')))
+  await adminPage.evaluate(() => [...document.querySelectorAll('li button')].find(b => b.innerText.includes('contrat de travail')).click())
+  await adminPage.waitForFunction(() => document.querySelectorAll('img[src^="/api/admin/feedback/attachments/"]').length === 1, { timeout: 10000 })
+  const imgStatus = await adminPage.evaluate(() => fetch(document.querySelector('img[src^="/api/admin/feedback/attachments/"]').getAttribute('src'))
+    .then(r => [r.status, r.headers.get('content-type'), r.headers.get('content-security-policy')]))
+  check('the admin sees the attached image, served sandboxed', imgStatus[0] === 200 && imgStatus[1] === 'image/png' && /sandbox/.test(imgStatus[2]), JSON.stringify(imgStatus))
+
+  await adminPage.select('select[aria-label=Status]', 'done')
+  await adminPage.waitForFunction(() => document.body.innerText.includes('Message updated'), { timeout: 10000 })
+  check('the admin can mark the message as done', (await db.query('SELECT status FROM feedback WHERE id = $1', [fb[0].id])).rows[0]?.status === 'done')
+  const fbAudit = (await adminPage.evaluate(() => fetch('/api/admin/audit').then(r => r.json()))).rows.find(r => r.action === 'UPDATE_FEEDBACK')
+  check('the status change is audited and shows the author', fbAudit?.resource_label === 'feedback:' + newEmail && fbAudit?.detail?.after === 'done', JSON.stringify(fbAudit))
+
+  const fbDeleted = await glossaryApi('/api/admin/feedback/' + fb[0].id, { method: 'DELETE' })
+  check('deleting a feedback message removes its images', fbDeleted.status === 200
+    && (await db.query('SELECT 1 FROM feedback_attachments')).rows.length === 0, JSON.stringify(fbDeleted))
+
+  await glossaryApi('/api/admin/settings', jsonInit('PATCH', { key: 'features', value: { feedback: false } }))
+  await new Promise(r => setTimeout(r, 5500)) // settings cache (5 s)
+  const disabledSend = await signupPage.evaluate(async () => {
+    const form = new FormData()
+    form.append('category', 'other'); form.append('message', 'x'); form.append('includeContext', 'false')
+    const r = await fetch('/api/feedback', { method: 'POST', body: form })
+    return { status: r.status, code: (await r.json()).code }
+  })
+  check('feedback can be switched off by the admin', disabledSend.status === 403 && disabledSend.code === 'disabled', JSON.stringify(disabledSend))
+  await glossaryApi('/api/admin/settings', jsonInit('PATCH', { key: 'features', value: { feedback: true } }))
+  check('no uncaught exceptions while sending feedback', feedbackProblems.length === 0, feedbackProblems.join(' | '))
 
   check('no browser console errors on the admin pages', adminProblems.length === 0, adminProblems.join(' | '))
 

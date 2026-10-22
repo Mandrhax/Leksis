@@ -28,7 +28,8 @@ export async function logAudit(
  * Texte lisible de la colonne « ressource » :
  * - `user:<id>` devient `user:<email>` (le compte, ou à défaut l'email gardé dans `detail` — un compte supprimé
  *   n'existe plus en base) ;
- * - `glossary:<id>` devient `glossary:<nom>` (le glossaire, ou à défaut le nom gardé dans `detail`).
+ * - `glossary:<id>` devient `glossary:<nom>` (le glossaire, ou à défaut le nom gardé dans `detail`) ;
+ * - `feedback:<id>` devient `feedback:<email de l'auteur>` (le message, ou à défaut l'email gardé dans `detail`).
  * Les autres ressources restent telles quelles.
  */
 export async function labelAuditResources<T extends { resource: string; detail?: unknown }>(
@@ -59,7 +60,24 @@ export async function labelAuditResources<T extends { resource: string; detail?:
     }
   }
 
+  const feedbackIds = idsOf('feedback:')
+  const feedbackAuthors = new Map<string, string>()
+  if (feedbackIds.length) {
+    try {
+      const found = await query<{ id: string; user_email: string }>('SELECT id, user_email FROM feedback WHERE id = ANY($1)', [feedbackIds])
+      for (const f of found.rows) feedbackAuthors.set(f.id, f.user_email)
+    } catch (err) {
+      console.error('[audit] could not resolve feedback authors:', err)
+    }
+  }
+
   return rows.map(r => {
+    if (r.resource.startsWith('feedback:')) {
+      const id = r.resource.slice('feedback:'.length)
+      const detailEmail = (r.detail as { email?: unknown } | null)?.email
+      const email = feedbackAuthors.get(id) ?? (typeof detailEmail === 'string' ? detailEmail : null)
+      return { ...r, resource_label: email ? `feedback:${email}` : r.resource }
+    }
     if (r.resource.startsWith('user:')) {
       const id = r.resource.slice('user:'.length)
       const detailEmail = (r.detail as { email?: unknown } | null)?.email

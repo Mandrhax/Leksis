@@ -54,6 +54,8 @@ interface Props {
   trend:          TrendPoint[]
   featureCounts:  FeatureCounts
   lastBackupAt:   string | null
+  /** Retours des utilisateurs encore non lus */
+  newFeedback:    number
   /** Méthode de connexion « code affiché à l'écran » : accès ouvert à quiconque atteint le serveur */
   openSignIn:     boolean
 }
@@ -71,6 +73,7 @@ const ICON_MAP: Record<string, string> = {
   db:             'storage',
   caddy:          'router',
   backup:         'cloud_download',
+  feedback:       'feedback',
 }
 
 function iconFor(resource: string): string {
@@ -156,7 +159,7 @@ function FeatureBreakdown({ counts, t }: { counts: FeatureCounts; t: Messages })
   )
 }
 
-export function AdminDashboard({ stats, recentActivity, appVersion, trend, featureCounts, lastBackupAt, openSignIn }: Props) {
+export function AdminDashboard({ stats, recentActivity, appVersion, trend, featureCounts, lastBackupAt, newFeedback, openSignIn }: Props) {
   const { t, locale } = useI18n()
   const router = useRouter()
   const at = t.adminPages
@@ -249,6 +252,20 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
             <Link href="/admin/settings?tab=connexion" className="inline-block mt-2 text-sm font-semibold text-primary hover:underline">{at.openSignInAction}</Link>
           </div>
         </div>
+      )}
+
+      {newFeedback > 0 && (
+        <Link
+          href="/admin/feedback"
+          className="mb-6 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors"
+        >
+          <span className="material-symbols-outlined text-primary text-xl leading-none" aria-hidden="true">feedback</span>
+          <span className="flex-1 text-sm font-semibold text-on-surface">{at.dashboardFeedbackNew.replace('{0}', String(newFeedback))}</span>
+          <span className="text-sm font-semibold text-primary flex items-center gap-1">
+            {at.dashboardFeedbackAction}
+            <span className="material-symbols-outlined text-[0.95rem] leading-none" aria-hidden="true">arrow_forward</span>
+          </span>
+        </Link>
       )}
 
       <div className="flex flex-col gap-6">

@@ -2,7 +2,7 @@
 
 import { useI18n } from '@/lib/i18n'
 
-type AdminSection = 'settings' | 'services' | 'servicesAi' | 'servicesDb' | 'servicesCaddy' | 'users' | 'glossary' | 'usage' | 'audit' | 'backup' | 'docs'
+type AdminSection = 'settings' | 'services' | 'servicesAi' | 'servicesDb' | 'servicesCaddy' | 'users' | 'glossary' | 'usage' | 'audit' | 'backup' | 'docs' | 'feedback'
 
 export function AdminPageHeader({ section }: { section: AdminSection }) {
   const { t } = useI18n()
@@ -19,6 +19,7 @@ export function AdminPageHeader({ section }: { section: AdminSection }) {
     audit:      t.adminPages.auditTitle,
     backup:     t.adminPages.backupTitle,
     docs:       t.adminPages.docsTitle,
+    feedback:   t.adminPages.feedbackTitle,
   }
   const descs: Record<AdminSection, string> = {
     settings:   t.adminPages.settingsDesc,
@@ -32,6 +33,7 @@ export function AdminPageHeader({ section }: { section: AdminSection }) {
     audit:      t.adminPages.auditDesc,
     backup:     t.adminPages.backupDesc,
     docs:       t.adminPages.docsDesc,
+    feedback:   t.adminPages.feedbackDesc,
   }
 
   return (

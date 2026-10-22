@@ -8,6 +8,7 @@ import { AIRewriteTab }         from '@/components/tabs/AIRewriteTab'
 import { AccountMenu }          from '@/components/ui/AccountMenu'
 import { UILanguageSwitcher }   from '@/components/ui/UILanguageSwitcher'
 import { HelpModal }            from '@/components/ui/HelpModal'
+import { FeedbackModal }        from '@/components/ui/FeedbackModal'
 import { LegalLinks }           from '@/components/ui/LegalLinks'
 import { I18nProvider, useI18n } from '@/lib/i18n'
 import type { ToneConfig, Formality } from '@/types/leksis'
@@ -37,6 +38,7 @@ interface Props {
   maxImageMB:        number
   configuredTones:   ToneConfig[]
   voiceInputEnabled: boolean
+  feedbackEnabled:   boolean
   appVersion:        string
 }
 
@@ -48,7 +50,7 @@ export function HomeClient(props: Props) {
   )
 }
 
-function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, defaultFormality, maxTextChars, maxDocChars, maxImageMB, configuredTones, voiceInputEnabled, appVersion }: Props) {
+function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, defaultFormality, maxTextChars, maxDocChars, maxImageMB, configuredTones, voiceInputEnabled, feedbackEnabled, appVersion }: Props) {
   const { t } = useI18n()
 
   const ALL_TABS: { id: TabId; label: string; icon: string }[] = [
@@ -63,6 +65,7 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
   const [activeTab, setActiveTab] = useState<TabId>(() => visibleTabs[0]?.id ?? 'text')
   const [logoVisible, setLogoVisible] = useState(true)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
 
   // Si l'onglet actif est désactivé (rechargement dynamique), revenir au premier
   const safeActiveTab = enabledTabs[activeTab] ? activeTab : (visibleTabs[0]?.id ?? 'text')
@@ -101,7 +104,7 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
         <span className="material-symbols-outlined">help</span>
       </button>
       <UILanguageSwitcher />
-      <AccountMenu />
+      <AccountMenu onFeedback={feedbackEnabled ? () => setFeedbackOpen(true) : undefined} />
     </div>
   )
 
@@ -174,6 +177,9 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
       </main>
 
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} activeTab={safeActiveTab} />
+      {feedbackEnabled && (
+        <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} activeTab={safeActiveTab} />
+      )}
 
       {/* ── Footer ── */}
       {/* Toujours affiché : les liens vers les politiques (Privacy / Usage) doivent rester accessibles */}
@@ -206,6 +212,16 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
                 {link.label}
               </a>
             ))}
+            {feedbackEnabled && (
+              <button
+                type="button"
+                onClick={() => setFeedbackOpen(true)}
+                className="text-xs text-on-surface-variant hover:text-on-surface transition-colors"
+                style={footerTextColor ? { color: footerTextColor } : undefined}
+              >
+                {t.account.feedback}
+              </button>
+            )}
             <LegalLinks
               className="text-xs text-on-surface-variant hover:text-on-surface transition-colors"
               style={footerTextColor ? { color: footerTextColor } : undefined}

@@ -74,6 +74,12 @@ Cette fonctionnalité **n'est pas une traduction**, mais une transformation du t
 
 ---
 
+### Outil de support (hors périmètre fonctionnel) : retours des utilisateurs
+
+« Signaler un problème ou suggérer une amélioration » (menu du compte + lien du footer) n'est **pas une 5ᵉ fonctionnalité** : c'est un canal entre utilisateurs et administrateurs, comme l'admin lui-même. Voir « Retours des utilisateurs » sous « Instructions spécifiques à Claude Code ».
+
+---
+
 ## 🧱 Stack technique
 
 - Next.js 16 (App Router), TypeScript, React 19 — API server-side intégrée (Backend-for-Frontend)
@@ -125,24 +131,25 @@ src/
 │   │   ├── rewrite/route.ts              Réécriture (streaming)
 │   │   ├── ocr/route.ts                  OCR image (streaming)
 │   │   ├── dictate/route.ts              Dictée vocale → transcript (API OpenAI-compatible uniquement)
+│   │   ├── feedback/route.ts             Retour d'un utilisateur (message + images) → boîte de réception admin
 │   │   ├── extract/document/route.ts     Extraction sans traduction
 │   │   ├── export/docx/route.ts          Export du résultat en DOCX
 │   │   ├── site-assets/[filename]/       Sert logo et fond (CSP sandbox + nosniff)
 │   │   ├── legal/[doc]/pdf/route.ts      Export PDF des pages légales (public, ?lang=en|de|fr|it)
 │   │   ├── auth/otp/route.ts, auth/[...nextauth]/route.ts
 │   │   ├── user/glossary-prefs/route.ts  Préférences glossaires de l'utilisateur
-│   │   └── admin/                        audit(+purge), background, logo, glossary/**, usage(+purge), users(+[id]),
+│   │   └── admin/                        audit(+purge), background, logo, glossary/**, feedback(+[id], count, attachments/[id]), usage(+purge), users(+[id]),
 │   │                                     settings(+export/import/reset), services (+ai/test|metrics, ollama/pull|delete|warmup|unload,
 │   │                                     db/metrics, caddy/metrics)
-│   ├── admin/                            layout (requireAdmin) + dashboard, settings, services/{ai,db,caddy}, glossary, users, usage, audit, backup
+│   ├── admin/                            layout (requireAdmin) + dashboard, settings, services/{ai,db,caddy}, glossary, users, feedback, usage, audit, backup
 │
 ├── components/
 │   ├── GlobalBanner.tsx, MaintenanceScreen.tsx
 │   ├── tabs/    TextTranslationTab, DocumentStudioTab, ImageExtractionTab, AIRewriteTab
-│   ├── ui/      HomeClient, AccountMenu, SignInForm, UILanguageSwitcher, LanguageDropdown, HelpModal, LegalDocumentView, LegalLinks, MicButton
+│   ├── ui/      HomeClient, AccountMenu, SignInForm, UILanguageSwitcher, LanguageDropdown, HelpModal, LegalDocumentView, LegalLinks, MicButton, FeedbackModal
 │   └── admin/   AdminClientLayout, AdminSidebar, AdminPageHeader, AdminToast, ServiceTabBar, SettingsTabs, AdminDashboard,
 │                *Form (Branding, Design, Features, Tones, General, Legal, AiService, CaddyService, ExportImport), OllamaModelSelect,
-│                *ServicesLayout (Ollama, Caddy), *Metrics (Ollama, Db, Caddy), GlossaryAdmin, UserList, UsagePanel, AuditTable, PurgeButton, PinnedUrlNotice
+│                *ServicesLayout (Ollama, Caddy), *Metrics (Ollama, Db, Caddy), GlossaryAdmin, FeedbackInbox, UserList, UsagePanel, AuditTable, PurgeButton, PinnedUrlNotice
 │
 ├── hooks/       useCopyToClipboard, useOllamaPull, useAudioRecorder
 ├── locales/     en.ts (source du type Messages), de.ts, fr.ts, it.ts (`satisfies Messages`)
@@ -162,6 +169,7 @@ src/
 │   ├── site-assets.ts       Upload logo / fond : magic bytes, taille, erreurs à code
 │   ├── caddy-config.ts (client-safe), caddy.ts, caddy-tls.ts
 │   ├── legal-content.ts (dispatcher pur EN/DE/FR/IT → legal-content-{en,de,fr,it}.ts), legal.ts (server-only : lit la config réelle), legal-pdf.ts (export PDF, pdf-lib)
+│   ├── feedback.ts (server-only), feedback-schema.ts (client-safe : catégories, statuts, limites, zod)
 │   ├── glossary.ts, tones.ts, limits.ts, features-guard.ts, validators.ts, languages.ts, i18n.tsx, sign-out.ts, crypto.ts, db.ts, color-utils.ts, relative-time.ts
 │
 └── types/       leksis.ts, next-auth.d.ts
@@ -469,7 +477,7 @@ Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git e
 - Clés hors de ce mécanisme : `ai_config` (Services → AI), `caddy_config` (Services → Caddy), `system_status` (écrite par `install.sh` seulement)
 - Tons de réécriture : clé `rewrite_tones` (tableau JSONB, 1 à 6 tons) ; `lib/tones-defaults.ts` (client-safe : défauts, `normalizeTones`) migre l'ancien format (`label: string` → `labels: { en }`) et rétablit le libellé `it` des 6 tons d'origine enregistrés avant l'italien (sauf ton renommé) ; `lib/tones.ts` (server-only) lit la base. `TonesForm` doit envoyer chaque langue de `labels` à l'enregistrement (`it` était oublié → perdu à chaque sauvegarde). `ToneConfig.labels` : `en` requis, `fr`/`de`/`it` en repli sur `en`
 - Tonalité par défaut : `features.defaults.formality` (`Informal` par défaut), pré-remplit `TextTranslationTab`
-- **Conservation des journaux** : `general.usageRetentionDays` (365) et `auditRetentionDays` (730), 0 = garder. `lib/retention.ts` supprime par lots de 10 000, lancé par `instrumentation.ts` 2 min après le démarrage puis toutes les 6 h (`LEKSIS_RETENTION_DELAY_SEC` pour les tests), et s'inscrit à l'audit (`AUTO_PURGE_*`, utilisateur `system`)
+- **Conservation des journaux** : `general.usageRetentionDays` (365), `auditRetentionDays` (730) et `feedbackRetentionDays` (365, retours des utilisateurs avec leurs images), 0 = garder. `lib/retention.ts` supprime par lots de 10 000, lancé par `instrumentation.ts` 2 min après le démarrage puis toutes les 6 h (`LEKSIS_RETENTION_DELAY_SEC` pour les tests), et s'inscrit à l'audit (`AUTO_PURGE_*`, utilisateur `system`)
 - `headerLogoSize` est dans `branding` (repli de lecture sur `design`) ; le fond du site est une couleur **ou** une image (`BrandingForm` supprime l'image en passant en mode Couleur)
 
 ### Pages légales (Privacy / Usage policy)
@@ -477,7 +485,7 @@ Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git e
 - `/legal/privacy` et `/legal/usage` : **publiques** (exclues du matcher de `proxy.ts`, lisibles avant la connexion), `force-dynamic`. Liens **toujours affichés** dans le footer de `HomeClient` (le footer n'est plus conditionné à un texte / des liens personnalisés) et sous le formulaire de `SignInForm`, via `LegalLinks`
 - **Texte disponible en EN/DE/FR/IT**, suit le sélecteur de langue de l'interface (`useI18n().locale`), instantanément et sans rechargement — comme le reste de l'appli. `lib/legal-content.ts` est un dispatcher pur (`buildPrivacyPolicy(ctx, locale?)` / `buildUsagePolicy(ctx, locale?)`, défaut `'en'`) vers `lib/legal-content-{en,de,fr,it}.ts` (un fichier par langue, mêmes ids de section, même logique conditionnelle — seul le texte change). La page serveur (`app/legal/[doc]/page.tsx`) construit les 4 langues d'un coup (texte pur, pas d'I/O) et les passe à `LegalDocumentView`, qui pioche `content[locale]`. Changer le texte de référence (une langue ou plus) → bumper `LEGAL_TEMPLATE_VERSION`
 - **Export PDF** : bouton « Download PDF » sur chaque page (i18n `legal.downloadPdf`), vers `GET /api/legal/[doc]/pdf?lang=xx` (public, exclu de `proxy.ts` comme `api/site-assets`). `lib/legal-pdf.ts` (`generateLegalPdf(doc, { siteName, version, locale })`) génère le PDF avec **pdf-lib** (pas de navigateur headless — cohérent avec l'appliance on-premise), police standard Helvetica (encodage WinAnsi, couvre les accents FR/DE/IT), pagination manuelle par mesure de largeur de texte. Les encadrés d'avertissement n'ont pas de fond coloré (mise en page texte simple) : un préfixe traduit (« Warning »/« Attention »/« Achtung »/« Attenzione ») les signale
-- **Partie factuelle générée depuis la configuration réelle** (`lib/legal.ts`, `loadLegalContext()`) : emplacement du moteur IA (`aiScope` : `local` = conteneur Ollama, `private` = réseau privé, `external` = `allowExternal` + hôte hors réseau privé → encadré d'avertissement, en cas de doute DNS on annonce `external`), durées de conservation, fonctions activées, limites. **Toute affirmation des textes doit rester vraie vis-à-vis du code** (contenu jamais stocké, `usage_log` sans texte, OTP affiché et non envoyé, suppression de compte ≠ blocage) : la relire quand on touche aux journaux, à l'auth ou au stockage — et répercuter tout changement de formulation dans les 4 fichiers `legal-content-*.ts`
+- **Partie factuelle générée depuis la configuration réelle** (`lib/legal.ts`, `loadLegalContext()`) : emplacement du moteur IA (`aiScope` : `local` = conteneur Ollama, `private` = réseau privé, `external` = `allowExternal` + hôte hors réseau privé → encadré d'avertissement, en cas de doute DNS on annonce `external`), durées de conservation, fonctions activées, limites. **Toute affirmation des textes doit rester vraie vis-à-vis du code** (contenu jamais stocké — hors ce que l'utilisateur envoie volontairement par « Signaler un problème », `usage_log` sans texte, OTP affiché et non envoyé, suppression de compte ≠ blocage) : la relire quand on touche aux journaux, à l'auth ou au stockage — et répercuter tout changement de formulation dans les 4 fichiers `legal-content-*.ts`
 - Clé `legal` (`site_settings`, schéma `LegalSchema` + défaut dans `settings-schema.ts`, donc export / import / reset) : `organization`, `contact` (repli : `general.contactEmail`), `privacyNotes`, `usageRules`. **Ces 4 champs restent en texte libre, une seule langue** (celle saisie par l'admin) : ils ne sont pas traduits automatiquement, contrairement au reste du texte de la page. Texte brut affiché par React (jamais interprété comme du HTML). Onglet Réglages → Legal (`LegalForm`)
 
 ### Comptes et sessions
@@ -493,6 +501,17 @@ Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git e
 - Modifier un compte passe **uniquement** par `changeUser()` / `removeUser()` : transaction avec verrou consultatif, refus de se rétrograder / désactiver / supprimer soi-même, et il reste toujours au moins un administrateur actif (`self`, `last_admin`, `not_found`)
 - Connexion : `authorize()` et `/api/auth/otp` refusent un compte désactivé (`account_disabled`)
 - `signOutToSignIn()` (`lib/sign-out.ts`) se déconnecte puis navigue **lui-même** vers `/auth/signin` : ne pas redéclarer de callback Auth.js `redirect` (il casse `signIn()`, « Invalid URL »)
+
+### Retours des utilisateurs (« Report a problem or suggest an improvement »)
+
+- **Côté utilisateur** : `FeedbackModal`, ouvert depuis `AccountMenu` (prop `onFeedback`) et le footer de `HomeClient`, affiché si `features.feedback !== false` (Réglages → Features & limits, interrupteur sous les modules). Catégories (slugs stables) : `problem`, `improvement`, `translation` (traduction à améliorer, terme de glossaire à ajouter ou corriger), `other`. Pas d'email, pas d'appel IA, pas de page « mes signalements » (choix assumé : rester simple)
+- **Images** : 5 au plus (`FEEDBACK_MAX_IMAGES`), 5 Mo chacune, collées (Ctrl+V), déposées ou choisies. Le navigateur les **redessine dans un canvas** (`prepareImage`) : orientation EXIF appliquée, côté le plus long ≤ 2400 px, **métadonnées retirées** (position GPS d'une photo), PNG reste PNG, le reste devient JPEG. Le serveur revérifie : octets magiques PNG / JPEG / WebP seulement (`checkFeedbackImage`, ni SVG ni ICO), taille, nombre
+- **Contexte** (case cochée par défaut) : onglet actif et langue de l'interface viennent du formulaire ; version et navigateur (`User-Agent`) sont relevés **par le serveur**. Le texte des onglets n'est jamais joint
+- **`POST /api/feedback`** : `requireUser()` (mode maintenance compris) **sans** la limite des appels IA, mais avec la sienne (`FEEDBACK_PER_HOUR` = 10 par heure et par utilisateur, clé `feedback:<id>`), `requestTooLarge` avant lecture, zod `FeedbackSubmitSchema`. Codes : `disabled`, `invalid`, `too_large`, `unsupported_format`, `too_many_images`, `rate_limited`
+- **Stockage** : tables `feedback` et `feedback_attachments` (**images en `bytea`, jamais dans `UPLOAD_DIR`** : `/api/site-assets` est public). `user_email` conservé tel quel, `user_id ON DELETE SET NULL` : un compte supprimé laisse ses messages (affichés « compte supprimé »). Inclus dans `leksis backup` (pg_dump), **jamais** dans l'export JSON d'Admin → Backup
+- **Admin → Retours** (`/admin/feedback`, `FeedbackInbox`) : liste + détail, filtres par statut (`new`, `in_progress`, `done`, `archived` ; « À traiter » = new + in_progress) et par catégorie, note interne, suppression. Le statut se change à la main (ouvrir un message ne le marque pas comme lu). Images servies par `/api/admin/feedback/attachments/[id]` (admins seulement, `CSP sandbox` + `nosniff`). Pastille dans `AdminSidebar` (`/api/admin/feedback/count`, recomptée sur l'événement `leksis:feedback-changed`) et bandeau sur le dashboard tant qu'il reste des nouveaux messages
+- **Audit** : `UPDATE_FEEDBACK` (statut avant / après ; la note n'y figure pas, seulement `noteChanged`), `DELETE_FEEDBACK` (email + catégorie), `AUTO_PURGE_FEEDBACK` ; ressource `feedback:<id>` affichée `feedback:<email de l'auteur>`. L'envoi par l'utilisateur n'est ni audité ni compté dans `usage_log`
+- **Pages légales** : tant que le bouton est activé, la politique de confidentialité dit que messages, images et détails techniques sont enregistrés, lisibles par les admins seulement, et pour combien de temps (`LegalContext.feedbackEnabled` / `feedbackRetentionDays`)
 
 ### Base de données et migrations
 

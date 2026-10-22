@@ -15,7 +15,7 @@ interface SystemStatus {
 export default async function AdminDashboardPage() {
   await requireAdmin()
 
-  const [usersRes, callsTodayRes, glossaryRes, auditRes, trendRes, featureRes, systemStatus] = await Promise.all([
+  const [usersRes, callsTodayRes, glossaryRes, auditRes, trendRes, featureRes, systemStatus, newFeedbackRes] = await Promise.all([
     query<{ count: string }>('SELECT COUNT(*)::int AS count FROM users'),
     query<{ count: string }>(
       `SELECT COUNT(*)::int AS count FROM usage_log WHERE created_at >= CURRENT_DATE`
@@ -54,6 +54,7 @@ export default async function AdminDashboardPage() {
        GROUP BY feature`
     ),
     getSetting<SystemStatus>('system_status'),
+    query<{ count: string }>("SELECT COUNT(*)::int AS count FROM feedback WHERE status = 'new'"),
   ])
 
   const stats = {
@@ -79,6 +80,7 @@ export default async function AdminDashboardPage() {
       trend={trend}
       featureCounts={featureCounts}
       lastBackupAt={systemStatus.lastBackupAt ?? null}
+      newFeedback={parseInt(newFeedbackRes.rows[0]?.count ?? '0')}
       openSignIn={(await getAuthMethod()) === 'otp_display'}
     />
   )

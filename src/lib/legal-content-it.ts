@@ -75,6 +75,7 @@ export function buildPrivacyPolicy(c: LegalContext): LegalDocument {
         'Registro di utilizzo: per ogni richiesta IA, la data, il vostro indirizzo e-mail, la funzione utilizzata, le lingue, il modello e il numero di caratteri. Il contenuto in sé non viene mai registrato.',
         'Registro di audit: per gli amministratori, una registrazione delle azioni amministrative con l’indirizzo e-mail dell’amministratore.',
         'Glossari: i termini definiti dagli amministratori e la vostra scelta su quali glossari disattivare.',
+        ...(c.feedbackEnabled ? ['Segnalazioni: se utilizzate «Segnala un problema o suggerisci un miglioramento», il vostro messaggio, le immagini allegate e, se lo scegliete, i dettagli tecnici (scheda attiva, lingua dell’interfaccia, versione, browser) vengono registrati con il vostro indirizzo email. Solo gli amministratori possono leggerli.'] : []),
       ],
     },
     aiDestination(c),
@@ -93,6 +94,7 @@ export function buildPrivacyPolicy(c: LegalContext): LegalDocument {
       items: [
         retention(c.usageRetentionDays, 'Le voci del registro di utilizzo'),
         retention(c.auditRetentionDays, 'Le voci del registro di audit'),
+        ...(c.feedbackEnabled ? [retention(c.feedbackRetentionDays, 'Le segnalazioni (messaggi e immagini)')] : []),
         'I codici di accesso scadono dopo 10 minuti.',
         'Gli account vengono conservati finché un amministratore non li elimina.',
         'Il contenuto inviato non viene conservato (vedi sopra).',

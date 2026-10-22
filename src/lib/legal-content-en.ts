@@ -75,6 +75,7 @@ export function buildPrivacyPolicy(c: LegalContext): LegalDocument {
         'Usage log: for each AI request, the date, your email address, the feature used, the languages, the model and the number of characters. The content itself is never recorded.',
         'Audit log: for administrators, a record of administrative actions with the administrator’s email address.',
         'Glossaries: terms defined by administrators, and your choice of which glossaries to switch off.',
+        ...(c.feedbackEnabled ? ['Feedback: if you use “Report a problem or suggest an improvement”, your message, the images you attach and, if you choose, technical details (current tab, interface language, version, browser) are stored with your email address. Only administrators can read them.'] : []),
       ],
     },
     aiDestination(c),
@@ -93,6 +94,7 @@ export function buildPrivacyPolicy(c: LegalContext): LegalDocument {
       items: [
         retention(c.usageRetentionDays, 'Usage log entries'),
         retention(c.auditRetentionDays, 'Audit log entries'),
+        ...(c.feedbackEnabled ? [retention(c.feedbackRetentionDays, 'Feedback messages and their images')] : []),
         'Sign-in codes expire after 10 minutes.',
         'Accounts are kept until an administrator deletes them.',
         'Submitted content is not kept (see above).',

@@ -28,12 +28,14 @@ interface FeaturesLimits {
 }
 
 interface FeaturesData {
+  feedback:         boolean
   tabs:             FeaturesTabs
   defaults:         FeaturesDefaults
   limits:           FeaturesLimits
 }
 
 const DEFAULT_FEATURES: FeaturesData = {
+  feedback:         true,
   tabs:             { text: true, document: true, image: true, rewrite: true },
   defaults:         { sourceLang: 'auto', targetLang: 'en', formality: 'Informal' },
   limits:           { maxTextChars: 5000, maxDocChars: 12000, maxImageMB: 10, rateLimitPerMin: 30 },
@@ -48,6 +50,7 @@ interface Props {
 export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
   const { t } = useI18n()
   const [data, setData] = useState<FeaturesData>({
+    feedback:         initial.feedback ?? DEFAULT_FEATURES.feedback,
     tabs:             { ...DEFAULT_FEATURES.tabs,     ...(initial.tabs     ?? {}) },
     defaults:         { ...DEFAULT_FEATURES.defaults, ...(initial.defaults ?? {}) },
     limits:           { ...DEFAULT_FEATURES.limits,   ...(initial.limits   ?? {}) },
@@ -137,6 +140,31 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
               </button>
             </label>
           ))}
+          {/* Pas un onglet : le bouton « Signaler un problème » du menu du compte (la boîte de réception admin reste accessible) */}
+          <label className="flex items-center justify-between gap-4 bg-surface-container border border-outline-variant/20 rounded-lg px-4 py-3 cursor-pointer hover:bg-surface-container/60 transition-colors">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-on-surface-variant text-base leading-none" aria-hidden="true">feedback</span>
+              <div>
+                <span className="text-sm font-medium text-on-surface">{t.featuresForm.moduleFeedback}</span>
+                <span className="text-xs text-on-surface-variant ml-2">{t.featuresForm.moduleFeedbackDesc}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={data.feedback}
+              onClick={() => setData(prev => ({ ...prev, feedback: !prev.feedback }))}
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+                data.feedback ? 'bg-primary' : 'bg-outline-variant/40'
+              }`}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                  data.feedback ? 'translate-x-4' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </label>
         </div>
       </div>
 

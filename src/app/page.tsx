@@ -17,6 +17,7 @@ async function loadPageSettings() {
       footerLinks?:      { label: string; url: string }[]
     }
     const features  = (settings.features  ?? {}) as {
+      feedback?:         boolean
       tabs?:             { text?: boolean; document?: boolean; image?: boolean; rewrite?: boolean }
       defaults?:         { sourceLang?: string; targetLang?: string; formality?: Formality }
       limits?:           { maxTextChars?: number; maxDocChars?: number; maxImageMB?: number }
@@ -52,6 +53,7 @@ async function loadPageSettings() {
       maxImageMB:        features.limits?.maxImageMB    ?? 10,
       configuredTones,
       voiceInputEnabled,
+      feedbackEnabled:   features.feedback !== false,
     }
   } catch {
     return {
@@ -70,6 +72,7 @@ async function loadPageSettings() {
       maxImageMB:        10,
       configuredTones:   DEFAULT_TONES,
       voiceInputEnabled: false,
+      feedbackEnabled:   false,
     }
   }
 }

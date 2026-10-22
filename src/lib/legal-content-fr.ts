@@ -75,6 +75,7 @@ export function buildPrivacyPolicy(c: LegalContext): LegalDocument {
         'Journal d’usage : pour chaque requête IA, la date, votre adresse e-mail, la fonctionnalité utilisée, les langues, le modèle et le nombre de caractères. Le contenu lui-même n’est jamais enregistré.',
         'Journal d’audit : pour les administrateurs, un enregistrement des actions administratives avec l’adresse e-mail de l’administrateur.',
         'Glossaires : les termes définis par les administrateurs, et votre choix des glossaires à désactiver.',
+        ...(c.feedbackEnabled ? ['Retours : si vous utilisez « Signaler un problème ou suggérer une amélioration », votre message, les images jointes et, si vous le choisissez, des détails techniques (onglet actif, langue de l’interface, version, navigateur) sont enregistrés avec votre adresse email. Seuls les administrateurs peuvent les lire.'] : []),
       ],
     },
     aiDestination(c),
@@ -93,6 +94,7 @@ export function buildPrivacyPolicy(c: LegalContext): LegalDocument {
       items: [
         retention(c.usageRetentionDays, 'Les entrées du journal d’usage'),
         retention(c.auditRetentionDays, 'Les entrées du journal d’audit'),
+        ...(c.feedbackEnabled ? [retention(c.feedbackRetentionDays, 'Les demandes « Signaler un problème » (messages et images)')] : []),
         'Les codes de connexion expirent après 10 minutes.',
         'Les comptes sont conservés jusqu’à leur suppression par un administrateur.',
         'Le contenu soumis n’est pas conservé (voir ci-dessus).',

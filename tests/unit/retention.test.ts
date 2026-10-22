@@ -47,7 +47,7 @@ describe('purgeExpiredLogs', () => {
   it('uses 365 days for usage and 730 for audit when nothing is configured', async () => {
     await addUsage(10); await addUsage(364); await addUsage(366, 2)
     await addAudit(10); await addAudit(729); await addAudit(731, 3)
-    expect(await purgeExpiredLogs()).toEqual({ usage: 2, audit: 3 })
+    expect(await purgeExpiredLogs()).toEqual({ usage: 2, audit: 3, feedback: 0 })
     expect(await count('usage_log')).toBe(2)
     expect(await count('audit_log', "action = 'TEST'")).toBe(2)
   })
@@ -56,13 +56,13 @@ describe('purgeExpiredLogs', () => {
     await setGeneral({ usageRetentionDays: 30, auditRetentionDays: 7 })
     await addUsage(29); await addUsage(31, 2)
     await addAudit(6); await addAudit(8, 4)
-    expect(await purgeExpiredLogs()).toEqual({ usage: 2, audit: 4 })
+    expect(await purgeExpiredLogs()).toEqual({ usage: 2, audit: 4, feedback: 0 })
   })
 
   it('keeps everything for a table set to 0, and purges the other one', async () => {
     await setGeneral({ usageRetentionDays: 0, auditRetentionDays: 30 })
     await addUsage(5000, 3); await addAudit(5000, 3)
-    expect(await purgeExpiredLogs()).toEqual({ usage: 0, audit: 3 })
+    expect(await purgeExpiredLogs()).toEqual({ usage: 0, audit: 3, feedback: 0 })
     expect(await count('usage_log')).toBe(3)
   })
 
@@ -77,7 +77,7 @@ describe('purgeExpiredLogs', () => {
 
   it('writes nothing when there is nothing to delete', async () => {
     await addUsage(1); await addAudit(1)
-    expect(await purgeExpiredLogs()).toEqual({ usage: 0, audit: 0 })
+    expect(await purgeExpiredLogs()).toEqual({ usage: 0, audit: 0, feedback: 0 })
     expect(await count('audit_log', "action LIKE 'AUTO_PURGE%'")).toBe(0)
   })
 
@@ -86,6 +86,26 @@ describe('purgeExpiredLogs', () => {
     await addUsage(1, 3)
     expect((await purgeExpiredLogs()).usage).toBe(10_500)
     expect(await count('usage_log')).toBe(3)
+  })
+
+  it('deletes old feedback with its images (365 days by default, configurable, 0 keeps it)', async () => {
+    const addFeedback = async (daysAgo: number) => {
+      const r = await pg.db.query<{ id: string }>(
+        `INSERT INTO feedback (user_email, category, message, created_at)
+         VALUES ('u@x.ch', 'problem', 'msg', NOW() - make_interval(days => $1)) RETURNING id`, [daysAgo])
+      await pg.db.query("INSERT INTO feedback_attachments (feedback_id, mime, size, data) VALUES ($1, 'image/png', 1, '\\x00')", [r.rows[0].id])
+    }
+    await addFeedback(10); await addFeedback(400); await addFeedback(500)
+    expect((await purgeExpiredLogs()).feedback).toBe(2)
+    expect(await count('feedback')).toBe(1)
+    expect(await count('feedback_attachments')).toBe(1)
+    expect(await count('audit_log', "action = 'AUTO_PURGE_FEEDBACK'")).toBe(1)
+
+    await setGeneral({ feedbackRetentionDays: 0 })
+    await addFeedback(5000)
+    expect((await purgeExpiredLogs()).feedback).toBe(0)
+    await setGeneral({ feedbackRetentionDays: 5 })
+    expect((await purgeExpiredLogs()).feedback).toBe(2)
   })
 
   it('is idempotent', async () => {

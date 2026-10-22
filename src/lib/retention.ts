@@ -4,9 +4,9 @@ import { getSetting } from '@/lib/settings'
 import { logAudit } from '@/lib/audit'
 import { RETENTION_DEFAULTS } from '@/lib/settings-schema'
 
-// Les journaux d'usage et d'audit grossissent sans fin : les entrées plus anciennes que la durée réglée dans
-// Admin → Réglages → Général (0 = garder indéfiniment) sont supprimées automatiquement, par petits lots pour ne
-// pas bloquer la base.
+// Les journaux d'usage et d'audit, et les retours des utilisateurs, grossissent sans fin : les entrées plus anciennes
+// que la durée réglée dans Admin → Réglages → Général (0 = garder indéfiniment) sont supprimées automatiquement, par
+// petits lots pour ne pas bloquer la base.
 
 const BATCH_SIZE = 10_000
 const MAX_BATCHES = 100 // borne par exécution (1 000 000 lignes) : le reste sera pris à la suivante
@@ -17,9 +17,10 @@ const INTERVAL_MS = 6 * 60 * 60 * 1000
 export interface RetentionResult {
   usage: number // lignes supprimées de usage_log
   audit: number // lignes supprimées de audit_log
+  feedback: number // messages supprimés de feedback (leurs images partent avec, ON DELETE CASCADE)
 }
 
-async function purgeOlderThan(table: 'usage_log' | 'audit_log', days: number): Promise<number> {
+async function purgeOlderThan(table: 'usage_log' | 'audit_log' | 'feedback', days: number): Promise<number> {
   if (days <= 0) return 0
   let total = 0
   for (let i = 0; i < MAX_BATCHES; i++) {
@@ -37,17 +38,20 @@ async function purgeOlderThan(table: 'usage_log' | 'audit_log', days: number): P
 
 /** Supprime les entrées expirées selon les réglages ; l'action est elle-même inscrite au journal d'audit. */
 export async function purgeExpiredLogs(): Promise<RetentionResult> {
-  const general = await getSetting<{ usageRetentionDays?: number; auditRetentionDays?: number }>('general')
-  const usageDays = general.usageRetentionDays ?? RETENTION_DEFAULTS.usageRetentionDays
-  const auditDays = general.auditRetentionDays ?? RETENTION_DEFAULTS.auditRetentionDays
+  const general = await getSetting<{ usageRetentionDays?: number; auditRetentionDays?: number; feedbackRetentionDays?: number }>('general')
+  const usageDays    = general.usageRetentionDays    ?? RETENTION_DEFAULTS.usageRetentionDays
+  const auditDays    = general.auditRetentionDays    ?? RETENTION_DEFAULTS.auditRetentionDays
+  const feedbackDays = general.feedbackRetentionDays ?? RETENTION_DEFAULTS.feedbackRetentionDays
 
   const result: RetentionResult = {
-    usage: await purgeOlderThan('usage_log', usageDays),
-    audit: await purgeOlderThan('audit_log', auditDays),
+    usage:    await purgeOlderThan('usage_log', usageDays),
+    audit:    await purgeOlderThan('audit_log', auditDays),
+    feedback: await purgeOlderThan('feedback', feedbackDays),
   }
   // Écrit après la suppression : la trace ne s'efface pas elle-même
   if (result.usage) await logAudit('system', 'system', 'AUTO_PURGE_USAGE', 'usage_log', { deleted: result.usage, retentionDays: usageDays })
   if (result.audit) await logAudit('system', 'system', 'AUTO_PURGE_AUDIT', 'audit_log', { deleted: result.audit, retentionDays: auditDays })
+  if (result.feedback) await logAudit('system', 'system', 'AUTO_PURGE_FEEDBACK', 'feedback', { deleted: result.feedback, retentionDays: feedbackDays })
   return result
 }
 
@@ -61,7 +65,7 @@ export function startRetentionSchedule(): void {
 
   const run = () => {
     purgeExpiredLogs().then(
-      r => { if (r.usage || r.audit) console.log(`[retention] deleted ${r.usage} usage and ${r.audit} audit entries`) },
+      r => { if (r.usage || r.audit || r.feedback) console.log(`[retention] deleted ${r.usage} usage, ${r.audit} audit and ${r.feedback} feedback entries`) },
       err => console.error('[retention] purge failed:', err instanceof Error ? err.message : err),
     )
   }
