@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.4/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.9.0-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,14 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.9.0-beta.1
+**User feedback inbox (beta).** One new **database migration** (`005-feedback`, creates two tables): `leksis update` takes a backup first and applies it. The feedback button and inbox fail briefly between the app restart and the migration.
+- **"Report a problem or suggest an improvement"** in the account menu and the footer: choose a type (Problem, Improvement, **Translation** — a translation to improve or a glossary term to add or fix — or Other), write a message and attach up to 5 images (paste a screenshot with Ctrl+V, drop or pick files). Technical details (current tab, interface language, version, browser) can be attached in one click. No email needed
+- Images are redrawn in the browser before sending: correct orientation, very large pictures scaled down and metadata removed (such as a phone photo's location). The server accepts PNG, JPEG and WebP only
+- **Admin → Feedback**: an inbox with status (New, In progress, Done, Archived) and type filters, an internal note, full-size images and deletion. A badge in the admin menu and a banner on the dashboard show new messages. Status changes and deletions are recorded in the audit log
+- Can be switched off in Settings → Features & limits. Messages are deleted automatically after 365 days by default (Settings → General), are kept when the author's account is deleted, and are included in `leksis backup` but not in the JSON configuration export
+- The privacy policy (EN/DE/FR/IT) now states what is stored, that only administrators can read it, and for how long, while the button is enabled
 
 ### v1.8.4
 **Admin overhaul, translation register and glossary (tested through four betas).** One small **database migration** (`004-glossary-match-variants`): `leksis update` takes a backup first and applies it. The app fails briefly between its restart and the migration.
