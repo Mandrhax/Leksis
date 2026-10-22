@@ -13,6 +13,8 @@ interface Props {
   onClose:    () => void
   /** Onglet actif de l'espace de travail, joint au message si l'utilisateur l'accepte */
   activeTab?: string
+  /** Catégorie présélectionnée à l'ouverture (lien « Signaler un problème » sous un résultat) */
+  initialCategory?: FeedbackCategory | null
 }
 
 interface Attached {
@@ -54,7 +56,7 @@ async function prepareImage(file: Blob): Promise<Blob | 'format' | 'too_large'> 
   return out.size > FEEDBACK_IMAGE_MAX_BYTES ? 'too_large' : out
 }
 
-export function FeedbackModal({ open, onClose, activeTab }: Props) {
+export function FeedbackModal({ open, onClose, activeTab, initialCategory }: Props) {
   const { t, locale } = useI18n()
   const f = t.feedback
 
@@ -83,6 +85,11 @@ export function FeedbackModal({ open, onClose, activeTab }: Props) {
     if (sent) reset()
     onClose()
   }, [sending, sent, reset, onClose])
+
+  // Ouvert depuis un résultat : la catégorie suit le lien (le reste du brouillon est conservé)
+  useEffect(() => {
+    if (open && initialCategory) setCategory(initialCategory)
+  }, [open, initialCategory])
 
   useEffect(() => {
     if (!open) return

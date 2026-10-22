@@ -8,6 +8,8 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { MicButton } from '@/components/ui/MicButton'
 import { useI18n } from '@/lib/i18n'
 import type { Language, Formality } from '@/types/leksis'
+import { ReportResultLink } from '@/components/ui/ReportResultLink'
+import type { FeedbackCategory } from '@/lib/feedback-schema'
 
 const DEFAULT_TARGET: Language = { code: 'fr', name: 'French' }
 const TARGET_KEY = 'leksisTargetLang'
@@ -30,9 +32,11 @@ interface Props {
   maxTextChars?:      number
   defaultFormality?:  Formality
   voiceInputEnabled?: boolean
+  /** Ouvre « Signaler un problème » avec cette catégorie (absent : bouton désactivé par l'admin) */
+  onReport?:          (category: FeedbackCategory) => void
 }
 
-export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_CHARS, defaultFormality = 'Informal', voiceInputEnabled = false }: Props) {
+export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_CHARS, defaultFormality = 'Informal', voiceInputEnabled = false, onReport }: Props) {
   const { t } = useI18n()
 
   const [sourceText, setSourceText]     = useState('')
@@ -309,7 +313,10 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
               </div>
             )}
           </div>
-          <div className="mt-4 flex items-center justify-end">
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              {onReport && outputText && !isLoading && <ReportResultLink category={'translation'} onReport={onReport} />}
+            </div>
             <div className="flex items-center gap-2">
               {copied && <span role="status" aria-live="polite" className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">{t.textTab.copied}</span>}
               <button

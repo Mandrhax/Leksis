@@ -18,9 +18,11 @@ interface Props {
   open:      boolean
   onClose:   () => void
   activeTab?: string
+  /** « Signaler un problème » en bas de l'aide (absent : bouton désactivé par l'admin) */
+  onFeedback?: () => void
 }
 
-export function HelpModal({ open, onClose, activeTab }: Props) {
+export function HelpModal({ open, onClose, activeTab, onFeedback }: Props) {
   const { t } = useI18n()
 
   const initialTab: ModalTab =
@@ -159,6 +161,16 @@ export function HelpModal({ open, onClose, activeTab }: Props) {
           )}
 
         </div>
+
+        {onFeedback && (
+          <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-t border-outline-variant/15 shrink-0 bg-surface-container-low">
+            <span className="text-sm text-on-surface-variant">{t.helpModal.feedbackPrompt}</span>
+            <button type="button" onClick={onFeedback} className="text-sm font-semibold text-primary hover:underline flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">feedback</span>
+              {t.account.feedback}
+            </button>
+          </div>
+        )}
       </div>
     </>,
     document.body,

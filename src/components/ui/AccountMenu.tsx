@@ -7,8 +7,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useI18n } from '@/lib/i18n'
 
-/** onFeedback : affiche « Signaler un problème ou suggérer une amélioration » (espace de travail, si activé) */
-export function AccountMenu({ onFeedback }: { onFeedback?: () => void } = {}) {
+export function AccountMenu() {
   const { t }                     = useI18n()
   const { data: session, status } = useSession()
   const [open, setOpen]           = useState(false)
@@ -105,20 +104,6 @@ export function AccountMenu({ onFeedback }: { onFeedback?: () => void } = {}) {
         </span>
         {t.account.settings}
       </Link>
-
-      {onFeedback && (
-        <button
-          type="button"
-          onClick={() => { setOpen(false); onFeedback() }}
-          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-on-surface text-left
-                     hover:bg-surface-container-low transition-colors"
-        >
-          <span className="material-symbols-outlined text-base leading-none text-on-surface-variant" aria-hidden="true">
-            feedback
-          </span>
-          {t.account.feedback}
-        </button>
-      )}
 
       <button
         onClick={() => { setOpen(false); signOutToSignIn() }}

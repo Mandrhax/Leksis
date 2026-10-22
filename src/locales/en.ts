@@ -923,6 +923,8 @@ export const messages = {
   },
   feedback: {
     title:               'Report a problem or suggest an improvement',
+    reportTranslation:   'Report a translation problem',
+    reportResult:        'Report a problem with this result',
     categoryLabel:       'Type',
     catProblem:          'Problem',
     catImprovement:      'Improvement',
@@ -991,6 +993,7 @@ export const messages = {
   },
   helpModal: {
     title: 'Help & Tips',
+    feedbackPrompt: 'Can’t find what you need, or have an idea?',
     tabs: {
       text:      'Text',
       documents: 'Documents',

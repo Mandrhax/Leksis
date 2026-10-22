@@ -9,6 +9,8 @@ import { useI18n } from '@/lib/i18n'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import type { Messages } from '@/locales/en'
 import type { RewriteMode, RewriteLength, ToneConfig, Language } from '@/types/leksis'
+import { ReportResultLink } from '@/components/ui/ReportResultLink'
+import type { FeedbackCategory } from '@/lib/feedback-schema'
 
 const LENGTHS: RewriteLength[] = ['Shorter', 'Keep', 'Longer']
 
@@ -24,13 +26,15 @@ interface Props {
   maxTextChars?:      number
   configuredTones?:   ToneConfig[]
   voiceInputEnabled?: boolean
+  /** Ouvre « Signaler un problème » avec cette catégorie (absent : bouton désactivé par l'admin) */
+  onReport?:          (category: FeedbackCategory) => void
 }
 
 const DEFAULT_TONES_FALLBACK: ToneConfig[] = [
   { id: 'professional', labels: { en: 'Professional' }, instruction: 'in a professional, formal tone appropriate for business communication' },
 ]
 
-export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = DEFAULT_TONES_FALLBACK, voiceInputEnabled = false }: Props) {
+export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = DEFAULT_TONES_FALLBACK, voiceInputEnabled = false, onReport }: Props) {
   const { t } = useI18n()
 
   const { locale } = useI18n()
@@ -233,7 +237,10 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
               </div>
             )}
           </div>
-          <div className="mt-4 flex items-center justify-end">
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              {onReport && outputText && !isLoading && <ReportResultLink category={'problem'} onReport={onReport} />}
+            </div>
             <div className="flex items-center gap-2">
               {copied && <span role="status" aria-live="polite" className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">{t.rewriteTab.copied}</span>}
               <button

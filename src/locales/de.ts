@@ -925,6 +925,8 @@ export const messages = {
   },
   feedback: {
     title:               'Problem melden oder Verbesserung vorschlagen',
+    reportTranslation:   'Übersetzungsproblem melden',
+    reportResult:        'Problem mit diesem Ergebnis melden',
     categoryLabel:       'Art',
     catProblem:          'Problem',
     catImprovement:      'Verbesserung',
@@ -993,6 +995,7 @@ export const messages = {
   },
   helpModal: {
     title: 'Hilfe & Tipps',
+    feedbackPrompt: 'Keine Antwort gefunden oder eine Idee?',
     tabs: {
       text:      'Text',
       documents: 'Dokumente',

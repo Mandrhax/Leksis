@@ -12,6 +12,7 @@ import { FeedbackModal }        from '@/components/ui/FeedbackModal'
 import { LegalLinks }           from '@/components/ui/LegalLinks'
 import { I18nProvider, useI18n } from '@/lib/i18n'
 import type { ToneConfig, Formality } from '@/types/leksis'
+import type { FeedbackCategory } from '@/lib/feedback-schema'
 
 type TabId = 'text' | 'document' | 'image' | 'rewrite'
 
@@ -66,6 +67,16 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
   const [logoVisible, setLogoVisible] = useState(true)
   const [helpOpen, setHelpOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [feedbackCategory, setFeedbackCategory] = useState<FeedbackCategory | null>(null)
+
+  // « Signaler un problème » : icône de l'en-tête, bas de l'aide, footer, et lien sous chaque résultat
+  // (catégorie présélectionnée). Absent partout si l'admin l'a désactivé.
+  const openFeedback = (category: FeedbackCategory | null = null) => {
+    setHelpOpen(false)
+    setFeedbackCategory(category)
+    setFeedbackOpen(true)
+  }
+  const onReport = feedbackEnabled ? (c: FeedbackCategory) => openFeedback(c) : undefined
 
   // Si l'onglet actif est désactivé (rechargement dynamique), revenir au premier
   const safeActiveTab = enabledTabs[activeTab] ? activeTab : (visibleTabs[0]?.id ?? 'text')
@@ -103,8 +114,18 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
       >
         <span className="material-symbols-outlined">help</span>
       </button>
+      {feedbackEnabled && (
+        <button
+          className="icon-btn flex items-center justify-center"
+          onClick={() => openFeedback()}
+          aria-label={t.account.feedback}
+          title={t.account.feedback}
+        >
+          <span className="material-symbols-outlined">feedback</span>
+        </button>
+      )}
       <UILanguageSwitcher />
-      <AccountMenu onFeedback={feedbackEnabled ? () => setFeedbackOpen(true) : undefined} />
+      <AccountMenu />
     </div>
   )
 
@@ -155,30 +176,30 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
         <div className="w-full max-w-[1440px]">
           {enabledTabs.text && (
             <div className={safeActiveTab === 'text' ? '' : 'hidden'}>
-              <TextTranslationTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} defaultFormality={defaultFormality} maxTextChars={maxTextChars} voiceInputEnabled={voiceInputEnabled} />
+              <TextTranslationTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} defaultFormality={defaultFormality} maxTextChars={maxTextChars} voiceInputEnabled={voiceInputEnabled} onReport={onReport} />
             </div>
           )}
           {enabledTabs.document && (
             <div className={safeActiveTab === 'document' ? '' : 'hidden'}>
-              <DocumentStudioTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} maxDocChars={maxDocChars} />
+              <DocumentStudioTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} maxDocChars={maxDocChars} onReport={onReport} />
             </div>
           )}
           {enabledTabs.image && (
             <div className={safeActiveTab === 'image' ? '' : 'hidden'}>
-              <ImageExtractionTab defaultTargetLang={defaultTargetLang} maxImageMB={maxImageMB} />
+              <ImageExtractionTab defaultTargetLang={defaultTargetLang} maxImageMB={maxImageMB} onReport={onReport} />
             </div>
           )}
           {enabledTabs.rewrite && (
             <div className={safeActiveTab === 'rewrite' ? '' : 'hidden'}>
-              <AIRewriteTab maxTextChars={maxTextChars} configuredTones={configuredTones} voiceInputEnabled={voiceInputEnabled} />
+              <AIRewriteTab maxTextChars={maxTextChars} configuredTones={configuredTones} voiceInputEnabled={voiceInputEnabled} onReport={onReport} />
             </div>
           )}
         </div>
       </main>
 
-      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} activeTab={safeActiveTab} />
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} activeTab={safeActiveTab} onFeedback={feedbackEnabled ? () => openFeedback() : undefined} />
       {feedbackEnabled && (
-        <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} activeTab={safeActiveTab} />
+        <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} activeTab={safeActiveTab} initialCategory={feedbackCategory} />
       )}
 
       {/* ── Footer ── */}
@@ -215,7 +236,7 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
             {feedbackEnabled && (
               <button
                 type="button"
-                onClick={() => setFeedbackOpen(true)}
+                onClick={() => openFeedback()}
                 className="text-xs text-on-surface-variant hover:text-on-surface transition-colors"
                 style={footerTextColor ? { color: footerTextColor } : undefined}
               >

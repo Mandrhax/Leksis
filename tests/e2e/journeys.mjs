@@ -696,9 +696,14 @@ try {
   writeFileSync(pngPath, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'))
 
   await signupPage.goto(BASE + '/', { waitUntil: 'networkidle0' })
-  await signupPage.evaluate(re => [...document.querySelectorAll('button')].find(b => new RegExp(re, 'i').test(b.getAttribute('aria-label') || '')).click(), accountLabel.source)
-  await signupPage.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.innerText.includes('Report a problem')), { timeout: 10000 })
-  await signupPage.evaluate(() => [...document.querySelectorAll('button')].find(b => b.innerText.includes('Report a problem')).click())
+  // The help window ends with a link to the feedback form
+  await signupPage.click('button[aria-label="Help & Tips"]')
+  await signupPage.waitForSelector('[role=dialog]', { timeout: 10000 })
+  check('the help window offers to report a problem', await signupPage.evaluate(() =>
+    [...document.querySelectorAll('[role=dialog] button')].some(b => b.innerText.includes('Report a problem'))))
+  await signupPage.keyboard.press('Escape')
+  // Header icon next to the help button
+  await signupPage.click('button[aria-label="Report a problem or suggest an improvement"]')
   await signupPage.waitForSelector('[role=dialog] textarea', { timeout: 10000 })
   await signupPage.evaluate(() => [...document.querySelectorAll('[role=dialog] [role=radio]')].find(b => b.innerText.includes('Translation')).click())
   await signupPage.type('[role=dialog] textarea', 'The term "contract" should be "contrat de travail"')

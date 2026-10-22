@@ -7,6 +7,8 @@ import { LANGUAGES, detectLanguage } from '@/lib/languages'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
 import type { Language } from '@/types/leksis'
+import { ReportResultLink } from '@/components/ui/ReportResultLink'
+import type { FeedbackCategory } from '@/lib/feedback-schema'
 
 const DEFAULT_TARGET: Language = { code: 'fr', name: 'French' }
 const IMG_TARGET_KEY = 'leksisImgTargetLang'
@@ -109,9 +111,11 @@ type Mode = 'extract' | 'translate'
 interface Props {
   defaultTargetLang?: string
   maxImageMB?:        number
+  /** Ouvre « Signaler un problème » avec cette catégorie (absent : bouton désactivé par l'admin) */
+  onReport?:          (category: FeedbackCategory) => void
 }
 
-export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10 }: Props) {
+export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onReport }: Props) {
   const { t } = useI18n()
   const [file, setFile]         = useState<File | null>(null)
   const [preview, setPreview]   = useState<string | null>(null)
@@ -444,7 +448,10 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10 }: Props
             )}
           </div>
 
-          <div className="mt-4 flex items-center justify-end">
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              {onReport && outputText && !isLoading && <ReportResultLink category={mode === 'translate' ? 'translation' : 'problem'} onReport={onReport} />}
+            </div>
             <div className="flex items-center gap-2">
               {copied && <span role="status" aria-live="polite" className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">{t.imgTab.copied}</span>}
               <button

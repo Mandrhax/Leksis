@@ -6,6 +6,8 @@ import { LANGUAGES } from '@/lib/languages'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
 import type { Block, Language } from '@/types/leksis'
+import { ReportResultLink } from '@/components/ui/ReportResultLink'
+import type { FeedbackCategory } from '@/lib/feedback-schema'
 
 const DEFAULT_TARGET: Language = { code: 'fr', name: 'French' }
 const DOC_TARGET_KEY = 'leksisDocTargetLang'
@@ -85,9 +87,11 @@ interface Props {
   defaultSourceLang?: string
   defaultTargetLang?: string
   maxDocChars?:       number
+  /** Ouvre « Signaler un problème » avec cette catégorie (absent : bouton désactivé par l'admin) */
+  onReport?:          (category: FeedbackCategory) => void
 }
 
-export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000 }: Props) {
+export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onReport }: Props) {
   const { t } = useI18n()
   const [file, setFile]             = useState<File | null>(null)
   const [mode, setMode]             = useState<Mode>('translate')
@@ -387,7 +391,10 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000 }: Pr
             )}
           </div>
 
-          <div className="mt-4 flex items-center justify-end">
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              {onReport && outputBlocks && !isLoading && <ReportResultLink category={mode === 'translate' ? 'translation' : 'problem'} onReport={onReport} />}
+            </div>
             <div className="flex items-center gap-2">
               {copied && <span role="status" aria-live="polite" className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">{t.docTab.copied}</span>}
               <button
