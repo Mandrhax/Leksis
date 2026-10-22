@@ -65,6 +65,7 @@ function EntryRow({
   entry: GlossaryEntry
   onDelete: (id: number) => void
 }) {
+  const { t } = useI18n()
   const langName = (code: string | null) => {
     if (!code) return '—'
     return LANGUAGES.find((l) => l.code === code)?.name ?? code
@@ -72,7 +73,17 @@ function EntryRow({
 
   return (
     <tr className="border-b border-outline-variant/10 hover:bg-surface-container/30 transition-colors group">
-      <td className="py-2.5 px-4 text-sm text-on-surface">{entry.source}</td>
+      <td className="py-2.5 px-4 text-sm text-on-surface">
+        {entry.source}
+        {entry.matchVariants && (
+          <span
+            className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary/10 text-primary"
+            title={t.glossaryAdmin.matchVariantsHint}
+          >
+            {t.glossaryAdmin.variantsBadge}
+          </span>
+        )}
+      </td>
       <td className="py-2.5 px-4 text-sm text-on-surface">{entry.target}</td>
       <td className="py-2.5 px-4 text-sm text-on-surface-variant">{langName(entry.sourceLang)}</td>
       <td className="py-2.5 px-4 text-sm text-on-surface-variant">{langName(entry.targetLang)}</td>
@@ -112,6 +123,7 @@ function GlossaryEntries({
   const [addTarget, setAddTarget] = useState('')
   const [addSrcLang, setAddSrcLang] = useState('')
   const [addTgtLang, setAddTgtLang] = useState('')
+  const [addVariants, setAddVariants] = useState(false)
   const [saving, setSaving] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -139,6 +151,7 @@ function GlossaryEntries({
           target: addTarget.trim(),
           sourceLang: addSrcLang || null,
           targetLang: addTgtLang || null,
+          matchVariants: addVariants,
         }),
       })
       if (res.ok) {
@@ -148,6 +161,7 @@ function GlossaryEntries({
         setAddTarget('')
         setAddSrcLang('')
         setAddTgtLang('')
+        setAddVariants(false)
         onEntryAdded()
       } else {
         showToast(t.glossaryAdmin.errorAdd, 'error')
@@ -258,6 +272,18 @@ function GlossaryEntries({
           <LangSelect value={addSrcLang} onChange={setAddSrcLang} label={t.glossaryAdmin.sourceLang} />
           <LangSelect value={addTgtLang} onChange={setAddTgtLang} label={t.glossaryAdmin.targetLang} />
         </div>
+        <label className="flex items-start gap-2.5 cursor-pointer mb-3">
+          <input
+            type="checkbox"
+            checked={addVariants}
+            onChange={(e) => setAddVariants(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="block text-sm text-on-surface">{t.glossaryAdmin.matchVariants}</span>
+            <span className="block text-xs text-on-surface-variant">{t.glossaryAdmin.matchVariantsHint}</span>
+          </span>
+        </label>
         <div className="flex items-center gap-3">
           <button
             onClick={addEntry}

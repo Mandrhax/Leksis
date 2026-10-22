@@ -24,6 +24,11 @@ describe('buildTranslationPrompt', () => {
     expect(buildTranslationPrompt({ ...base, formality: 'Formal' })).not.toContain('Keep the register')
     expect(buildDocumentTranslationPrompt({ segments: 'a', sourceLang: 'French', targetLang: 'German' })).toContain('Keep the register of the original')
   })
+  it('puts the glossary clause in the document prompt, before the segments', () => {
+    const p = buildDocumentTranslationPrompt({ segments: 'a ||| b', sourceLang: 'French', targetLang: 'German', glossaryClause: 'GLOSSARY\n' })
+    expect(p).toContain('GLOSSARY\n')
+    expect(p.indexOf('GLOSSARY')).toBeLessThan(p.indexOf('a ||| b'))
+  })
   it('injects the glossary clause before the instruction to output only the translation', () => {
     const clause = 'Use these terms: cat = chat.\n'
     const p = buildTranslationPrompt({ ...base, glossaryClause: clause })

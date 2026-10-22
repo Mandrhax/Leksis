@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.4-beta.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.4-beta.3/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,14 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.4-beta.3
+**Glossary reliability (beta).** One small **database migration** (`004-glossary-match-variants`): `leksis update` takes a backup first and applies it. The app fails briefly between its restart and the migration.
+- **Document translation now uses the glossary** (it was only applied to text translation and rewriting)
+- **Regional variants**: a French → German term also applies to French (Switzerland) → German (Switzerland), and likewise for other regions
+- **Whole words only**, ignoring case and accents: "art" no longer fires inside "partie"; the most specific (longest) terms come first, at most 100 per request
+- **Optional word-ending variants per term** (plurals, conjugations: "contrat" also matches "contrats"), with a "Variants" tag in the list
+- Terms are now also used when the source language is on auto-detect and has not been detected yet
 
 ### v1.8.4-beta.2
 **Translation register and copy button (beta).** No database migration.

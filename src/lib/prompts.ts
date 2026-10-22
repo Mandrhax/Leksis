@@ -51,10 +51,11 @@ type DocumentTranslationPromptOptions = {
   segmentCount?: number
   sourceLang: string
   targetLang: string
+  glossaryClause?: string
 }
 
 export function buildDocumentTranslationPrompt({
-  segments, segmentCount, sourceLang, targetLang,
+  segments, segmentCount, sourceLang, targetLang, glossaryClause = '',
 }: DocumentTranslationPromptOptions): string {
   const countLine = segmentCount && segmentCount > 1
     ? `There are exactly ${segmentCount} segments, so your output must contain exactly ${segmentCount} segments and ${segmentCount - 1} ||| tokens. `
@@ -66,6 +67,7 @@ export function buildDocumentTranslationPrompt({
     `You MUST preserve every ||| token exactly as-is in your output — do not remove, merge, or add any. ` +
     countLine +
     REGISTER_LINE +
+    glossaryClause +
     `Translate each segment independently. Do not add any explanations.\n\n` +
     segments
   )

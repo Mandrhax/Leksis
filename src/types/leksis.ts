@@ -30,6 +30,7 @@ export type GlossaryEntry = {
   target: string
   sourceLang: string | null  // null = any language
   targetLang: string | null  // null = any language
+  matchVariants?: boolean    // also match word-ending variants (plurals…); default whole word only
 }
 
 export type Glossary = {

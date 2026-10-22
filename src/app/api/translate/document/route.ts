@@ -5,6 +5,7 @@ import { buildDocumentTranslationPrompt } from '@/lib/prompts'
 export const maxDuration = 300
 import { parseFile, parsePdf, isProbablyScanned, blocksToSegments, applySegments, countBlockChars } from '@/lib/file-parser'
 import { translateSegments } from '@/lib/doc-translate'
+import { fetchGlossaryCandidates, filterRelevantTerms, buildTranslationGlossaryClause } from '@/lib/glossary'
 import { parsePdfWithVision, PdfPageLimitError } from '@/lib/pdf-vision'
 import { getDynamicLimits } from '@/lib/limits'
 import { logUsage } from '@/lib/usage'
@@ -12,7 +13,7 @@ import { isFeatureEnabled } from '@/lib/features-guard'
 import { requireUser } from '@/lib/user-guard'
 import {
   validateFileExtension, validateDocumentSize, requestTooLarge,
-  isValidLangName, DOCUMENT_MAX_BYTES,
+  isValidLangName, isValidLangCode, DOCUMENT_MAX_BYTES,
 } from '@/lib/validators'
 
 export async function POST(req: NextRequest) {
@@ -39,6 +40,11 @@ export async function POST(req: NextRequest) {
   const file = formData.get('file') as File | null
   const targetLang = formData.get('targetLang') as string | null
   const sourceLang = formData.get('sourceLang') as string | null
+  // Codes de langue (facultatifs) : servent à choisir les termes du glossaire
+  const targetCodeRaw = formData.get('targetCode')
+  const sourceCodeRaw = formData.get('sourceCode')
+  const targetCode = isValidLangCode(targetCodeRaw) ? targetCodeRaw : ''
+  const sourceCode = isValidLangCode(sourceCodeRaw) ? sourceCodeRaw : 'auto'
 
   if (!file) return NextResponse.json({ error: 'No file provided.' }, { status: 400 })
   if (!targetLang) return NextResponse.json({ error: 'Target language is required.' }, { status: 400 })
@@ -85,12 +91,20 @@ export async function POST(req: NextRequest) {
     }, { status: 400 })
   }
 
+  // Glossaire de l'utilisateur : les termes admissibles sont lus une fois, puis filtrés lot par lot
+  const glossaryCandidates = targetCode
+    ? await fetchGlossaryCandidates(session.user.id, sourceCode, targetCode)
+    : []
+
   let translatedSegments: string[]
   try {
     const { segments, stats } = await translateSegments(
       blocksToSegments(blocks),
       (joined, count) => withAiSlot(cfg.maxConcurrentAiRequests, () => provider.complete({
-        prompt: buildDocumentTranslationPrompt({ segments: joined, segmentCount: count, sourceLang: sourceLang || 'Auto', targetLang }),
+        prompt: buildDocumentTranslationPrompt({
+          segments: joined, segmentCount: count, sourceLang: sourceLang || 'Auto', targetLang,
+          glossaryClause: buildTranslationGlossaryClause(filterRelevantTerms(glossaryCandidates, joined)),
+        }),
         signal: req.signal,
         model: cfg.translationModel,
       }), req.signal),

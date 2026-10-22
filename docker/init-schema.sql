@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS glossary_entries (
   target_term  TEXT NOT NULL,
   source_lang  VARCHAR(20),
   target_lang  VARCHAR(20),
+  match_variants BOOLEAN NOT NULL DEFAULT FALSE,  -- also match word-ending variants (plurals…)
   created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS glossary_entries_glossary_id_idx ON glossary_entries(glossary_id);

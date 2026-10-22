@@ -18,7 +18,7 @@ export async function GET(
   if (isNaN(glossaryId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
 
   const result = await query(
-    `SELECT id, glossary_id, source_term, target_term, source_lang, target_lang, created_at
+    `SELECT id, glossary_id, source_term, target_term, source_lang, target_lang, match_variants, created_at
      FROM glossary_entries
      WHERE glossary_id = $1
      ORDER BY created_at ASC`,
@@ -32,6 +32,7 @@ export async function GET(
     target: r.target_term,
     sourceLang: r.source_lang,
     targetLang: r.target_lang,
+    matchVariants: r.match_variants === true,
     createdAt: r.created_at,
   }))
 
@@ -43,6 +44,7 @@ const entrySchema = z.object({
   target: z.string().min(1).max(500),
   sourceLang: z.string().max(20).nullable().optional(),
   targetLang: z.string().max(20).nullable().optional(),
+  matchVariants: z.boolean().optional(),
 })
 
 // POST /api/admin/glossary/[id]/entries — add an entry
@@ -61,13 +63,13 @@ export async function POST(
   const parsed = entrySchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
 
-  const { source, target, sourceLang, targetLang } = parsed.data
+  const { source, target, sourceLang, targetLang, matchVariants } = parsed.data
 
   const result = await query(
-    `INSERT INTO glossary_entries (glossary_id, source_term, target_term, source_lang, target_lang)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, glossary_id, source_term, target_term, source_lang, target_lang`,
-    [glossaryId, source, target, sourceLang ?? null, targetLang ?? null],
+    `INSERT INTO glossary_entries (glossary_id, source_term, target_term, source_lang, target_lang, match_variants)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, glossary_id, source_term, target_term, source_lang, target_lang, match_variants`,
+    [glossaryId, source, target, sourceLang ?? null, targetLang ?? null, matchVariants === true],
   )
 
   const r = result.rows[0]
@@ -78,5 +80,6 @@ export async function POST(
     target: r.target_term,
     sourceLang: r.source_lang,
     targetLang: r.target_lang,
+    matchVariants: r.match_variants === true,
   })
 }
