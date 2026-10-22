@@ -35,9 +35,9 @@ export function AdminPageHeader({ section }: { section: AdminSection }) {
   }
 
   return (
-    <div className="mb-8">
-      <h1 className="font-headline font-bold text-xl text-on-surface">{titles[section]}</h1>
-      <p className="text-sm text-on-surface-variant mt-1">{descs[section]}</p>
+    <div className="mb-8 pb-5 border-b border-outline-variant/15">
+      <h1 className="font-headline font-bold text-xl tracking-tight text-on-surface">{titles[section]}</h1>
+      <p className="text-sm text-on-surface-variant mt-1 max-w-3xl text-pretty">{descs[section]}</p>
     </div>
   )
 }

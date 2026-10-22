@@ -169,22 +169,22 @@ export function BrandingForm({ initial, onToast, onDirtyChange }: Props) {
       <div className="flex flex-col gap-3">
 
       {/* Nom du site */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.brandingForm.sectionIdentity}</h3>
+      <div className="adm-card space-y-4">
+        <h3 className="adm-eyebrow">{t.brandingForm.sectionIdentity}</h3>
         <div>
-          <label className="block text-sm text-on-surface mb-1.5">{t.brandingForm.siteNameLabel}</label>
+          <label className="adm-label">{t.brandingForm.siteNameLabel}</label>
           <input
             type="text"
             value={data.siteName}
             onChange={e => set('siteName', e.target.value)}
-            className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+            className="adm-input"
           />
         </div>
       </div>
 
       {/* Fond */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.brandingForm.sectionBackground}</h3>
+      <div className="adm-card space-y-4">
+        <h3 className="adm-eyebrow">{t.brandingForm.sectionBackground}</h3>
         <p className="text-xs text-on-surface-variant">{t.brandingForm.bgDesc}</p>
 
         {/* Couleur ou image — jamais les deux */}
@@ -209,18 +209,18 @@ export function BrandingForm({ initial, onToast, onDirtyChange }: Props) {
 
         {bgMode === 'color' ? (
           <div>
-            <label className="block text-sm text-on-surface mb-1.5">{t.brandingForm.bgColorLabel}</label>
+            <label className="adm-label">{t.brandingForm.bgColorLabel}</label>
             <div className="flex items-center gap-3">
               <input type="color" value={data.backgroundColor} onChange={e => set('backgroundColor', e.target.value)}
                 className="w-10 h-10 rounded-lg border border-outline-variant/20 cursor-pointer bg-transparent p-0.5" />
               <input type="text" value={data.backgroundColor} onChange={e => set('backgroundColor', e.target.value)}
-                className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface font-mono focus:outline-none focus:border-primary/50"
+                className="adm-input adm-input-mono flex-1"
                 placeholder="#f7f9fb" />
             </div>
           </div>
         ) : (
           <div>
-            <label className="block text-sm text-on-surface mb-1.5">{t.brandingForm.bgImageLabel}</label>
+            <label className="adm-label">{t.brandingForm.bgImageLabel}</label>
             <p className="text-xs text-on-surface-variant mb-3">{t.brandingForm.bgImageDesc}</p>
             {bgPreview ? (
               <div className="flex items-center gap-4">
@@ -231,11 +231,11 @@ export function BrandingForm({ initial, onToast, onDirtyChange }: Props) {
                   className="h-16 w-auto max-w-[200px] object-cover rounded border border-outline-variant/20 bg-surface-container"
                 />
                 <div className="flex flex-col gap-2">
-                  <button type="button" onClick={() => bgInputRef.current?.click()} disabled={bgUploading} className="text-button text-xs">
+                  <button type="button" onClick={() => bgInputRef.current?.click()} disabled={bgUploading} className="btn btn-secondary btn-sm">
                     <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">upload</span>
                     {t.brandingForm.logoReplace}
                   </button>
-                  <button type="button" onClick={handleBgRemove} disabled={bgRemoving} className="text-button text-xs text-error">
+                  <button type="button" onClick={handleBgRemove} disabled={bgRemoving} className="btn btn-danger btn-sm">
                     {bgRemoving
                       ? <span className="material-symbols-outlined animate-spin text-sm leading-none" aria-hidden="true">progress_activity</span>
                       : <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">delete</span>
@@ -276,8 +276,8 @@ export function BrandingForm({ initial, onToast, onDirtyChange }: Props) {
       <div className="flex flex-col gap-3">
 
       {/* Logo */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.brandingForm.sectionLogo}</h3>
+      <div className="adm-card space-y-4">
+        <h3 className="adm-eyebrow">{t.brandingForm.sectionLogo}</h3>
         <p className="text-xs text-on-surface-variant">{t.brandingForm.logoDesc}</p>
         {logoPreview ? (
           <div className="flex items-center gap-4">
@@ -288,11 +288,11 @@ export function BrandingForm({ initial, onToast, onDirtyChange }: Props) {
               className="h-16 w-auto max-w-[200px] object-cover rounded border border-outline-variant/20 bg-surface-container"
             />
             <div className="flex flex-col gap-2">
-              <button type="button" onClick={() => logoInputRef.current?.click()} disabled={logoUploading} className="text-button text-xs">
+              <button type="button" onClick={() => logoInputRef.current?.click()} disabled={logoUploading} className="btn btn-secondary btn-sm">
                 <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">upload</span>
                 {t.brandingForm.logoReplace}
               </button>
-              <button type="button" onClick={handleLogoRemove} disabled={logoRemoving} className="text-button text-xs text-error">
+              <button type="button" onClick={handleLogoRemove} disabled={logoRemoving} className="btn btn-danger btn-sm">
                 {logoRemoving
                   ? <span className="material-symbols-outlined animate-spin text-sm leading-none" aria-hidden="true">progress_activity</span>
                   : <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">delete</span>
@@ -324,28 +324,28 @@ export function BrandingForm({ initial, onToast, onDirtyChange }: Props) {
           onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f) }}
         />
         <div>
-          <label className="block text-sm text-on-surface mb-1.5">{t.brandingForm.logoSizeLabel}</label>
+          <label className="adm-label">{t.brandingForm.logoSizeLabel}</label>
           <input
             type="number"
             min={16}
             max={120}
             value={data.headerLogoSize}
             onChange={e => set('headerLogoSize', e.target.value)}
-            className="w-32 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+            className="w-32 adm-input"
           />
         </div>
       </div>
 
       {/* Couleur primaire */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.brandingForm.sectionColors}</h3>
+      <div className="adm-card space-y-4">
+        <h3 className="adm-eyebrow">{t.brandingForm.sectionColors}</h3>
         <div>
-          <label className="block text-sm text-on-surface mb-1.5">{t.brandingForm.primaryColorLabel}</label>
+          <label className="adm-label">{t.brandingForm.primaryColorLabel}</label>
           <div className="flex items-center gap-3">
             <input type="color" value={data.primaryColor} onChange={e => set('primaryColor', e.target.value)}
               className="w-10 h-10 rounded-lg border border-outline-variant/20 cursor-pointer bg-transparent p-0.5" />
             <input type="text" value={data.primaryColor} onChange={e => set('primaryColor', e.target.value)}
-              className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface font-mono focus:outline-none focus:border-primary/50"
+              className="adm-input adm-input-mono flex-1"
               placeholder="#565e74" />
           </div>
         </div>
@@ -355,7 +355,7 @@ export function BrandingForm({ initial, onToast, onDirtyChange }: Props) {
 
       </div>{/* end grid */}
       <div className="flex justify-end">
-        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="btn btn-primary">
           {saving
             ? <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
             : <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>

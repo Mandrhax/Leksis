@@ -66,7 +66,7 @@ export function CaddyServiceForm({ initial, onToast }: Props) {
     }
   }
 
-  const inputCls = 'w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50'
+  const inputCls = 'adm-input'
 
   const modes: { id: AccessMode; label: string; desc: string; icon: string }[] = [
     { id: 'http',  label: cf.modeHttp,  desc: cf.modeHttpDesc,  icon: 'lan' },
@@ -77,7 +77,7 @@ export function CaddyServiceForm({ initial, onToast }: Props) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
       {/* Left — access settings */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-5">
+      <div className="adm-card space-y-5">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none" aria-hidden="true">router</span>
           <h3 className="font-headline font-semibold text-base text-on-surface">{cf.title}</h3>
@@ -85,7 +85,7 @@ export function CaddyServiceForm({ initial, onToast }: Props) {
 
         {/* Mode d'accès */}
         <div>
-          <span className="block text-sm text-on-surface mb-1.5">{cf.modeLabel}</span>
+          <span className="adm-label">{cf.modeLabel}</span>
           <div className="grid grid-cols-1 gap-3" role="radiogroup" aria-label={cf.modeLabel}>
             {modes.map(m => (
               <button
@@ -114,7 +114,7 @@ export function CaddyServiceForm({ initial, onToast }: Props) {
         {mode === 'https' && (
           <div className="space-y-4">
             <div>
-              <label htmlFor="caddy-domain" className="block text-sm text-on-surface mb-1.5">{cf.domainLabel}</label>
+              <label htmlFor="caddy-domain" className="adm-label">{cf.domainLabel}</label>
               <input
                 id="caddy-domain"
                 type="text"
@@ -152,7 +152,7 @@ export function CaddyServiceForm({ initial, onToast }: Props) {
               {cf.proxyHint}
             </p>
             <div>
-              <label htmlFor="caddy-trusted" className="block text-sm text-on-surface mb-1.5">{cf.trustedLabel}</label>
+              <label htmlFor="caddy-trusted" className="adm-label">{cf.trustedLabel}</label>
               <input
                 id="caddy-trusted"
                 type="text"
@@ -172,7 +172,7 @@ export function CaddyServiceForm({ initial, onToast }: Props) {
 
         {/* Actions */}
         <div className="flex justify-end pt-1">
-          <button onClick={handleSave} disabled={saving || !domainOk || !proxiesOk} className="action-btn disabled:opacity-40">
+          <button onClick={handleSave} disabled={saving || !domainOk || !proxiesOk} className="btn btn-primary">
             {saving ? (
               <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
             ) : (
@@ -184,7 +184,7 @@ export function CaddyServiceForm({ initial, onToast }: Props) {
       </div>
 
       {/* Right — generated Caddyfile preview */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 lg:sticky lg:top-6">
+      <div className="adm-card lg:sticky lg:top-6">
         <p className="text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">{cf.caddyfilePreview}</p>
         <pre className="bg-surface-container rounded-lg border border-outline-variant/20 px-4 py-3 text-xs text-on-surface-variant font-mono leading-relaxed overflow-x-auto whitespace-pre">
           {preview}

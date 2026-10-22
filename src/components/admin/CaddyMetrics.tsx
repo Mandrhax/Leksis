@@ -5,7 +5,7 @@ import { useI18n } from '@/lib/i18n'
 import type { CaddyMetricsResult } from '@/app/api/admin/services/caddy/metrics/route'
 import { CADDY_SAVED_EVENT } from './CaddyServiceForm'
 
-const CARD = 'bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6'
+const CARD = 'adm-card'
 
 export function CaddyMetrics() {
   const { t } = useI18n()
@@ -69,7 +69,7 @@ export function CaddyMetrics() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${data.reachable ? 'bg-green-500' : 'bg-red-500'}`} />
-                <h3 className="text-sm font-semibold text-on-surface">{cf.blockStatus}</h3>
+                <h3 className="adm-section-title">{cf.blockStatus}</h3>
               </div>
               <button
                 onClick={load}
@@ -104,7 +104,7 @@ export function CaddyMetrics() {
           {/* Bloc access — mode d'accès et certificat HTTPS */}
           {data.mode && (
             <div className={`${CARD} flex flex-col gap-3`}>
-              <h3 className="text-sm font-semibold text-on-surface">{cf.blockAccess}</h3>
+              <h3 className="adm-section-title">{cf.blockAccess}</h3>
               <p className="text-sm text-on-surface">
                 {data.mode === 'https' ? cf.modeHttps : data.mode === 'proxy' ? cf.modeProxy : cf.modeHttp}
                 {data.domain && <span className="font-mono text-xs text-on-surface-variant"> — {data.domain}</span>}
@@ -132,7 +132,7 @@ export function CaddyMetrics() {
           {/* Bloc 2 — Upstream */}
           {data.upstreams && data.upstreams.length > 0 && (
             <div className={`${CARD} flex flex-col gap-4`}>
-              <h3 className="text-sm font-semibold text-on-surface">{cf.blockUpstream}</h3>
+              <h3 className="adm-section-title">{cf.blockUpstream}</h3>
 
               <div className="flex flex-col gap-1">
                 <div className="grid grid-cols-[1fr_auto_auto] gap-4 pb-1.5 border-b border-outline-variant/20 text-xs font-medium text-on-surface-variant">

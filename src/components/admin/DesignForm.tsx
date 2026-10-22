@@ -77,10 +77,10 @@ export function DesignForm({ initial, onToast, onDirtyChange }: Props) {
       {/* Colonne gauche */}
       <div className="flex flex-col gap-3">
       {/* Boutons */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.designForm.sectionButtons}</h3>
+      <div className="adm-card space-y-4">
+        <h3 className="adm-eyebrow">{t.designForm.sectionButtons}</h3>
         <div>
-          <label className="block text-sm text-on-surface mb-2">{t.designForm.buttonRadiusLabel}</label>
+          <label className="adm-label">{t.designForm.buttonRadiusLabel}</label>
           <div className="flex gap-2 flex-wrap">
             {RADIUS_OPTIONS.map(opt => (
               <button
@@ -111,20 +111,20 @@ export function DesignForm({ initial, onToast, onDirtyChange }: Props) {
       {/* Colonne droite */}
       <div className="flex flex-col gap-3">
       {/* Footer */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.designForm.sectionFooter}</h3>
+      <div className="adm-card space-y-4">
+        <h3 className="adm-eyebrow">{t.designForm.sectionFooter}</h3>
         <div>
-          <label className="block text-sm text-on-surface mb-1.5">{t.designForm.footerTextLabel}</label>
+          <label className="adm-label">{t.designForm.footerTextLabel}</label>
           <input
             type="text"
             value={data.footerText}
             onChange={e => setData(prev => ({ ...prev, footerText: e.target.value }))}
-            className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+            className="adm-input"
             placeholder="© 2025 Leksis"
           />
         </div>
         <div>
-          <label className="block text-sm text-on-surface mb-1.5">{t.designForm.footerTextColorLabel}</label>
+          <label className="adm-label">{t.designForm.footerTextColorLabel}</label>
           <div className="flex items-center gap-3">
             <input
               type="color"
@@ -136,7 +136,7 @@ export function DesignForm({ initial, onToast, onDirtyChange }: Props) {
               type="text"
               value={data.footerTextColor}
               onChange={e => setData(prev => ({ ...prev, footerTextColor: e.target.value }))}
-              className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface font-mono focus:outline-none focus:border-primary/50"
+              className="adm-input adm-input-mono flex-1"
               placeholder="#8a8fa8"
             />
             {data.footerTextColor && (
@@ -154,7 +154,7 @@ export function DesignForm({ initial, onToast, onDirtyChange }: Props) {
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm text-on-surface">{t.designForm.footerLinksLabel}</label>
-            <button type="button" onClick={addFooterLink} className="text-button text-xs">
+            <button type="button" onClick={addFooterLink} className="btn btn-secondary btn-sm">
               <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">add</span>
               {t.designForm.addLink}
             </button>
@@ -167,14 +167,14 @@ export function DesignForm({ initial, onToast, onDirtyChange }: Props) {
                   value={link.label}
                   onChange={e => updateFooterLink(i, 'label', e.target.value)}
                   placeholder={t.designForm.linkLabelPlaceholder}
-                  className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+                  className="adm-input flex-1"
                 />
                 <input
                   type="text"
                   value={link.url}
                   onChange={e => updateFooterLink(i, 'url', e.target.value)}
                   placeholder="https://..."
-                  className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+                  className="adm-input flex-1"
                 />
                 <button type="button" onClick={() => removeFooterLink(i)} className="icon-btn text-error">
                   <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">delete</span>
@@ -189,7 +189,7 @@ export function DesignForm({ initial, onToast, onDirtyChange }: Props) {
 
       </div>{/* end grid */}
       <div className="flex justify-end">
-        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="btn btn-primary">
           {saving ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
           ) : (

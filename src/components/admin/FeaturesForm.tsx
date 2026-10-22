@@ -102,9 +102,9 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
 
       {/* Section A — Modules actifs */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
+      <div className="adm-card space-y-4">
         <div>
-          <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">{t.featuresForm.sectionModules}</h3>
+          <h3 className="adm-eyebrow mb-1">{t.featuresForm.sectionModules}</h3>
           <p className="text-xs text-on-surface-variant">{t.featuresForm.modulesDesc}</p>
         </div>
         <div className="space-y-2">
@@ -143,18 +143,18 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
       {/* Section B + C stacked in right column */}
       <div className="flex flex-col gap-3">
         {/* Section B — Langues par défaut */}
-        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
+        <div className="adm-card space-y-4">
           <div>
-            <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">{t.featuresForm.sectionDefaults}</h3>
+            <h3 className="adm-eyebrow mb-1">{t.featuresForm.sectionDefaults}</h3>
             <p className="text-xs text-on-surface-variant">{t.featuresForm.defaultsDesc}</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-on-surface mb-1.5">{t.featuresForm.sourceLangLabel}</label>
+              <label className="adm-label">{t.featuresForm.sourceLangLabel}</label>
               <select
                 value={data.defaults.sourceLang}
                 onChange={e => setDefault('sourceLang', e.target.value)}
-                className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+                className="adm-input"
               >
                 <option value="auto">{t.featuresForm.autoDetect}</option>
                 {LANGUAGES.map(l => (
@@ -163,11 +163,11 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
               </select>
             </div>
             <div>
-              <label className="block text-sm text-on-surface mb-1.5">{t.featuresForm.targetLangLabel}</label>
+              <label className="adm-label">{t.featuresForm.targetLangLabel}</label>
               <select
                 value={data.defaults.targetLang}
                 onChange={e => setDefault('targetLang', e.target.value)}
-                className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+                className="adm-input"
               >
                 {LANGUAGES.map(l => (
                   <option key={l.code} value={l.code}>{l.name}</option>
@@ -176,7 +176,7 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
             </div>
           </div>
           <div>
-            <label className="block text-sm text-on-surface mb-2">{t.featuresForm.formalityLabel}</label>
+            <label className="adm-label">{t.featuresForm.formalityLabel}</label>
             <div className="flex gap-2">
               {(['Informal', 'Formal'] as const).map(f => (
                 <button
@@ -193,14 +193,14 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
         </div>
 
         {/* Section C — Limites */}
-        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
+        <div className="adm-card space-y-4">
           <div>
-            <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">{t.featuresForm.sectionLimits}</h3>
+            <h3 className="adm-eyebrow mb-1">{t.featuresForm.sectionLimits}</h3>
             <p className="text-xs text-on-surface-variant">{t.featuresForm.limitsDesc}</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm text-on-surface mb-1.5">
+              <label className="adm-label">
                 {t.featuresForm.textLimitLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.textLimitUnit}</span>
               </label>
               <input
@@ -208,11 +208,11 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
                 min={100}
                 value={data.limits.maxTextChars}
                 onChange={e => setLimit('maxTextChars', e.target.value)}
-                className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+                className="adm-input"
               />
             </div>
             <div>
-              <label className="block text-sm text-on-surface mb-1.5">
+              <label className="adm-label">
                 {t.featuresForm.docLimitLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.docLimitUnit}</span>
               </label>
               <input
@@ -220,11 +220,11 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
                 min={100}
                 value={data.limits.maxDocChars}
                 onChange={e => setLimit('maxDocChars', e.target.value)}
-                className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+                className="adm-input"
               />
             </div>
             <div>
-              <label className="block text-sm text-on-surface mb-1.5">
+              <label className="adm-label">
                 {t.featuresForm.imageLimitLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.imageLimitUnit}</span>
               </label>
               <input
@@ -232,12 +232,12 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
                 min={1}
                 value={data.limits.maxImageMB}
                 onChange={e => setLimit('maxImageMB', e.target.value)}
-                className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+                className="adm-input"
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm text-on-surface mb-1.5">
+            <label className="adm-label">
               {t.featuresForm.rateLimitLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.rateLimitUnit}</span>
             </label>
             <input
@@ -245,7 +245,7 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
               min={0}
               value={data.limits.rateLimitPerMin}
               onChange={e => setLimit('rateLimitPerMin', e.target.value)}
-              className="w-full sm:w-1/3 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+              className="w-full sm:w-1/3 adm-input"
             />
             <p className="mt-1 text-xs text-on-surface-variant">{t.featuresForm.rateLimitHint}</p>
           </div>
@@ -256,7 +256,7 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
 
       {/* Save */}
       <div className="flex justify-end pt-2">
-        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="btn btn-primary">
           {saving ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
           ) : (

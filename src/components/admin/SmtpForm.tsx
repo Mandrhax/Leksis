@@ -118,11 +118,11 @@ export function SmtpForm({ initial, onToast, onDirtyChange }: Props) {
     }
   }
 
-  const inputCls = 'w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50'
+  const inputCls = 'adm-input'
   const spinner = <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
 
   return (
-    <form onSubmit={e => e.preventDefault()} className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
+    <form onSubmit={e => e.preventDefault()} className="adm-card space-y-4">
       <div className="flex items-center gap-2">
         <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none" aria-hidden="true">forward_to_inbox</span>
         <h3 className="font-headline font-semibold text-base text-on-surface">{sf.title}</h3>
@@ -132,11 +132,11 @@ export function SmtpForm({ initial, onToast, onDirtyChange }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
         <div className="flex flex-col gap-3">
           <div>
-            <label className="block text-sm text-on-surface mb-1.5">{sf.hostLabel}</label>
+            <label className="adm-label">{sf.hostLabel}</label>
             <input type="text" value={data.host} onChange={e => field('host', e.target.value)} className={inputCls} placeholder="smtp.example.com" />
           </div>
           <div>
-            <label className="block text-sm text-on-surface mb-1.5">{sf.portLabel}</label>
+            <label className="adm-label">{sf.portLabel}</label>
             <input
               type="number" min={1} max={65535} value={data.port}
               onChange={e => field('port', e.target.value)}
@@ -151,11 +151,11 @@ export function SmtpForm({ initial, onToast, onDirtyChange }: Props) {
 
         <div className="flex flex-col gap-3">
           <div>
-            <label className="block text-sm text-on-surface mb-1.5">{sf.userLabel} <span className="text-on-surface-variant">{sf.optional}</span></label>
+            <label className="adm-label">{sf.userLabel} <span className="text-on-surface-variant">{sf.optional}</span></label>
             <input type="text" value={data.user} onChange={e => field('user', e.target.value)} className={inputCls} autoComplete="off" />
           </div>
           <div>
-            <label className="block text-sm text-on-surface mb-1.5">{sf.passwordLabel} <span className="text-on-surface-variant">{sf.optional}</span></label>
+            <label className="adm-label">{sf.passwordLabel} <span className="text-on-surface-variant">{sf.optional}</span></label>
             <input
               type="password" autoComplete="off" value={password}
               onChange={e => { setPassword(e.target.value); setClearPassword(false) }}
@@ -165,7 +165,7 @@ export function SmtpForm({ initial, onToast, onDirtyChange }: Props) {
             {hasPassword && !clearPassword && (
               <p className="mt-1 text-xs text-on-surface-variant flex items-center gap-2">
                 <span>{sf.passwordSaved}</span>
-                <button type="button" onClick={() => { setClearPassword(true); setPassword('') }} className="text-button text-xs">{sf.passwordRemove}</button>
+                <button type="button" onClick={() => { setClearPassword(true); setPassword('') }} className="btn btn-secondary btn-sm">{sf.passwordRemove}</button>
               </p>
             )}
             {clearPassword && <p className="mt-1 text-xs text-on-surface-variant">{sf.passwordWillRemove}</p>}
@@ -175,11 +175,11 @@ export function SmtpForm({ initial, onToast, onDirtyChange }: Props) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
         <div>
-          <label className="block text-sm text-on-surface mb-1.5">{sf.fromAddressLabel}</label>
+          <label className="adm-label">{sf.fromAddressLabel}</label>
           <input type="email" value={data.fromAddress} onChange={e => field('fromAddress', e.target.value)} className={inputCls} placeholder="no-reply@example.com" />
         </div>
         <div>
-          <label className="block text-sm text-on-surface mb-1.5">{sf.fromNameLabel} <span className="text-on-surface-variant">{sf.optional}</span></label>
+          <label className="adm-label">{sf.fromNameLabel} <span className="text-on-surface-variant">{sf.optional}</span></label>
           <input type="text" value={data.fromName} onChange={e => field('fromName', e.target.value)} className={inputCls} />
         </div>
       </div>
@@ -196,28 +196,28 @@ export function SmtpForm({ initial, onToast, onDirtyChange }: Props) {
       )}
 
       <div className="flex flex-wrap items-end gap-3 pt-3 border-t border-outline-variant/10">
-        <button type="button" onClick={() => runTest()} disabled={testing || sending || saving || !data.host} className="text-button disabled:opacity-40">
+        <button type="button" onClick={() => runTest()} disabled={testing || sending || saving || !data.host} className="btn btn-secondary">
           {testing ? spinner : <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">network_check</span>}
           {sf.testConnection}
         </button>
 
         <div className="flex items-end gap-2">
           <div>
-            <label className="block text-xs text-on-surface-variant mb-1">{sf.testEmailRecipientLabel}</label>
+            <label className="adm-label">{sf.testEmailRecipientLabel}</label>
             <input
               type="email" value={testTo} onChange={e => setTestTo(e.target.value)}
               placeholder={sf.testEmailRecipientPlaceholder}
               className={`${inputCls} !py-1.5 w-56`}
             />
           </div>
-          <button type="button" onClick={() => runTest(testTo)} disabled={testing || sending || saving || !data.host || !testTo} className="text-button disabled:opacity-40">
+          <button type="button" onClick={() => runTest(testTo)} disabled={testing || sending || saving || !data.host || !testTo} className="btn btn-secondary">
             {sending ? spinner : <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">send</span>}
             {sf.sendTestEmail}
           </button>
         </div>
 
         <div className="flex-1" />
-        <button type="button" onClick={handleSave} disabled={saving || testing || sending || !canSave || !dirty} className="action-btn disabled:opacity-40">
+        <button type="button" onClick={handleSave} disabled={saving || testing || sending || !canSave || !dirty} className="btn btn-primary">
           {saving ? spinner : <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>}
           {sf.save}
         </button>

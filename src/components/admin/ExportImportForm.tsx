@@ -127,7 +127,7 @@ export function ExportImportForm({ lastBackupAt }: Props) {
       </div>
 
       {/* Export */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
+      <div className="adm-card space-y-4">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none" aria-hidden="true">cloud_download</span>
           <h3 className="font-headline font-semibold text-base text-on-surface">{t.backupForm.exportSection}</h3>
@@ -136,7 +136,7 @@ export function ExportImportForm({ lastBackupAt }: Props) {
         <button
           onClick={handleExport}
           disabled={exporting}
-          className="action-btn disabled:opacity-40"
+          className="btn btn-primary"
         >
           {exporting ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
@@ -148,7 +148,7 @@ export function ExportImportForm({ lastBackupAt }: Props) {
       </div>
 
       {/* Import */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
+      <div className="adm-card space-y-4">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none" aria-hidden="true">cloud_upload</span>
           <h3 className="font-headline font-semibold text-base text-on-surface">{t.backupForm.importSection}</h3>
@@ -166,7 +166,7 @@ export function ExportImportForm({ lastBackupAt }: Props) {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="text-button"
+            className="btn btn-secondary"
           >
             <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">folder_open</span>
             {t.backupForm.importButton}
@@ -198,7 +198,7 @@ export function ExportImportForm({ lastBackupAt }: Props) {
           <button
             onClick={handleImport}
             disabled={importing}
-            className="action-btn disabled:opacity-40"
+            className="btn btn-primary"
           >
             {importing ? (
               <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>

@@ -286,7 +286,7 @@ export function UserList({ initial, currentUserId, passwordMode }: Props) {
         />
       </div>
       <div className="flex-1" />
-      <button type="button" onClick={() => setInviting(v => !v)} className="action-btn">
+      <button type="button" onClick={() => setInviting(v => !v)} className="btn btn-primary">
         <span className="material-symbols-outlined text-[0.95rem] leading-none" aria-hidden="true">person_add</span>
         {t.userList.inviteButton}
       </button>
@@ -295,22 +295,22 @@ export function UserList({ initial, currentUserId, passwordMode }: Props) {
       {inviting && (
         <form onSubmit={submitInvite} className="mb-4 bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-4 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[14rem]">
-            <label className="block text-xs text-on-surface-variant mb-1">{t.userList.inviteEmail}</label>
+            <label className="adm-label">{t.userList.inviteEmail}</label>
             <input type="email" required value={invite.email} onChange={e => setInvite(v => ({ ...v, email: e.target.value }))} autoComplete="off"
-              className="w-full px-3 py-2 text-sm rounded-lg border border-outline-variant/30 bg-surface-container text-on-surface focus:outline-none focus:border-primary" />
+              className="adm-input" />
           </div>
           <div className="flex-1 min-w-[12rem]">
-            <label className="block text-xs text-on-surface-variant mb-1">{t.userList.inviteName}</label>
+            <label className="adm-label">{t.userList.inviteName}</label>
             <input type="text" value={invite.name} onChange={e => setInvite(v => ({ ...v, name: e.target.value }))} maxLength={120} autoComplete="off"
-              className="w-full px-3 py-2 text-sm rounded-lg border border-outline-variant/30 bg-surface-container text-on-surface focus:outline-none focus:border-primary" />
+              className="adm-input" />
           </div>
           <label className="flex items-center gap-2 text-sm text-on-surface pb-2">
             <input type="checkbox" checked={invite.admin} onChange={e => setInvite(v => ({ ...v, admin: e.target.checked }))} />
             {t.userList.inviteAdmin}
           </label>
           <div className="flex items-center gap-2">
-            <button type="submit" disabled={inviteBusy || !invite.email} className="action-btn disabled:opacity-40">{t.userList.inviteSubmit}</button>
-            <button type="button" onClick={() => setInviting(false)} className="text-button">{t.userList.inviteCancel}</button>
+            <button type="submit" disabled={inviteBusy || !invite.email} className="btn btn-primary">{t.userList.inviteSubmit}</button>
+            <button type="button" onClick={() => setInviting(false)} className="btn btn-secondary">{t.userList.inviteCancel}</button>
           </div>
         </form>
       )}
@@ -437,9 +437,9 @@ export function UserList({ initial, currentUserId, passwordMode }: Props) {
       <div className="mt-3 flex items-center justify-between gap-3 text-xs text-on-surface-variant">
         <span>{t.userList.range.replace('{0}', String(from)).replace('{1}', String(to)).replace('{2}', String(data.total))}</span>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setPage(page - 1)} disabled={data.page <= 1} className="text-button disabled:opacity-40">{t.userList.prev}</button>
+          <button type="button" onClick={() => setPage(page - 1)} disabled={data.page <= 1} className="btn btn-secondary">{t.userList.prev}</button>
           <span>{t.userList.pageOf.replace('{0}', String(data.page)).replace('{1}', String(lastPage))}</span>
-          <button type="button" onClick={() => setPage(page + 1)} disabled={data.page >= lastPage} className="text-button disabled:opacity-40">{t.userList.next}</button>
+          <button type="button" onClick={() => setPage(page + 1)} disabled={data.page >= lastPage} className="btn btn-secondary">{t.userList.next}</button>
         </div>
       </div>
 
@@ -451,7 +451,7 @@ export function UserList({ initial, currentUserId, passwordMode }: Props) {
           onClick={() => setLinkResult(null)}
         >
           <div
-            className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 max-w-md w-full shadow-lg"
+            className="adm-card max-w-md w-full shadow-lg"
             onClick={e => e.stopPropagation()}
           >
             <h3 className="font-headline font-semibold text-base text-on-surface mb-2">{t.userList.linkTitle}</h3>
@@ -469,7 +469,7 @@ export function UserList({ initial, currentUserId, passwordMode }: Props) {
               {t.userList.linkValid.replace('{0}', String(linkResult.days))}
             </p>
             <div className="flex justify-end">
-              <button type="button" onClick={() => setLinkResult(null)} className="action-btn">{t.userList.close}</button>
+              <button type="button" onClick={() => setLinkResult(null)} className="btn btn-primary">{t.userList.close}</button>
             </div>
           </div>
         </div>
@@ -481,7 +481,7 @@ export function UserList({ initial, currentUserId, passwordMode }: Props) {
           onClick={() => setResetResult(null)}
         >
           <div
-            className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 max-w-sm w-full shadow-lg"
+            className="adm-card max-w-sm w-full shadow-lg"
             onClick={e => e.stopPropagation()}
           >
             <h3 className="font-headline font-semibold text-base text-on-surface mb-2">{t.userList.resetPasswordModalTitle}</h3>
@@ -503,7 +503,7 @@ export function UserList({ initial, currentUserId, passwordMode }: Props) {
               </button>
             </div>
             <div className="flex justify-end">
-              <button type="button" onClick={() => setResetResult(null)} className="action-btn">
+              <button type="button" onClick={() => setResetResult(null)} className="btn btn-primary">
                 {t.userList.close}
               </button>
             </div>

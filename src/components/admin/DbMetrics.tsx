@@ -30,7 +30,7 @@ function formatUptime(startedAt: string): string {
   return `${mins}m`
 }
 
-const CARD = 'bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6'
+const CARD = 'adm-card'
 
 export function DbMetrics() {
   const { t } = useI18n()
@@ -82,7 +82,7 @@ export function DbMetrics() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-green-500" />
-                <h3 className="text-sm font-semibold text-on-surface">{df.blockStatus}</h3>
+                <h3 className="adm-section-title">{df.blockStatus}</h3>
               </div>
               <button
                 onClick={load}
@@ -122,7 +122,7 @@ export function DbMetrics() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {/* Bloc 2 — Connections */}
             <div className={`${CARD} flex flex-col gap-4`}>
-              <h3 className="text-sm font-semibold text-on-surface">{df.blockConnections}</h3>
+              <h3 className="adm-section-title">{df.blockConnections}</h3>
 
               <div className="grid grid-cols-4 gap-4">
                 {[
@@ -157,7 +157,7 @@ export function DbMetrics() {
 
             {/* Bloc 3 — Tables */}
             <div className={`${CARD} flex flex-col gap-4`}>
-              <h3 className="text-sm font-semibold text-on-surface">{df.blockTables}</h3>
+              <h3 className="adm-section-title">{df.blockTables}</h3>
 
               <div className="flex flex-col gap-1">
                 {/* Header row */}

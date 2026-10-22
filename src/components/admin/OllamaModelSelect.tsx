@@ -61,7 +61,7 @@ export function OllamaModelSelect({ label, value, onChange, installed, suggestio
   if (installed === null) {
     return (
       <div>
-        <label htmlFor={id} className="block text-sm text-on-surface mb-1.5">{label}</label>
+        <label htmlFor={id} className="adm-label">{label}</label>
         <input
           id={id}
           type="text"
@@ -99,7 +99,7 @@ export function OllamaModelSelect({ label, value, onChange, installed, suggestio
 
   return (
     <div className="min-w-0">
-      <label htmlFor={id} className="block text-sm text-on-surface mb-1.5">{label}</label>
+      <label htmlFor={id} className="adm-label">{label}</label>
       <select
         id={id}
         value={selectValue}
@@ -169,7 +169,7 @@ export function OllamaModelSelect({ label, value, onChange, installed, suggestio
                 <span className="truncate">{canPull ? of.modelNotInstalled : of.modelNotListed}</span>
               </span>
               {canPull && (
-                <button type="button" onClick={handlePull} className="text-button text-xs shrink-0">
+                <button type="button" onClick={handlePull} className="btn btn-secondary btn-sm">
                   {of.modelPullAndUse}
                 </button>
               )}

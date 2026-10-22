@@ -19,7 +19,7 @@ interface Props {
   onDirtyChange?: (dirty: boolean) => void
 }
 
-const INPUT = 'w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50'
+const INPUT = 'adm-input'
 
 export function LegalForm({ initial, onToast, onDirtyChange }: Props) {
   const { t } = useI18n()
@@ -58,10 +58,10 @@ export function LegalForm({ initial, onToast, onDirtyChange }: Props) {
 
         {/* Colonne gauche */}
         <div className="flex flex-col gap-3">
-          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-            <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{lf.sectionOrg}</h3>
+          <div className="adm-card space-y-4">
+            <h3 className="adm-eyebrow">{lf.sectionOrg}</h3>
             <div>
-              <label className="block text-sm text-on-surface mb-1.5">{lf.organizationLabel}</label>
+              <label className="adm-label">{lf.organizationLabel}</label>
               <input
                 type="text"
                 maxLength={120}
@@ -72,7 +72,7 @@ export function LegalForm({ initial, onToast, onDirtyChange }: Props) {
               />
             </div>
             <div>
-              <label className="block text-sm text-on-surface mb-1.5">{lf.contactLabel}</label>
+              <label className="adm-label">{lf.contactLabel}</label>
               <input
                 type="text"
                 maxLength={254}
@@ -85,8 +85,8 @@ export function LegalForm({ initial, onToast, onDirtyChange }: Props) {
             </div>
           </div>
 
-          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-3">
-            <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{lf.sectionPublished}</h3>
+          <div className="adm-card space-y-3">
+            <h3 className="adm-eyebrow">{lf.sectionPublished}</h3>
             <p className="text-xs text-on-surface-variant">{lf.publishedHint}</p>
             <div className="flex flex-wrap gap-4">
               <Link href="/legal/privacy" target="_blank" className="text-sm text-primary hover:underline">{t.legal.privacyLink}</Link>
@@ -98,10 +98,10 @@ export function LegalForm({ initial, onToast, onDirtyChange }: Props) {
 
         {/* Colonne droite */}
         <div className="flex flex-col gap-3">
-          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-            <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{lf.sectionNotes}</h3>
+          <div className="adm-card space-y-4">
+            <h3 className="adm-eyebrow">{lf.sectionNotes}</h3>
             <div>
-              <label className="block text-sm text-on-surface mb-1.5">{lf.privacyNotesLabel}</label>
+              <label className="adm-label">{lf.privacyNotesLabel}</label>
               <textarea
                 rows={6}
                 maxLength={5000}
@@ -111,7 +111,7 @@ export function LegalForm({ initial, onToast, onDirtyChange }: Props) {
               />
             </div>
             <div>
-              <label className="block text-sm text-on-surface mb-1.5">{lf.usageRulesLabel}</label>
+              <label className="adm-label">{lf.usageRulesLabel}</label>
               <textarea
                 rows={6}
                 maxLength={5000}
@@ -126,7 +126,7 @@ export function LegalForm({ initial, onToast, onDirtyChange }: Props) {
 
       </div>
       <div className="flex justify-end">
-        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="btn btn-primary">
           {saving ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
           ) : (

@@ -60,29 +60,29 @@ export function GeneralForm({ initial, onToast, onDirtyChange }: Props) {
       {/* Colonne gauche */}
       <div className="flex flex-col gap-3">
       {/* Contact */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.generalForm.sectionContact}</h3>
+      <div className="adm-card space-y-4">
+        <h3 className="adm-eyebrow">{t.generalForm.sectionContact}</h3>
         <div>
-          <label className="block text-sm text-on-surface mb-1.5">{t.generalForm.contactEmailLabel}</label>
+          <label className="adm-label">{t.generalForm.contactEmailLabel}</label>
           <input
             type="email"
             value={data.contactEmail}
             onChange={e => setData(prev => ({ ...prev, contactEmail: e.target.value }))}
-            className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+            className="adm-input"
             placeholder="support@example.com"
           />
         </div>
       </div>
 
       {/* Conservation des données */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.generalForm.sectionRetention}</h3>
+      <div className="adm-card space-y-4">
+        <h3 className="adm-eyebrow">{t.generalForm.sectionRetention}</h3>
         {([
           ['usageRetentionDays', t.generalForm.usageRetentionLabel],
           ['auditRetentionDays', t.generalForm.auditRetentionLabel],
         ] as const).map(([field, label]) => (
           <div key={field}>
-            <label className="block text-sm text-on-surface mb-1.5">{label}</label>
+            <label className="adm-label">{label}</label>
             <input
               type="number"
               min={0}
@@ -90,7 +90,7 @@ export function GeneralForm({ initial, onToast, onDirtyChange }: Props) {
               step={1}
               value={data[field]}
               onChange={e => setData(prev => ({ ...prev, [field]: Math.min(Math.max(Math.trunc(Number(e.target.value)) || 0, 0), RETENTION_MAX_DAYS) }))}
-              className="w-40 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+              className="w-40 adm-input"
             />
           </div>
         ))}
@@ -102,15 +102,15 @@ export function GeneralForm({ initial, onToast, onDirtyChange }: Props) {
       {/* Colonne droite */}
       <div className="flex flex-col gap-3">
       {/* Bannière globale */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.generalForm.sectionBanner}</h3>
+      <div className="adm-card space-y-4">
+        <h3 className="adm-eyebrow">{t.generalForm.sectionBanner}</h3>
         <div>
-          <label className="block text-sm text-on-surface mb-1.5">{t.generalForm.bannerLabel}</label>
+          <label className="adm-label">{t.generalForm.bannerLabel}</label>
           <textarea
             value={data.globalBanner}
             onChange={e => setData(prev => ({ ...prev, globalBanner: e.target.value }))}
             rows={2}
-            className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50 resize-none"
+            className="adm-input resize-none"
             placeholder={t.generalForm.bannerPlaceholder}
           />
           <p className="text-xs text-on-surface-variant mt-1">{t.generalForm.bannerHint}</p>
@@ -118,8 +118,8 @@ export function GeneralForm({ initial, onToast, onDirtyChange }: Props) {
       </div>
 
       {/* Mode maintenance */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
-        <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{t.generalForm.sectionMaintenance}</h3>
+      <div className="adm-card space-y-4">
+        <h3 className="adm-eyebrow">{t.generalForm.sectionMaintenance}</h3>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-on-surface">{t.generalForm.maintenanceLabel}</p>
@@ -137,12 +137,12 @@ export function GeneralForm({ initial, onToast, onDirtyChange }: Props) {
         </div>
         {data.maintenanceMode && (
           <div>
-            <label className="block text-sm text-on-surface mb-1.5">{t.generalForm.maintenanceMsgLabel}</label>
+            <label className="adm-label">{t.generalForm.maintenanceMsgLabel}</label>
             <textarea
               value={data.maintenanceMessage}
               onChange={e => setData(prev => ({ ...prev, maintenanceMessage: e.target.value }))}
               rows={3}
-              className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50 resize-none"
+              className="adm-input resize-none"
               placeholder={t.generalForm.maintenanceMsgPlaceholder}
             />
           </div>
@@ -153,7 +153,7 @@ export function GeneralForm({ initial, onToast, onDirtyChange }: Props) {
 
       </div>{/* end grid */}
       <div className="flex justify-end">
-        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="btn btn-primary">
           {saving ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
           ) : (

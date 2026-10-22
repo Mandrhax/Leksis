@@ -233,7 +233,7 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
         <button
           type="button"
           onClick={fetchMetrics}
-          className="action-btn"
+          className="btn btn-primary"
         >
           <span className="material-symbols-outlined text-[0.95rem] leading-none" aria-hidden="true">refresh</span>
           {at.dashboardRefresh}
@@ -254,7 +254,7 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
       <div className="flex flex-col gap-6">
         {/* Service health */}
         <div>
-          <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50 mb-3">
+          <div className="adm-eyebrow mb-3">
             {at.dashboardServiceHealth}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
@@ -347,14 +347,14 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
 
         {/* Stats */}
         <div>
-          <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50 mb-3">
+          <div className="adm-eyebrow mb-3">
             {at.dashboardStats}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {statItems.map(s => (
               <div
                 key={s.label}
-                className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-4 flex items-center gap-3"
+                className="adm-card p-4 flex items-center gap-3"
               >
                 <div className="w-9 h-9 rounded-full bg-primary/8 flex items-center justify-center flex-shrink-0">
                   <span className="material-symbols-outlined text-[1.1rem] leading-none text-primary" aria-hidden="true">{s.icon}</span>
@@ -371,10 +371,10 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
         {/* Activity trend + breakdown by feature */}
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 items-start">
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50 mb-3">
+            <div className="adm-eyebrow mb-3">
               {at.dashboardActivityTitle}
             </div>
-            <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-5">
+            <div className="adm-card adm-card-compact">
               <div className="font-headline font-bold text-2xl text-on-surface mb-4">
                 {trend.reduce((sum, p) => sum + p.count, 0)}
               </div>
@@ -383,10 +383,10 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
           </div>
 
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50 mb-3">
+            <div className="adm-eyebrow mb-3">
               {at.dashboardByFeatureTitle}
             </div>
-            <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-5">
+            <div className="adm-card adm-card-compact">
               <FeatureBreakdown counts={featureCounts} t={t} />
             </div>
           </div>
@@ -394,10 +394,10 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
 
         {/* Recent activity */}
         <div>
-          <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50 mb-3">
+          <div className="adm-eyebrow mb-3">
             {at.dashboardRecentActivity}
           </div>
-          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 overflow-hidden">
+          <div className="adm-card p-0 overflow-hidden">
             {recentActivity.length === 0 ? (
               <div className="px-5 py-8 text-center text-sm text-on-surface-variant">—</div>
             ) : (

@@ -42,7 +42,7 @@ function StatusDot({ ok }: { ok: boolean | null }) {
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <div className="px-3 pt-3 pb-1 text-[9.5px] font-bold uppercase tracking-[0.1em] text-on-surface-variant/50 select-none">
+    <div className="adm-eyebrow px-3 pt-4 pb-1.5 select-none">
       {children}
     </div>
   )

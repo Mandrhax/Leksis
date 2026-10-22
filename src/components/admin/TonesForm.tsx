@@ -182,7 +182,7 @@ export function TonesForm({ initial, onToast, onDirtyChange }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <section>
-        <h2 className="text-sm font-semibold text-on-surface mb-1">{t.tonesForm.sectionTones}</h2>
+        <h3 className="adm-section-title mb-1">{t.tonesForm.sectionTones}</h3>
         <p className="text-xs text-on-surface-variant mb-4">{t.tonesForm.tonesDesc}</p>
 
         {/* Table header */}
@@ -252,7 +252,7 @@ export function TonesForm({ initial, onToast, onDirtyChange }: Props) {
                         maxLength={60}
                         placeholder={t.tonesForm.labelFallbackHint}
                         onChange={e => updateLabel(idx, 'fr', e.target.value)}
-                        className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-1.5 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+                        className="adm-input flex-1"
                       />
                     </div>
 
@@ -265,7 +265,7 @@ export function TonesForm({ initial, onToast, onDirtyChange }: Props) {
                         maxLength={60}
                         placeholder={t.tonesForm.labelFallbackHint}
                         onChange={e => updateLabel(idx, 'de', e.target.value)}
-                        className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-1.5 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+                        className="adm-input flex-1"
                       />
                     </div>
 
@@ -278,7 +278,7 @@ export function TonesForm({ initial, onToast, onDirtyChange }: Props) {
                         maxLength={60}
                         placeholder={t.tonesForm.labelFallbackHint}
                         onChange={e => updateLabel(idx, 'it', e.target.value)}
-                        className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-1.5 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+                        className="adm-input flex-1"
                       />
                     </div>
 
@@ -361,7 +361,7 @@ export function TonesForm({ initial, onToast, onDirtyChange }: Props) {
 
       {/* Save */}
       <div className="flex justify-end pt-2">
-        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="btn btn-primary">
           {saving ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
           ) : (

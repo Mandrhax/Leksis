@@ -126,7 +126,7 @@ export function OllamaStatusBlock() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full bg-green-500`} />
-          <h3 className="text-sm font-semibold text-on-surface">{of.blockStatus}</h3>
+          <h3 className="adm-section-title">{of.blockStatus}</h3>
         </div>
         <button onClick={load} disabled={loading} className="icon-btn" title={of.metricsRefresh}>
           <span className={`material-symbols-outlined text-[20px]${loading ? ' animate-spin' : ''}`}>
@@ -164,7 +164,7 @@ export function OllamaInstalledBlock() {
   return (
     <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-on-surface">{of.blockModels}</h3>
+        <h3 className="adm-section-title">{of.blockModels}</h3>
         <span className="text-xs text-on-surface-variant">
           {of.blockModelsTotal.replace('{0}', String(data.models.length))}
         </span>
@@ -229,7 +229,7 @@ export function OllamaRunningBlock() {
 
   return (
     <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 flex flex-col gap-3">
-      <h3 className="text-sm font-semibold text-on-surface">{of.blockRunning}</h3>
+      <h3 className="adm-section-title">{of.blockRunning}</h3>
 
       {data.running.length === 0 ? (
         <p className="text-sm text-on-surface-variant">{of.blockRunningEmpty}</p>
@@ -245,7 +245,7 @@ export function OllamaRunningBlock() {
                 <button
                   onClick={() => handleUnload(m.name)}
                   disabled={unloading === m.name}
-                  className="text-button shrink-0 text-xs"
+                  className="btn btn-secondary btn-sm"
                 >
                   {unloading === m.name ? of.actionUnloading : of.actionUnload}
                 </button>

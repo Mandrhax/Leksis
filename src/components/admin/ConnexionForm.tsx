@@ -70,7 +70,7 @@ export function ConnexionForm({ initial, smtp, oidc, onToast, onDirtyChange }: P
   }
 
   return (
-    <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-4">
+    <div className="adm-card space-y-4">
       <div className="flex items-center gap-2">
         <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none" aria-hidden="true">lock</span>
         <h3 className="font-headline font-semibold text-base text-on-surface">{cf.title}</h3>
@@ -101,10 +101,10 @@ export function ConnexionForm({ initial, smtp, oidc, onToast, onDirtyChange }: P
       </div>
 
       <div>
-        <label className="block text-sm text-on-surface mb-1.5">{cf.allowedDomainsLabel}</label>
+        <label className="adm-label">{cf.allowedDomainsLabel}</label>
         <input
           type="text" value={allowedDomains} onChange={e => setAllowedDomains(e.target.value)}
-          className="w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+          className="adm-input"
           placeholder="acme.ch, acme.com"
         />
         <p className="mt-1 text-xs text-on-surface-variant">{cf.allowedDomainsHint}</p>
@@ -123,7 +123,7 @@ export function ConnexionForm({ initial, smtp, oidc, onToast, onDirtyChange }: P
       )}
 
       <div className="flex justify-end pt-3 border-t border-outline-variant/10">
-        <button onClick={handleSave} disabled={saving || !dirty} className="action-btn disabled:opacity-40">
+        <button onClick={handleSave} disabled={saving || !dirty} className="btn btn-primary">
           {saving
             ? <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
             : <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>}

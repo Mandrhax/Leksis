@@ -57,7 +57,7 @@ export function PurgeButton({ endpoint, label, onSuccess }: PurgeButtonProps) {
 
   if (!open) {
     return (
-      <button onClick={handleOpen} className="text-button text-error/80 hover:text-error">
+      <button onClick={handleOpen} className="btn btn-danger">
         <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">delete_sweep</span>
         {t.purgeButton.purge}
       </button>
@@ -67,7 +67,7 @@ export function PurgeButton({ endpoint, label, onSuccess }: PurgeButtonProps) {
   return (
     <div className="flex flex-wrap items-end gap-3 bg-error/5 border border-error/20 rounded-xl px-4 py-3">
       <div>
-        <label className="block text-xs text-on-surface-variant mb-1">
+        <label className="adm-label">
           {t.purgeButton.deleteBefore}
         </label>
         <input
@@ -92,7 +92,7 @@ export function PurgeButton({ endpoint, label, onSuccess }: PurgeButtonProps) {
           )}
           {t.purgeButton.confirmPurge}
         </button>
-        <button onClick={handleCancel} disabled={loading} className="text-button">
+        <button onClick={handleCancel} disabled={loading} className="btn btn-secondary">
           {t.purgeButton.cancel}
         </button>
       </div>

@@ -277,7 +277,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
 
   if (activeTab === 'monitoring') return null
 
-  const inputCls = 'w-full bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50'
+  const inputCls = 'adm-input'
 
   const selectProps = {
     installed,
@@ -290,7 +290,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
   const spinner = <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
 
   return (
-    <form onSubmit={e => e.preventDefault()} className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6 space-y-5">
+    <form onSubmit={e => e.preventDefault()} className="adm-card space-y-5">
       <div className="flex items-center gap-2">
         <span className="material-symbols-outlined text-xl text-on-surface-variant leading-none" aria-hidden="true">
           {activeTab === 'config' ? 'settings_ethernet' : 'smart_toy'}
@@ -304,7 +304,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
         <>
           {/* Fournisseur */}
           <div>
-            <span className="block text-sm text-on-surface mb-1.5">{of.providerLabel}</span>
+            <span className="adm-label">{of.providerLabel}</span>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label={of.providerLabel}>
               {([
                 { id: 'ollama-local',  icon: 'dns',   title: of.providerOllamaLocal,  desc: of.providerOllamaLocalDesc },
@@ -350,7 +350,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
             </p>
           ) : (
             <div>
-              <label htmlFor="ai-base-url" className="block text-sm text-on-surface mb-1.5">{of.serverUrlLabel}</label>
+              <label htmlFor="ai-base-url" className="adm-label">{of.serverUrlLabel}</label>
               <input
                 id="ai-base-url"
                 type="url"
@@ -368,7 +368,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
           {/* Clé API (API OpenAI-compatible) */}
           {provider === 'openai' && (
             <div>
-              <label htmlFor="ai-api-key" className="block text-sm text-on-surface mb-1.5">
+              <label htmlFor="ai-api-key" className="adm-label">
                 {of.apiKeyLabel} <span className="text-on-surface-variant">{of.apiKeyOptional}</span>
               </label>
               <input
@@ -383,7 +383,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
               {hasApiKey && !clearApiKey && (
                 <p className="mt-1 text-xs text-on-surface-variant flex items-center gap-2">
                   <span>{of.apiKeySaved}</span>
-                  <button type="button" onClick={() => { setClearApiKey(true); setApiKey('') }} className="text-button text-xs">
+                  <button type="button" onClick={() => { setClearApiKey(true); setApiKey('') }} className="btn btn-secondary btn-sm">
                     {of.apiKeyRemove}
                   </button>
                 </p>
@@ -410,7 +410,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
 
           {/* Concurrence — s'applique aux deux fournisseurs, contrairement au contexte Ollama */}
           <div>
-            <label htmlFor="ai-max-concurrent" className="block text-sm text-on-surface mb-1.5">{of.concurrencyLabel}</label>
+            <label htmlFor="ai-max-concurrent" className="adm-label">{of.concurrencyLabel}</label>
             <input
               id="ai-max-concurrent"
               type="number"
@@ -516,7 +516,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
           {/* Contexte Ollama */}
           {provider === 'ollama' && (
             <div>
-              <label htmlFor="ai-num-ctx" className="block text-sm text-on-surface mb-1.5">{of.numCtxLabel}</label>
+              <label htmlFor="ai-num-ctx" className="adm-label">{of.numCtxLabel}</label>
               <input
                 id="ai-num-ctx"
                 type="number"
@@ -538,7 +538,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
           <button type="button"
             onClick={handleTest}
             disabled={testing || warming || !baseUrl}
-            className="text-button disabled:opacity-40"
+            className="btn btn-secondary"
           >
             {testing ? spinner : (
               <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">network_check</span>
@@ -550,7 +550,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
           <button type="button"
             onClick={handleWarmup}
             disabled={warming || testing || !baseUrl}
-            className="text-button disabled:opacity-40"
+            className="btn btn-secondary"
           >
             {warming ? spinner : (
               <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">memory</span>
@@ -559,7 +559,7 @@ export function AiServiceForm({ initial, onToast, activeTab }: Props) {
           </button>
         )}
         <div className="flex-1" />
-        <button type="button" onClick={() => handleSave()} disabled={saving || !baseUrl || (provider === 'ollama' && !numCtxValid) || !maxConcurrentValid} className="action-btn disabled:opacity-40">
+        <button type="button" onClick={() => handleSave()} disabled={saving || !baseUrl || (provider === 'ollama' && !numCtxValid) || !maxConcurrentValid} className="btn btn-primary">
           {saving ? spinner : (
             <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">save</span>
           )}

@@ -43,7 +43,7 @@ function LangSelect({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       aria-label={label}
-      className="w-full text-sm bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2 text-on-surface focus:outline-none focus:border-primary"
+      className="adm-input"
     >
       <option value="">{t.glossaryAdmin.anyLang}</option>
       {LANGUAGES.map((l) => (
@@ -245,7 +245,7 @@ function GlossaryEntries({
             onChange={(e) => setAddSource(e.target.value)}
             placeholder={t.glossaryAdmin.sourceTermPlaceholder}
             onKeyDown={(e) => e.key === 'Enter' && addEntry()}
-            className="text-sm bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2 text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary"
+            className="adm-input"
           />
           <input
             type="text"
@@ -253,7 +253,7 @@ function GlossaryEntries({
             onChange={(e) => setAddTarget(e.target.value)}
             placeholder={t.glossaryAdmin.targetTermPlaceholder}
             onKeyDown={(e) => e.key === 'Enter' && addEntry()}
-            className="text-sm bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2 text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary"
+            className="adm-input"
           />
           <LangSelect value={addSrcLang} onChange={setAddSrcLang} label={t.glossaryAdmin.sourceLang} />
           <LangSelect value={addTgtLang} onChange={setAddTgtLang} label={t.glossaryAdmin.targetLang} />
@@ -262,14 +262,14 @@ function GlossaryEntries({
           <button
             onClick={addEntry}
             disabled={saving || !addSource.trim() || !addTarget.trim()}
-            className="action-btn flex items-center gap-1.5 text-sm disabled:opacity-50"
+            className="btn btn-primary"
           >
             <span className="material-symbols-outlined text-base leading-none">add</span>
             {t.glossaryAdmin.addEntry}
           </button>
           <button
             onClick={() => fileRef.current?.click()}
-            className="text-button flex items-center gap-1.5 text-sm"
+            className="btn btn-secondary"
           >
             <span className="material-symbols-outlined text-base leading-none">upload_file</span>
             {t.glossaryAdmin.importCsv}
@@ -285,7 +285,7 @@ function GlossaryEntries({
           {entries.length > 0 && (
             <button
               onClick={() => exportEntriesToCSV(entries, glossary.name)}
-              className="text-button flex items-center gap-1.5 text-sm"
+              className="btn btn-secondary"
             >
               <span className="material-symbols-outlined text-base leading-none">download</span>
               {t.glossaryAdmin.exportCsv}
@@ -341,13 +341,13 @@ function NewGlossaryModal({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 shadow-xl w-full max-w-md p-6">
-        <h2 className="font-headline text-base font-semibold text-on-surface mb-4">
+        <h3 className="adm-section-title mb-4">
           {t.glossaryAdmin.newGlossary}
-        </h2>
+        </h3>
 
         <div className="space-y-3 mb-6">
           <div>
-            <label className="block text-xs font-medium text-on-surface-variant mb-1">
+            <label className="adm-label">
               {t.glossaryAdmin.name} *
             </label>
             <input
@@ -357,11 +357,11 @@ function NewGlossaryModal({
               onKeyDown={(e) => e.key === 'Enter' && submit()}
               autoFocus
               maxLength={100}
-              className="w-full text-sm bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2 text-on-surface focus:outline-none focus:border-primary"
+              className="adm-input"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-on-surface-variant mb-1">
+            <label className="adm-label">
               {t.glossaryAdmin.description}
             </label>
             <textarea
@@ -369,19 +369,19 @@ function NewGlossaryModal({
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
               maxLength={500}
-              className="w-full text-sm bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2 text-on-surface focus:outline-none focus:border-primary resize-none"
+              className="adm-input resize-none"
             />
           </div>
         </div>
 
         <div className="flex items-center justify-end gap-3">
-          <button onClick={onClose} className="text-button text-sm">
+          <button onClick={onClose} className="btn btn-secondary">
             {t.glossaryAdmin.cancel}
           </button>
           <button
             onClick={submit}
             disabled={saving || !name.trim()}
-            className="action-btn text-sm disabled:opacity-50"
+            className="btn btn-primary"
           >
             {saving ? (
               <span className="material-symbols-outlined text-base leading-none animate-spin">progress_activity</span>
@@ -481,7 +481,7 @@ export function GlossaryAdmin() {
         </p>
         <button
           onClick={() => setShowModal(true)}
-          className="action-btn flex items-center gap-1.5 text-sm"
+          className="btn btn-primary"
         >
           <span className="material-symbols-outlined text-base leading-none">add</span>
           {t.glossaryAdmin.newGlossary}

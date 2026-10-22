@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.3/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.4-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,12 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.4-beta.1
+**Admin interface overhaul (beta).** No database migration.
+- **One design system for the admin**: cards, section titles, labels, fields and buttons (primary, secondary, danger) are defined once and used everywhere, replacing about 200 hand-written variants
+- **Consistent wording in EN/FR/DE/IT**: uniform save, error and network messages, clearer labels
+- The Users page no longer says role changes wait for the next sign-in: they apply immediately
 
 ### v1.8.3
 **Sign-in hardening, invitations and monitoring (tested through four betas).** No database migration.

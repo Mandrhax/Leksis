@@ -77,24 +77,24 @@ export function UsagePanel() {
       {/* Filtres */}
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-xs text-on-surface-variant mb-1">{t.usagePanel.fromLabel}</label>
+          <label className="adm-label">{t.usagePanel.fromLabel}</label>
           <input
             type="date"
             value={from}
             onChange={e => setFrom(e.target.value)}
-            className="bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+            className="adm-input"
           />
         </div>
         <div>
-          <label className="block text-xs text-on-surface-variant mb-1">{t.usagePanel.toLabel}</label>
+          <label className="adm-label">{t.usagePanel.toLabel}</label>
           <input
             type="date"
             value={to}
             onChange={e => setTo(e.target.value)}
-            className="bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+            className="adm-input"
           />
         </div>
-        <button onClick={() => load()} disabled={loading} className="action-btn disabled:opacity-40">
+        <button onClick={() => load()} disabled={loading} className="btn btn-primary">
           {loading ? (
             <span className="material-symbols-outlined animate-spin text-base leading-none" aria-hidden="true">progress_activity</span>
           ) : (
@@ -103,7 +103,7 @@ export function UsagePanel() {
           {t.usagePanel.filter}
         </button>
         <div className="flex-1" />
-        <button onClick={handleExport} className="text-button">
+        <button onClick={handleExport} className="btn btn-secondary">
           <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">download</span>
           {t.usagePanel.exportCsv}
         </button>
@@ -132,8 +132,8 @@ export function UsagePanel() {
 
           {/* Top langues cibles */}
           {Object.keys(data.byLang).length > 0 && (
-            <div className="bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-on-surface mb-3">{t.usagePanel.topLangs}</h3>
+            <div className="adm-card adm-card-compact">
+              <h3 className="adm-section-title mb-3">{t.usagePanel.topLangs}</h3>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(data.byLang)
                   .sort((a, b) => b[1] - a[1])
@@ -149,8 +149,8 @@ export function UsagePanel() {
 
           {/* Top modèles */}
           {Object.keys(data.byModel).length > 0 && (
-            <div className="bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-on-surface mb-3">{t.usagePanel.topModels}</h3>
+            <div className="adm-card adm-card-compact">
+              <h3 className="adm-section-title mb-3">{t.usagePanel.topModels}</h3>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(data.byModel)
                   .sort((a, b) => b[1] - a[1])
@@ -166,7 +166,7 @@ export function UsagePanel() {
           {/* Tableau détail */}
           <div className="bg-surface-container-lowest border border-outline-variant/20 rounded-xl overflow-hidden">
             <div className="px-5 py-3 border-b border-outline-variant/10 flex items-center gap-4 flex-wrap">
-              <h3 className="text-sm font-semibold text-on-surface">{t.usagePanel.lastCalls}</h3>
+              <h3 className="adm-section-title">{t.usagePanel.lastCalls}</h3>
               <span className="text-xs text-on-surface-variant flex-1">
                 {t.usagePanel.totalSuffix.replace('{0}', String(data.total)).replace('{1}', String(data.rows.length))}
               </span>
