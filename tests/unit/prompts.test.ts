@@ -18,6 +18,12 @@ describe('buildTranslationPrompt', () => {
     expect(buildTranslationPrompt({ ...base, formality: 'Formal' })).toContain('formal form of address in French')
     expect(buildTranslationPrompt({ ...base, formality: 'Informal' })).toContain('informal form of address in French')
   })
+  it('asks to keep the source register unless a formality is chosen', () => {
+    expect(buildTranslationPrompt(base)).toContain('Keep the register of the original')
+    expect(buildTranslationPrompt({ ...base, formality: null })).toContain('Keep the register of the original')
+    expect(buildTranslationPrompt({ ...base, formality: 'Formal' })).not.toContain('Keep the register')
+    expect(buildDocumentTranslationPrompt({ segments: 'a', sourceLang: 'French', targetLang: 'German' })).toContain('Keep the register of the original')
+  })
   it('injects the glossary clause before the instruction to output only the translation', () => {
     const clause = 'Use these terms: cat = chat.\n'
     const p = buildTranslationPrompt({ ...base, glossaryClause: clause })

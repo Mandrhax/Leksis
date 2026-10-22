@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.4-beta.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.4-beta.2/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,11 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.4-beta.2
+**Translation register and copy button (beta).** No database migration.
+- **Register preserved** when the source is not English: an informal source ("tu") stays informal in the translation ("du"), a formal one ("vous") stays formal ("Sie"), instead of defaulting to the formal form. Applies to text and document translation; English sources keep the Informal/Formal selector
+- The copy button now shows "Copy" on hover in the Text, Image and Rewrite tabs (it showed "Clear" or "Copied!")
 
 ### v1.8.4-beta.1
 **Admin interface overhaul (beta).** No database migration.

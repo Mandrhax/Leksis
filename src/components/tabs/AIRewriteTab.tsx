@@ -240,7 +240,8 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
                 onClick={handleCopy}
                 disabled={!outputText}
                 className="p-2 hover:bg-surface-container-high rounded-md transition-colors disabled:opacity-30"
-                title={t.rewriteTab.copied}
+                title={t.rewriteTab.copy}
+                aria-label={t.rewriteTab.copy}
               >
                 <span className="material-symbols-outlined text-on-surface-variant">content_copy</span>
               </button>

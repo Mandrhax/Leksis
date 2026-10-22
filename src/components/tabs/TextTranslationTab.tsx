@@ -316,7 +316,8 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
                 onClick={handleCopy}
                 disabled={!outputText}
                 className="p-2 hover:bg-surface-container-high rounded-md transition-colors disabled:opacity-30"
-                title={t.textTab.clear}
+                title={t.textTab.copy}
+                aria-label={t.textTab.copy}
               >
                 <span className="material-symbols-outlined text-on-surface-variant">content_copy</span>
               </button>

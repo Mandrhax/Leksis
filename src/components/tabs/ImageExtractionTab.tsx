@@ -451,7 +451,8 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10 }: Props
                 onClick={handleCopy}
                 disabled={!outputText}
                 className="p-2 hover:bg-surface-container-high rounded-md transition-colors disabled:opacity-30"
-                title={t.imgTab.copied}
+                title={t.imgTab.copy}
+                aria-label={t.imgTab.copy}
               >
                 <span className="material-symbols-outlined text-on-surface-variant">content_copy</span>
               </button>

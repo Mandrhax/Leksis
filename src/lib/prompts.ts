@@ -14,6 +14,13 @@ type TranslationPromptOptions = {
   text: string
 }
 
+// Sans consigne de tonalité (source autre que l'anglais), le modèle vouvoie par défaut : on lui
+// demande de garder le registre du texte d'origine (« tu » reste « du », « vous » reste « Sie »).
+const REGISTER_LINE =
+  'Keep the register of the original: if it addresses the reader informally (for example "tu", "du", "tú"), ' +
+  'translate it informally; if it addresses the reader formally (for example "vous", "Sie", "usted"), translate it formally. ' +
+  'Never make the text more formal or more casual than the original.\n'
+
 export function buildTranslationPrompt({
   sourceLang, sourceCode, targetLang, targetCode, formality, glossaryClause = '', text,
 }: TranslationPromptOptions): string {
@@ -23,7 +30,7 @@ export function buildTranslationPrompt({
           ? 'formal pronouns such as "vous" in French or "Sie" in German'
           : 'informal pronouns such as "tu" in French or "du" in German'
       }).\n`
-    : ''
+    : REGISTER_LINE
 
   return (
     `You are a professional ${sourceLang} (${sourceCode}) to ${targetLang} (${targetCode}) translator. ` +
@@ -58,6 +65,7 @@ export function buildDocumentTranslationPrompt({
     `The segments are separated by ||| tokens. ` +
     `You MUST preserve every ||| token exactly as-is in your output — do not remove, merge, or add any. ` +
     countLine +
+    REGISTER_LINE +
     `Translate each segment independently. Do not add any explanations.\n\n` +
     segments
   )
