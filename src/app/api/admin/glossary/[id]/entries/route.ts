@@ -79,7 +79,8 @@ export async function POST(
     `INSERT INTO glossary_entries (glossary_id, source_term, target_term, source_lang, target_lang, match_variants)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING ${ENTRY_COLUMNS}`,
-    [glossaryId, source, target, sourceLang, targetLang, matchVariants === true],
+    // Un terme ajouté accepte les variantes de fin de mot par défaut
+    [glossaryId, source, target, sourceLang, targetLang, matchVariants !== false],
   )
   const created = entryFromRow(result.rows[0])
   await logAudit(session.user.id, session.user.email!, 'ADD_GLOSSARY_TERM', `glossary:${glossaryId}`, termDetail(created))

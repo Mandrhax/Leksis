@@ -217,7 +217,7 @@ function GlossaryEntries({
   const [addTarget, setAddTarget] = useState('')
   const [addSrcLang, setAddSrcLang] = useState('')
   const [addTgtLang, setAddTgtLang] = useState('')
-  const [addVariants, setAddVariants] = useState(false)
+  const [addVariants, setAddVariants] = useState(true)
   const [saving, setSaving] = useState(false)
   const [importReport, setImportReport] = useState<{ issues: CsvIssue[]; rejectedCount: number } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -285,7 +285,7 @@ function GlossaryEntries({
         setAddTarget('')
         setAddSrcLang('')
         setAddTgtLang('')
-        setAddVariants(false)
+        setAddVariants(true)
         await load()
         onEntryAdded()
       } else {

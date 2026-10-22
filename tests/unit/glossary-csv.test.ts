@@ -40,8 +40,8 @@ describe('parseGlossaryCsv', () => {
     const out = parseGlossaryCsv('source,target,source_lang,target_lang\ncontrat,Vertrag,fr,de\nLeksis,Leksis,,', resolve)
     expect(out.rejected).toEqual([])
     expect(out.rows).toEqual([
-      { line: 2, source: 'contrat', target: 'Vertrag', sourceLang: 'fr', targetLang: 'de', matchVariants: false },
-      { line: 3, source: 'Leksis', target: 'Leksis', sourceLang: null, targetLang: null, matchVariants: false },
+      { line: 2, source: 'contrat', target: 'Vertrag', sourceLang: 'fr', targetLang: 'de', matchVariants: true },
+      { line: 3, source: 'Leksis', target: 'Leksis', sourceLang: null, targetLang: null, matchVariants: true },
     ])
   })
 
@@ -56,9 +56,9 @@ describe('parseGlossaryCsv', () => {
     expect(out.rows).toHaveLength(1)
   })
 
-  it('reads the optional match_variants column', () => {
+  it('reads the optional match_variants column; absent or empty means enabled', () => {
     const out = parseGlossaryCsv('a,b,,,true\nc,d,,,false\ne,f,,,oui\ng,h', resolve)
-    expect(out.rows.map(r => r.matchVariants)).toEqual([true, false, true, false])
+    expect(out.rows.map(r => r.matchVariants)).toEqual([true, false, true, true])
   })
 
   it('canonicalises language codes and rejects unknown ones', () => {

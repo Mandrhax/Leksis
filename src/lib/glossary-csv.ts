@@ -114,7 +114,9 @@ export function parseGlossaryCsv(
     const targetLang = rawTgtLang ? resolveLang(rawTgtLang) : null
     if ((rawSrcLang && !sourceLang) || (rawTgtLang && !targetLang)) { rejected.push({ line, reason: 'invalid_lang' }); return }
 
-    rows.push({ line, source, target, sourceLang, targetLang, matchVariants: TRUE_VALUES.has(rawVariants.toLowerCase()) })
+    // Colonne absente ou vide : variantes activées, comme à l'ajout dans l'interface
+    const matchVariants = rawVariants === '' ? true : TRUE_VALUES.has(rawVariants.toLowerCase())
+    rows.push({ line, source, target, sourceLang, targetLang, matchVariants })
   })
 
   return { rows, rejected, delimiter }
