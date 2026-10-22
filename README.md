@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.9.0-beta.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.9.0-beta.2/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,13 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.9.0-beta.2
+**Easier to find "Report a problem" (beta).** No new database migration (beta.1's migration `005` is enough).
+- **Icon in the header**, next to the help button, on every screen of the workspace
+- **At the bottom of the help window**: "Can't find what you need, or have an idea?"
+- **Under each result**: "Report a translation problem" (text, document and image translation) or "Report a problem with this result" (extraction, rewriting) opens the form with the type already chosen. The result itself is never attached automatically — paste it in the message if you want to share it
+- The entry was removed from the account menu; the footer link stays
 
 ### v1.9.0-beta.1
 **User feedback inbox (beta).** One new **database migration** (`005-feedback`, creates two tables): `leksis update` takes a backup first and applies it. The feedback button and inbox fail briefly between the app restart and the migration.
