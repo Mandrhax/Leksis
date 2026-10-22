@@ -41,3 +41,25 @@ describe('labelAuditResources', () => {
     expect(rows.map(r => r.resource_label)).toEqual(['settings:general', 'usage_log'])
   })
 })
+
+describe('labelAuditResources — glossaries', () => {
+  it('shows the name of an existing glossary instead of its id', async () => {
+    const g = await pg.db.query<{ id: number }>("INSERT INTO glossaries (name) VALUES ('Legal terms') RETURNING id")
+    const [row] = await labelAuditResources([{ resource: `glossary:${g.rows[0].id}`, detail: null }])
+    expect(row.resource_label).toBe('glossary:Legal terms')
+    expect(row.resource).toBe(`glossary:${g.rows[0].id}`)
+  })
+
+  it('falls back to the name stored in the entry for a deleted glossary, then to the id', async () => {
+    const rows = await labelAuditResources([
+      { resource: 'glossary:9998', detail: { name: 'Old glossary', terms: 4 } },
+      { resource: 'glossary:9999', detail: { source: 'a', target: 'b' } },
+    ])
+    expect(rows.map(r => r.resource_label)).toEqual(['glossary:Old glossary', 'glossary:9999'])
+  })
+
+  it('does not break on a non-numeric glossary resource', async () => {
+    const [row] = await labelAuditResources([{ resource: 'glossaries:all' }, { resource: 'glossary:abc' }].slice(1))
+    expect(row.resource_label).toBe('glossary:abc')
+  })
+})

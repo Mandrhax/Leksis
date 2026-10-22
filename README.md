@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.4-beta.3/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.8.4-beta.4/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,13 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.8.4-beta.4
+**Glossary editing and CSV import (beta).** No new database migration (beta.3's migration `004` is enough).
+- **Edit a term in place** (term, translation, languages, word-ending variants), **search** by term or translation, **pagination** (50 per page) and **duplicate detection** (same term and language pair is refused, with the existing translation shown)
+- **Reliable CSV import**: comma, semicolon or tab separated, quoted terms with commas, BOM, language codes normalised (`FR-ch` → `fr-CH`), one transaction (all or nothing), duplicates skipped, and a report of every rejected line with its number and reason. Limits: 2 MB, 5,000 rows
+- **CSV export** covers every term (not only the current page), opens correctly in Excel and can be imported back as is
+- **Audit log** for glossary changes (create/delete a glossary, add/edit/delete a term, CSV import), shown with the glossary name
 
 ### v1.8.4-beta.3
 **Glossary reliability (beta).** One small **database migration** (`004-glossary-match-variants`): `leksis update` takes a backup first and applies it. The app fails briefly between its restart and the migration.

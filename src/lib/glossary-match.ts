@@ -71,32 +71,3 @@ export function buildRewriteGlossaryClause(terms: GlossaryEntry[]): string {
   const lines = terms.map(({ source, target }) => `- ${source} → ${target}`).join('\n')
   return `Terminology — preserve these terms exactly as listed:\n${lines}\n`
 }
-
-// ---------------------------------------------------------------------------
-// CSV utilities (used in admin import route)
-// ---------------------------------------------------------------------------
-
-/**
- * Parse a CSV file with columns: source, target[, source_lang[, target_lang]]
- * Empty lang columns → null (= any language)
- */
-export function parseGlossaryCSV(
-  text: string,
-): Array<{ source: string; target: string; sourceLang: string | null; targetLang: string | null }> {
-  const lines = text.trim().split(/\r?\n/)
-  const results: Array<{ source: string; target: string; sourceLang: string | null; targetLang: string | null }> = []
-
-  for (const line of lines) {
-    const cols = line.split(',').map((c) => c.replace(/^"|"$/g, '').trim())
-    if (cols.length < 2 || !cols[0] || !cols[1]) continue
-    if (cols[0].toLowerCase() === 'source') continue // skip header row
-    results.push({
-      source: cols[0],
-      target: cols[1],
-      sourceLang: cols[2] && cols[2] !== '' ? cols[2] : null,
-      targetLang: cols[3] && cols[3] !== '' ? cols[3] : null,
-    })
-  }
-
-  return results
-}

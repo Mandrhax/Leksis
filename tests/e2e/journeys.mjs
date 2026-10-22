@@ -78,7 +78,7 @@ const aiServer = createServer((req, res) => {
     const { prompt } = JSON.parse(body)
     const joined = prompt.split('\n\n').pop()
     const parts = joined.split(' ||| ')
-    aiCalls.push({ segments: parts.length, chars: joined.length })
+    aiCalls.push({ segments: parts.length, chars: joined.length, glossary: prompt.includes('Glossary —') })
     const weak = joined.includes('MERGE') && parts.length > 2
     res.end(JSON.stringify({ response: (weak ? parts.join(' ') : joined).toUpperCase(), done: true }))
   })
@@ -328,12 +328,12 @@ try {
   check('the local Ollama card is greyed out when the container is not there', engine[0]?.disabled === true && engine[0].text.includes('leksis config'), engine[0]?.text)
 
   const saveButton = () => adminPage.evaluate(() => {
-    const b = [...document.querySelectorAll('button.action-btn')].find(x => x.innerText.includes('Save'))
+    const b = [...document.querySelectorAll('button.btn-primary')].find(x => x.innerText.includes('Save'))
     return b ? { found: true, disabled: b.disabled } : { found: false }
   })
   const sb = await saveButton()
   check('the Save button is usable for an Ollama server (num_ctx accepted)', sb.found && sb.disabled === false, JSON.stringify(sb))
-  await adminPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(x => x.innerText.includes('Save')).click())
+  await adminPage.evaluate(() => [...document.querySelectorAll('button.btn-primary')].find(x => x.innerText.includes('Save')).click())
   let saved = null
   for (let i = 0; i < 20 && !saved; i++) {
     const r = await db.query("SELECT value FROM site_settings WHERE key = 'ai_config'")
@@ -369,7 +369,7 @@ try {
   await casualIt.click()
   await adminPage.keyboard.down('Control'); await adminPage.keyboard.press('KeyA'); await adminPage.keyboard.up('Control')
   await casualIt.type('Alla buona')
-  await adminPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.offsetParent !== null && b.innerText.includes('Save')).click())
+  await adminPage.evaluate(() => [...document.querySelectorAll('button.btn-primary')].find(b => b.offsetParent !== null && b.innerText.includes('Save')).click())
   let savedTones = null
   for (let i = 0; i < 20 && !savedTones?.[1]?.labels?.it; i++) {
     savedTones = (await db.query("SELECT value FROM site_settings WHERE key = 'rewrite_tones'")).rows[0]?.value ?? null
@@ -432,7 +432,7 @@ try {
   await adminPage.evaluate(() => [...document.querySelectorAll('button')].find(b => b.innerText.includes('Sign-in'))?.click())
   await adminPage.waitForFunction(() => [...document.querySelectorAll('button[role=radio]')].some(b => b.innerText.includes('admin approval')), { timeout: 10000 })
   await adminPage.evaluate(() => [...document.querySelectorAll('button[role=radio]')].find(b => b.innerText.includes('admin approval'))?.click())
-  await adminPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.offsetParent !== null && b.innerText.includes('Save'))?.click())
+  await adminPage.evaluate(() => [...document.querySelectorAll('button.btn-primary')].find(b => b.offsetParent !== null && b.innerText.includes('Save'))?.click())
   let authConfig = null
   for (let i = 0; i < 20 && authConfig?.method !== 'password_admin_approval'; i++) {
     authConfig = (await db.query("SELECT value FROM site_settings WHERE key = 'auth_config'")).rows[0]?.value ?? null
@@ -600,7 +600,7 @@ try {
   await adminPage.waitForSelector('code', { timeout: 10000 })
   const adminResetPassword = await adminPage.evaluate(() => document.querySelector('code')?.textContent ?? '')
   check('the admin sees the generated password once', adminResetPassword.length >= 20, adminResetPassword.length)
-  await adminPage.evaluate(() => [...document.querySelectorAll('button.action-btn')].find(b => b.innerText.includes('Close'))?.click())
+  await adminPage.evaluate(() => [...document.querySelectorAll('button.btn-primary')].find(b => b.innerText.includes('Close'))?.click())
 
   await signupPage.goto(BASE + '/auth/signin', { waitUntil: 'networkidle0' })
   await signupPage.type('#email', newEmail)
@@ -623,6 +623,70 @@ try {
   check('the reset is audited without ever storing the password itself', resetAudit.rows.length === 1
     && resetAudit.rows[0].detail?.email === newEmail && !JSON.stringify(resetAudit.rows[0].detail).includes(adminResetPassword),
     JSON.stringify(resetAudit.rows[0]))
+
+  // ── Glossary: CSV import (semicolons, quotes, bad lines), duplicates, edit, search, document translation, audit ──
+  const glossaryApi = (path, init) => adminPage.evaluate(async (p, i) => {
+    const r = await fetch(p, i)
+    return { status: r.status, json: await r.json().catch(() => null) }
+  }, path, init)
+  const jsonInit = (method, body) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+
+  const glossaryCreated = await glossaryApi('/api/admin/glossary', jsonInit('POST', { name: 'E2E glossary' }))
+  const gid = glossaryCreated.json?.id
+  check('an admin can create a glossary', glossaryCreated.status === 200 && Number.isInteger(gid), JSON.stringify(glossaryCreated))
+
+  const csv = [
+    'source;target;source_lang;target_lang;match_variants',
+    '"Dupont, Jean";"Jean Dupont";en;fr;false',
+    'contract;contrat;en;fr;true',
+    ';missing source;en;fr',
+    'bad;lang;xx;fr',
+    'CONTRACT;doublon;en;fr',
+  ].join('\r\n')
+  const imported = await glossaryApi('/api/admin/glossary/' + gid + '/import', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: csv })
+  check('a semicolon CSV with quoted commas imports; bad lines are reported, not silently dropped',
+    imported.status === 200 && imported.json.imported === 2 && imported.json.duplicates === 1 && imported.json.rejectedCount === 2
+      && JSON.stringify(imported.json.rejected.map(r => [r.line, r.reason])) === JSON.stringify([[4, 'missing_term'], [5, 'invalid_lang']]),
+    JSON.stringify(imported))
+
+  const found = await glossaryApi('/api/admin/glossary/' + gid + '/entries?q=dupont', { method: 'GET' })
+  check('the term list is searchable and paginated', found.status === 200 && found.json.total === 1 && found.json.entries[0].source === 'Dupont, Jean', JSON.stringify(found))
+
+  const dup = await glossaryApi('/api/admin/glossary/' + gid + '/entries', jsonInit('POST', { source: 'Contract', target: 'autre', sourceLang: 'en', targetLang: 'fr' }))
+  check('adding a term that already exists is refused with the existing translation', dup.status === 409 && dup.json.code === 'duplicate' && dup.json.existingTarget === 'contrat', JSON.stringify(dup))
+
+  const contractEntry = (await glossaryApi('/api/admin/glossary/' + gid + '/entries?q=contract', { method: 'GET' })).json.entries[0]
+  const edited = await glossaryApi('/api/admin/glossary/' + gid + '/entries/' + contractEntry.id,
+    jsonInit('PATCH', { source: 'contract', target: 'contrat de travail', sourceLang: 'en', targetLang: 'fr', matchVariants: true }))
+  check('a term can be edited in place', edited.status === 200 && edited.json.target === 'contrat de travail' && edited.json.matchVariants === true, JSON.stringify(edited))
+
+  // Document translation uses the glossary, with word-ending variants ("contracts" matches "contract")
+  const translateWithGlossary = (withCodes) => adminPage.evaluate(async codes => {
+    const form = new FormData()
+    form.append('file', new File(['The contracts are signed'], 'doc.txt', { type: 'text/plain' }))
+    form.append('targetLang', 'French')
+    form.append('sourceLang', 'English')
+    if (codes) { form.append('targetCode', 'fr'); form.append('sourceCode', 'en') }
+    const r = await fetch('/api/translate/document', { method: 'POST', body: form })
+    return r.status
+  }, withCodes)
+  aiCalls.length = 0
+  const docStatus = await translateWithGlossary(true)
+  check('the glossary is applied to document translation', docStatus === 200 && aiCalls.length === 1 && aiCalls[0].glossary === true, JSON.stringify(aiCalls))
+  aiCalls.length = 0
+  await translateWithGlossary(false)
+  check('without language codes the document is still translated, just without the glossary', aiCalls.length === 1 && aiCalls[0].glossary === false, JSON.stringify(aiCalls))
+
+  const glossaryAudit = (await adminPage.evaluate(() => fetch('/api/admin/audit').then(r => r.json()))).rows
+  const glossaryActions = glossaryAudit.filter(r => r.resource === 'glossary:' + gid).map(r => r.action)
+  check('glossary changes are audited and show the glossary name',
+    ['CREATE_GLOSSARY', 'IMPORT_GLOSSARY_CSV', 'UPDATE_GLOSSARY_TERM'].every(a => glossaryActions.includes(a))
+      && glossaryAudit.some(r => r.resource === 'glossary:' + gid && r.resource_label === 'glossary:E2E glossary'),
+    JSON.stringify(glossaryActions))
+
+  await glossaryApi('/api/admin/glossary/' + gid, { method: 'DELETE' })
+  const gone = (await db.query('SELECT 1 FROM glossary_entries WHERE glossary_id = $1', [gid])).rowCount === 0
+  check('deleting a glossary removes its terms', gone)
 
   check('no browser console errors on the admin pages', adminProblems.length === 0, adminProblems.join(' | '))
 

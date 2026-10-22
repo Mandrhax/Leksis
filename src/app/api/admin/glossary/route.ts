@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/admin-guard'
 import { query } from '@/lib/db'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
   )
 
   const g = result.rows[0]
+  await logAudit(session.user.id, session.user.email!, 'CREATE_GLOSSARY', `glossary:${g.id}`, { name: g.name })
   return NextResponse.json({
     id: g.id,
     name: g.name,

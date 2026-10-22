@@ -9,9 +9,16 @@ vi.mock('@/lib/db', () => ({
     const r = await pg.db.query(text, params)
     return { rows: r.rows, rowCount: r.affectedRows ?? r.rows.length }
   },
+  withTransaction: async (fn: (q: unknown) => Promise<unknown>) =>
+    pg.db.transaction(async tx => fn(async (text: string, params?: unknown[]) => {
+      const r = await tx.query(text, params)
+      return { rows: r.rows, rowCount: r.affectedRows ?? r.rows.length }
+    })),
 }))
 
 import { fetchGlossaryCandidates, fetchGlossaryEntries } from '@/lib/glossary'
+import { findDuplicateEntry, importGlossaryRows, likePattern } from '@/lib/glossary-entries'
+import type { CsvRow } from '@/lib/glossary-csv'
 import { filterRelevantTerms, langMatches, termMatches, MAX_PROMPT_TERMS } from '@/lib/glossary-match'
 import type { GlossaryEntry } from '@/types/leksis'
 
@@ -156,5 +163,116 @@ describe('fetchGlossaryCandidates (database)', () => {
     const u = await pg.db.query<{ id: string }>("INSERT INTO users (email) VALUES ('u@x.ch') RETURNING id")
     await pg.db.query('INSERT INTO user_glossary_prefs (user_id, glossary_id, enabled) VALUES ($1, $2, FALSE)', [u.rows[0].id, glossaryId])
     expect(await fetchGlossaryCandidates(u.rows[0].id, 'fr', 'de')).toEqual([])
+  })
+})
+
+describe('findDuplicateEntry (database)', () => {
+  let glossaryId: number
+  let contractId: number
+
+  beforeEach(async () => {
+    pg.db = new PGlite()
+    await pg.db.exec(schema)
+    const g = await pg.db.query<{ id: number }>("INSERT INTO glossaries (name) VALUES ('Legal') RETURNING id")
+    glossaryId = g.rows[0].id
+    const e = await pg.db.query<{ id: number }>(
+      "INSERT INTO glossary_entries (glossary_id, source_term, target_term, source_lang, target_lang) VALUES ($1, 'Contrat', 'Vertrag', 'fr', 'de') RETURNING id",
+      [glossaryId],
+    )
+    contractId = e.rows[0].id
+    await pg.db.query(
+      "INSERT INTO glossary_entries (glossary_id, source_term, target_term) VALUES ($1, 'Leksis', 'Leksis')",
+      [glossaryId],
+    )
+  })
+
+  it('finds the same term whatever its case, for the same language pair', async () => {
+    expect(await findDuplicateEntry(glossaryId, 'contrat', 'fr', 'de')).toEqual({ id: contractId, target: 'Vertrag' })
+  })
+
+  it('treats another language pair as a different term', async () => {
+    expect(await findDuplicateEntry(glossaryId, 'contrat', 'fr', 'it')).toBeNull()
+    expect(await findDuplicateEntry(glossaryId, 'contrat', null, null)).toBeNull()
+  })
+
+  it('matches terms that apply to any language', async () => {
+    expect((await findDuplicateEntry(glossaryId, 'LEKSIS', null, null))?.target).toBe('Leksis')
+  })
+
+  it('ignores the entry being edited', async () => {
+    expect(await findDuplicateEntry(glossaryId, 'Contrat', 'fr', 'de', contractId)).toBeNull()
+  })
+
+  it('looks only inside the given glossary', async () => {
+    const other = await pg.db.query<{ id: number }>("INSERT INTO glossaries (name) VALUES ('Other') RETURNING id")
+    expect(await findDuplicateEntry(other.rows[0].id, 'Contrat', 'fr', 'de')).toBeNull()
+  })
+})
+
+describe('likePattern', () => {
+  it('escapes the LIKE wildcards so a search is literal', async () => {
+    expect(likePattern('50%_off')).toBe('%50\\%\\_off%')
+    expect(likePattern('a\\b')).toBe('%a\\\\b%')
+    pg.db = new PGlite()
+    const r = await pg.db.query<{ ok: boolean }>('SELECT $1::text ILIKE $2 AS ok', ['100% sure', likePattern('100%')])
+    expect(r.rows[0].ok).toBe(true)
+    const none = await pg.db.query<{ ok: boolean }>('SELECT $1::text ILIKE $2 AS ok', ['1000 sure', likePattern('100%')])
+    expect(none.rows[0].ok).toBe(false)
+  })
+})
+
+describe('importGlossaryRows (database)', () => {
+  let glossaryId: number
+
+  const row = (line: number, source: string, target: string, sourceLang: string | null = null, targetLang: string | null = null, matchVariants = false): CsvRow =>
+    ({ line, source, target, sourceLang, targetLang, matchVariants })
+
+  const stored = async () =>
+    (await pg.db.query<{ source_term: string; target_term: string; match_variants: boolean }>(
+      'SELECT source_term, target_term, match_variants FROM glossary_entries WHERE glossary_id = $1 ORDER BY id', [glossaryId],
+    )).rows
+
+  beforeEach(async () => {
+    pg.db = new PGlite()
+    await pg.db.exec(schema)
+    glossaryId = (await pg.db.query<{ id: number }>("INSERT INTO glossaries (name) VALUES ('Legal') RETURNING id")).rows[0].id
+  })
+
+  it('inserts every valid row, keeping the variants flag', async () => {
+    const out = await importGlossaryRows(glossaryId, [row(2, 'contrat', 'Vertrag', 'fr', 'de', true), row(3, 'Leksis', 'Leksis')])
+    expect(out).toEqual({ imported: 2, duplicates: 0 })
+    expect(await stored()).toEqual([
+      { source_term: 'contrat', target_term: 'Vertrag', match_variants: true },
+      { source_term: 'Leksis', target_term: 'Leksis', match_variants: false },
+    ])
+  })
+
+  it('skips terms already in the glossary and repeated inside the file', async () => {
+    await pg.db.query("INSERT INTO glossary_entries (glossary_id, source_term, target_term, source_lang, target_lang) VALUES ($1, 'Contrat', 'Vertrag', 'fr', 'de')", [glossaryId])
+    const out = await importGlossaryRows(glossaryId, [
+      row(2, 'contrat', 'Anderer', 'fr', 'de'), // already there (case-insensitive)
+      row(3, 'facture', 'Rechnung', 'fr', 'de'),
+      row(4, 'FACTURE', 'Faktura', 'fr', 'de'), // repeated in the file
+      row(5, 'contrat', 'Vertrag', 'fr', 'it'), // another language pair: kept
+    ])
+    expect(out).toEqual({ imported: 2, duplicates: 2 })
+    expect((await stored()).map(r => r.target_term)).toEqual(['Vertrag', 'Rechnung', 'Vertrag'])
+  })
+
+  it('imports a large file in one go', async () => {
+    const rows = Array.from({ length: 2500 }, (_, i) => row(i + 2, `terme${i}`, `Begriff${i}`, 'fr', 'de'))
+    expect(await importGlossaryRows(glossaryId, rows)).toEqual({ imported: 2500, duplicates: 0 })
+    expect((await stored())).toHaveLength(2500)
+  })
+
+  it('returns null for a glossary that does not exist, and writes nothing', async () => {
+    expect(await importGlossaryRows(9999, [row(2, 'a', 'b')])).toBeNull()
+    expect(await stored()).toEqual([])
+  })
+
+  it('is all or nothing: a failure rolls the whole import back', async () => {
+    const tooLongLang = 'x'.repeat(30) // longer than VARCHAR(20): the database refuses it
+    await expect(importGlossaryRows(glossaryId, [row(2, 'ok', 'ok'), row(3, 'bad', 'bad', tooLongLang)])).rejects.toThrow()
+    expect(await stored()).toEqual([])
   })
 })

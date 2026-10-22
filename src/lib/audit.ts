@@ -25,27 +25,53 @@ export async function logAudit(
 }
 
 /**
- * Texte lisible de la colonne « ressource » : `user:<id>` devient `user:<email>` (le compte, ou à défaut l'email
- * gardé dans `detail` — un compte supprimé n'existe plus en base). Les autres ressources restent telles quelles.
+ * Texte lisible de la colonne « ressource » :
+ * - `user:<id>` devient `user:<email>` (le compte, ou à défaut l'email gardé dans `detail` — un compte supprimé
+ *   n'existe plus en base) ;
+ * - `glossary:<id>` devient `glossary:<nom>` (le glossaire, ou à défaut le nom gardé dans `detail`).
+ * Les autres ressources restent telles quelles.
  */
 export async function labelAuditResources<T extends { resource: string; detail?: unknown }>(
   rows: T[],
 ): Promise<(T & { resource_label: string })[]> {
-  const ids = [...new Set(rows.flatMap(r => (r.resource.startsWith('user:') ? [r.resource.slice(5)] : [])))]
+  const idsOf = (prefix: string) =>
+    [...new Set(rows.flatMap(r => (r.resource.startsWith(prefix) ? [r.resource.slice(prefix.length)] : [])))]
+
+  const userIds = idsOf('user:')
   const emails = new Map<string, string>()
-  if (ids.length) {
+  if (userIds.length) {
     try {
-      const found = await query<{ id: string; email: string }>('SELECT id, email FROM users WHERE id = ANY($1)', [ids])
+      const found = await query<{ id: string; email: string }>('SELECT id, email FROM users WHERE id = ANY($1)', [userIds])
       for (const u of found.rows) emails.set(u.id, u.email)
     } catch (err) {
       console.error('[audit] could not resolve user names:', err) // l'identifiant brut reste affiché
     }
   }
+
+  const glossaryIds = idsOf('glossary:').filter(id => /^\d+$/.test(id)).map(Number)
+  const glossaryNames = new Map<string, string>()
+  if (glossaryIds.length) {
+    try {
+      const found = await query<{ id: number; name: string }>('SELECT id, name FROM glossaries WHERE id = ANY($1::int[])', [glossaryIds])
+      for (const g of found.rows) glossaryNames.set(String(g.id), g.name)
+    } catch (err) {
+      console.error('[audit] could not resolve glossary names:', err)
+    }
+  }
+
   return rows.map(r => {
-    if (!r.resource.startsWith('user:')) return { ...r, resource_label: r.resource }
-    const id = r.resource.slice(5)
-    const detailEmail = (r.detail as { email?: unknown } | null)?.email
-    const email = emails.get(id) ?? (typeof detailEmail === 'string' ? detailEmail : null)
-    return { ...r, resource_label: `user:${email ?? id}` }
+    if (r.resource.startsWith('user:')) {
+      const id = r.resource.slice('user:'.length)
+      const detailEmail = (r.detail as { email?: unknown } | null)?.email
+      const email = emails.get(id) ?? (typeof detailEmail === 'string' ? detailEmail : null)
+      return { ...r, resource_label: `user:${email ?? id}` }
+    }
+    if (r.resource.startsWith('glossary:')) {
+      const id = r.resource.slice('glossary:'.length)
+      const detailName = (r.detail as { name?: unknown } | null)?.name
+      const name = glossaryNames.get(id) ?? (typeof detailName === 'string' ? detailName : null)
+      return { ...r, resource_label: `glossary:${name ?? id}` }
+    }
+    return { ...r, resource_label: r.resource }
   })
 }

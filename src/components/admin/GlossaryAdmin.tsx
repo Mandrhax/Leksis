@@ -5,18 +5,13 @@ import { useI18n } from '@/lib/i18n'
 import type { Glossary, GlossaryEntry } from '@/types/leksis'
 import { AdminToast, type ToastState } from '@/components/admin/AdminToast'
 import { LANGUAGES } from '@/lib/languages'
+import { buildGlossaryCsv, type CsvIssue, type CsvRejectReason } from '@/lib/glossary-csv'
 
 // ---------------------------------------------------------------------------
 // CSV export helper
 // ---------------------------------------------------------------------------
 function exportEntriesToCSV(entries: GlossaryEntry[], glossaryName: string) {
-  const escape = (s: string) => `"${s.replace(/"/g, '""')}"`
-  const header = 'source,target,source_lang,target_lang'
-  const rows = entries.map((e) =>
-    [escape(e.source), escape(e.target), e.sourceLang ?? '', e.targetLang ?? ''].join(','),
-  )
-  const csv = [header, ...rows].join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const blob = new Blob([buildGlossaryCsv(entries)], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -56,19 +51,103 @@ function LangSelect({
 }
 
 // ---------------------------------------------------------------------------
-// Entry row
+// Entry row (read + inline edit)
 // ---------------------------------------------------------------------------
+type EntryDraft = { source: string; target: string; sourceLang: string; targetLang: string; matchVariants: boolean }
+
 function EntryRow({
   entry,
   onDelete,
+  onSave,
 }: {
   entry: GlossaryEntry
   onDelete: (id: number) => void
+  /** Returns true when the change was saved (the row then leaves edit mode). */
+  onSave: (id: number, draft: EntryDraft) => Promise<boolean>
 }) {
   const { t } = useI18n()
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [draft, setDraft] = useState<EntryDraft>({
+    source: entry.source, target: entry.target,
+    sourceLang: entry.sourceLang ?? '', targetLang: entry.targetLang ?? '',
+    matchVariants: entry.matchVariants === true,
+  })
+
   const langName = (code: string | null) => {
     if (!code) return '—'
     return LANGUAGES.find((l) => l.code === code)?.name ?? code
+  }
+
+  const startEdit = () => {
+    setDraft({
+      source: entry.source, target: entry.target,
+      sourceLang: entry.sourceLang ?? '', targetLang: entry.targetLang ?? '',
+      matchVariants: entry.matchVariants === true,
+    })
+    setEditing(true)
+  }
+
+  const save = async () => {
+    if (!draft.source.trim() || !draft.target.trim()) return
+    setSaving(true)
+    try {
+      if (await onSave(entry.id, draft)) setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <tr className="border-b border-outline-variant/10 bg-surface-container/30 align-top">
+        <td className="py-2.5 px-4">
+          <input
+            type="text"
+            value={draft.source}
+            onChange={(e) => setDraft({ ...draft, source: e.target.value })}
+            onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
+            aria-label={t.glossaryAdmin.sourceTerm}
+            className="adm-input"
+            autoFocus
+          />
+          <label className="mt-2 flex items-center gap-2 text-xs text-on-surface-variant cursor-pointer">
+            <input
+              type="checkbox"
+              checked={draft.matchVariants}
+              onChange={(e) => setDraft({ ...draft, matchVariants: e.target.checked })}
+            />
+            {t.glossaryAdmin.matchVariants}
+          </label>
+        </td>
+        <td className="py-2.5 px-4">
+          <input
+            type="text"
+            value={draft.target}
+            onChange={(e) => setDraft({ ...draft, target: e.target.value })}
+            onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
+            aria-label={t.glossaryAdmin.targetTerm}
+            className="adm-input"
+          />
+        </td>
+        <td className="py-2.5 px-4">
+          <LangSelect value={draft.sourceLang} onChange={(v) => setDraft({ ...draft, sourceLang: v })} label={t.glossaryAdmin.sourceLang} />
+        </td>
+        <td className="py-2.5 px-4">
+          <LangSelect value={draft.targetLang} onChange={(v) => setDraft({ ...draft, targetLang: v })} label={t.glossaryAdmin.targetLang} />
+        </td>
+        <td className="py-2.5 px-4">
+          <div className="flex justify-end gap-2">
+            <button onClick={save} disabled={saving || !draft.source.trim() || !draft.target.trim()} className="btn btn-primary btn-sm">
+              {t.glossaryAdmin.saveEntry}
+            </button>
+            <button onClick={() => setEditing(false)} disabled={saving} className="btn btn-secondary btn-sm">
+              {t.glossaryAdmin.cancel}
+            </button>
+          </div>
+        </td>
+      </tr>
+    )
   }
 
   return (
@@ -87,11 +166,20 @@ function EntryRow({
       <td className="py-2.5 px-4 text-sm text-on-surface">{entry.target}</td>
       <td className="py-2.5 px-4 text-sm text-on-surface-variant">{langName(entry.sourceLang)}</td>
       <td className="py-2.5 px-4 text-sm text-on-surface-variant">{langName(entry.targetLang)}</td>
-      <td className="py-2.5 px-4 text-right">
+      <td className="py-2.5 px-4 text-right whitespace-nowrap">
+        <button
+          onClick={startEdit}
+          className="icon-btn opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+          aria-label={t.glossaryAdmin.edit}
+          title={t.glossaryAdmin.edit}
+        >
+          <span className="material-symbols-outlined text-base leading-none">edit</span>
+        </button>
         <button
           onClick={() => onDelete(entry.id)}
-          className="icon-btn opacity-0 group-hover:opacity-100 transition-opacity"
-          aria-label="Delete entry"
+          className="icon-btn opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+          aria-label={t.glossaryAdmin.deleteEntry}
+          title={t.glossaryAdmin.deleteEntry}
         >
           <span className="material-symbols-outlined text-base leading-none text-error">delete</span>
         </button>
@@ -103,6 +191,8 @@ function EntryRow({
 // ---------------------------------------------------------------------------
 // Glossary detail panel (entries)
 // ---------------------------------------------------------------------------
+const PAGE_SIZE = 50
+
 function GlossaryEntries({
   glossary,
   onEntryAdded,
@@ -118,6 +208,10 @@ function GlossaryEntries({
 }) {
   const { t } = useI18n()
   const [entries, setEntries] = useState<GlossaryEntry[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [addSource, setAddSource] = useState('')
   const [addTarget, setAddTarget] = useState('')
@@ -125,19 +219,51 @@ function GlossaryEntries({
   const [addTgtLang, setAddTgtLang] = useState('')
   const [addVariants, setAddVariants] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [importReport, setImportReport] = useState<{ issues: CsvIssue[]; rejectedCount: number } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  // La recherche part 300 ms après la dernière frappe, et revient toujours à la première page
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setDebouncedSearch(search.trim())
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(id)
+  }, [search])
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/admin/glossary/${glossary.id}/entries`)
-      if (res.ok) setEntries(await res.json())
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
+      if (debouncedSearch) params.set('q', debouncedSearch)
+      const res = await fetch(`/api/admin/glossary/${glossary.id}/entries?${params}`)
+      if (res.ok) {
+        const data: { entries: GlossaryEntry[]; total: number } = await res.json()
+        // Dernière page vidée (suppression) : on remonte d'une page
+        if (data.entries.length === 0 && data.total > 0 && page > 1) {
+          setPage(Math.max(1, Math.ceil(data.total / PAGE_SIZE)))
+          return
+        }
+        setEntries(data.entries)
+        setTotal(data.total)
+      }
     } finally {
       setLoading(false)
     }
-  }, [glossary.id])
+  }, [glossary.id, page, debouncedSearch])
 
   useEffect(() => { load() }, [load])
+
+  // Message d'erreur d'une réponse d'ajout ou de modification
+  const failureMessage = async (res: Response, fallback: string): Promise<string> => {
+    if (res.status === 409) {
+      const data = await res.json().catch(() => ({})) as { code?: string; existingTarget?: string }
+      if (data.code === 'duplicate') return t.glossaryAdmin.errorDuplicate.replace('{0}', data.existingTarget ?? '')
+    }
+    return fallback
+  }
 
   const addEntry = async () => {
     if (!addSource.trim() || !addTarget.trim()) return
@@ -155,20 +281,41 @@ function GlossaryEntries({
         }),
       })
       if (res.ok) {
-        const entry = await res.json()
-        setEntries((prev) => [...prev, entry])
         setAddSource('')
         setAddTarget('')
         setAddSrcLang('')
         setAddTgtLang('')
         setAddVariants(false)
+        await load()
         onEntryAdded()
       } else {
-        showToast(t.glossaryAdmin.errorAdd, 'error')
+        showToast(await failureMessage(res, t.glossaryAdmin.errorAdd), 'error')
       }
     } finally {
       setSaving(false)
     }
+  }
+
+  const saveEntry = async (entryId: number, draft: EntryDraft): Promise<boolean> => {
+    const res = await fetch(`/api/admin/glossary/${glossary.id}/entries/${entryId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: draft.source.trim(),
+        target: draft.target.trim(),
+        sourceLang: draft.sourceLang || null,
+        targetLang: draft.targetLang || null,
+        matchVariants: draft.matchVariants,
+      }),
+    })
+    if (res.ok) {
+      const updated: GlossaryEntry = await res.json()
+      setEntries((prev) => prev.map((e) => (e.id === entryId ? updated : e)))
+      showToast(t.glossaryAdmin.entryUpdated, 'success')
+      return true
+    }
+    showToast(await failureMessage(res, t.glossaryAdmin.errorEdit), 'error')
+    return false
   }
 
   const deleteEntry = async (entryId: number) => {
@@ -176,7 +323,7 @@ function GlossaryEntries({
       method: 'DELETE',
     })
     if (res.ok) {
-      setEntries((prev) => prev.filter((e) => e.id !== entryId))
+      await load()
       onEntryDeleted()
     } else {
       showToast(t.glossaryAdmin.errorDelete, 'error')
@@ -186,47 +333,86 @@ function GlossaryEntries({
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const text = await file.text()
-    const res = await fetch(`/api/admin/glossary/${glossary.id}/import`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: text,
-    })
-    if (res.ok) {
-      const { imported } = await res.json()
-      showToast(t.glossaryAdmin.importedCount.replace('{0}', String(imported)), 'success')
-      await load()
-      onImported()
-    } else {
-      showToast(t.glossaryAdmin.errorImport, 'error')
+    setImportReport(null)
+    try {
+      const text = await file.text()
+      const res = await fetch(`/api/admin/glossary/${glossary.id}/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: text,
+      })
+      if (res.ok) {
+        const r: { imported: number; duplicates: number; rejectedCount: number; rejected: CsvIssue[] } = await res.json()
+        const summary = t.glossaryAdmin.importResult
+          .replace('{0}', String(r.imported)).replace('{1}', String(r.duplicates)).replace('{2}', String(r.rejectedCount))
+        showToast(summary, r.imported > 0 ? 'success' : 'error')
+        if (r.rejectedCount > 0) setImportReport({ issues: r.rejected, rejectedCount: r.rejectedCount })
+        await load()
+        onImported()
+      } else {
+        const data = await res.json().catch(() => ({})) as { code?: string }
+        const known: Record<string, string> = {
+          too_large: t.glossaryAdmin.importTooLarge,
+          too_many_rows: t.glossaryAdmin.importTooManyRows,
+          empty: t.glossaryAdmin.importEmpty,
+        }
+        showToast(known[data.code ?? ''] ?? t.glossaryAdmin.errorImport, 'error')
+      }
+    } finally {
+      if (fileRef.current) fileRef.current.value = ''
     }
-    if (fileRef.current) fileRef.current.value = ''
   }
 
+  const reasonLabel = (reason: CsvRejectReason): string => ({
+    missing_term: t.glossaryAdmin.reasonMissingTerm,
+    too_long: t.glossaryAdmin.reasonTooLong,
+    invalid_lang: t.glossaryAdmin.reasonInvalidLang,
+  })[reason]
+
+  // L'export reprend tous les termes, pas seulement la page affichée
+  const handleExport = async () => {
+    const res = await fetch(`/api/admin/glossary/${glossary.id}/entries?all=1`)
+    if (!res.ok) { showToast(t.glossaryAdmin.errorExport, 'error'); return }
+    exportEntriesToCSV(await res.json(), glossary.name)
+  }
+
+  const langLabel = (code: string) =>
+    code ? (LANGUAGES.find((l) => l.code === code)?.name ?? code) : t.glossaryAdmin.anyLang
+
   return (
-    <div className="mt-4 bg-surface-container-lowest rounded-xl border border-outline-variant/20 overflow-hidden">
+    <div className="mt-4 adm-card p-0 overflow-hidden">
+      {/* Search */}
+      <div className="p-4 border-b border-outline-variant/20 flex items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base leading-none text-on-surface-variant" aria-hidden="true">search</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t.glossaryAdmin.searchPlaceholder}
+            aria-label={t.glossaryAdmin.searchPlaceholder}
+            className="adm-input pl-9"
+          />
+        </div>
+        <span className="text-xs text-on-surface-variant tabular-nums">
+          {t.glossaryAdmin.entryCount.replace('{0}', String(total))}
+        </span>
+      </div>
+
       {/* Entries table */}
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-outline-variant/20 bg-surface-container/40">
-              <th className="py-2.5 px-4 text-left text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
-                {t.glossaryAdmin.sourceTerm}
-              </th>
-              <th className="py-2.5 px-4 text-left text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
-                {t.glossaryAdmin.targetTerm}
-              </th>
-              <th className="py-2.5 px-4 text-left text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
-                {t.glossaryAdmin.sourceLang}
-              </th>
-              <th className="py-2.5 px-4 text-left text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
-                {t.glossaryAdmin.targetLang}
-              </th>
-              <th className="py-2.5 px-4 w-12" />
+              <th className="py-2.5 px-4 text-left adm-eyebrow">{t.glossaryAdmin.sourceTerm}</th>
+              <th className="py-2.5 px-4 text-left adm-eyebrow">{t.glossaryAdmin.targetTerm}</th>
+              <th className="py-2.5 px-4 text-left adm-eyebrow">{t.glossaryAdmin.sourceLang}</th>
+              <th className="py-2.5 px-4 text-left adm-eyebrow">{t.glossaryAdmin.targetLang}</th>
+              <th className="py-2.5 px-4 w-24" />
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {loading && entries.length === 0 ? (
               <tr>
                 <td colSpan={5} className="py-6 text-center text-sm text-on-surface-variant">
                   <span className="material-symbols-outlined text-base leading-none animate-spin">progress_activity</span>
@@ -235,24 +421,37 @@ function GlossaryEntries({
             ) : entries.length === 0 ? (
               <tr>
                 <td colSpan={5} className="py-6 text-center text-sm text-on-surface-variant">
-                  {t.glossaryAdmin.noEntries}
+                  {debouncedSearch ? t.glossaryAdmin.noResults : t.glossaryAdmin.noEntries}
                 </td>
               </tr>
             ) : (
               entries.map((entry) => (
-                <EntryRow key={entry.id} entry={entry} onDelete={deleteEntry} />
+                <EntryRow key={entry.id} entry={entry} onDelete={deleteEntry} onSave={saveEntry} />
               ))
             )}
           </tbody>
         </table>
       </div>
 
+      {/* Pagination */}
+      {lastPage > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-outline-variant/20 text-xs text-on-surface-variant">
+          <button onClick={() => setPage(page - 1)} disabled={page <= 1 || loading} className="btn btn-secondary btn-sm">
+            {t.glossaryAdmin.prev}
+          </button>
+          <span className="tabular-nums">
+            {t.glossaryAdmin.pageOf.replace('{0}', String(page)).replace('{1}', String(lastPage))}
+          </span>
+          <button onClick={() => setPage(page + 1)} disabled={page >= lastPage || loading} className="btn btn-secondary btn-sm">
+            {t.glossaryAdmin.next}
+          </button>
+        </div>
+      )}
+
       {/* Add entry form */}
       <div className="border-t border-outline-variant/20 p-4 bg-surface-container/20">
-        <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3">
-          {t.glossaryAdmin.addEntry}
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <p className="adm-eyebrow mb-3">{t.glossaryAdmin.addEntry}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
           <input
             type="text"
             value={addSource}
@@ -272,6 +471,9 @@ function GlossaryEntries({
           <LangSelect value={addSrcLang} onChange={setAddSrcLang} label={t.glossaryAdmin.sourceLang} />
           <LangSelect value={addTgtLang} onChange={setAddTgtLang} label={t.glossaryAdmin.targetLang} />
         </div>
+        <p className="adm-hint mb-3 mt-0">
+          {t.glossaryAdmin.scopeHint.replace('{0}', langLabel(addSrcLang)).replace('{1}', langLabel(addTgtLang))}
+        </p>
         <label className="flex items-start gap-2.5 cursor-pointer mb-3">
           <input
             type="checkbox"
@@ -308,11 +510,8 @@ function GlossaryEntries({
             className="hidden"
             aria-label={t.glossaryAdmin.importCsv}
           />
-          {entries.length > 0 && (
-            <button
-              onClick={() => exportEntriesToCSV(entries, glossary.name)}
-              className="btn btn-secondary"
-            >
+          {total > 0 && (
+            <button onClick={handleExport} className="btn btn-secondary">
               <span className="material-symbols-outlined text-base leading-none">download</span>
               {t.glossaryAdmin.exportCsv}
             </button>
@@ -321,6 +520,26 @@ function GlossaryEntries({
         <p className="mt-2 text-xs text-on-surface-variant">
           {t.glossaryAdmin.csvHint}
         </p>
+        {importReport && (
+          <div role="status" className="mt-3 rounded-lg border border-error/30 bg-error/5 p-3">
+            <div className="flex items-center justify-between gap-3 mb-1.5">
+              <p className="text-sm font-medium text-on-surface">{t.glossaryAdmin.importIssuesTitle}</p>
+              <button onClick={() => setImportReport(null)} className="btn btn-secondary btn-sm">{t.glossaryAdmin.dismiss}</button>
+            </div>
+            <ul className="text-xs text-on-surface-variant space-y-0.5">
+              {importReport.issues.map((issue) => (
+                <li key={issue.line}>
+                  {t.glossaryAdmin.importIssue.replace('{0}', String(issue.line)).replace('{1}', reasonLabel(issue.reason))}
+                </li>
+              ))}
+            </ul>
+            {importReport.rejectedCount > importReport.issues.length && (
+              <p className="mt-1 text-xs text-on-surface-variant">
+                {t.glossaryAdmin.importMore.replace('{0}', String(importReport.rejectedCount - importReport.issues.length))}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -3,10 +3,10 @@ import type { GlossaryEntry } from '@/types/leksis'
 import { query } from '@/lib/db'
 import { filterRelevantTerms } from '@/lib/glossary-match'
 
-// La logique pure (correspondance des termes, clauses de prompt, CSV) vit dans glossary-match.ts.
+// La logique pure (correspondance des termes, clauses de prompt) vit dans glossary-match.ts ; le CSV dans glossary-csv.ts.
 export {
   filterRelevantTerms, termMatches, langMatches,
-  buildTranslationGlossaryClause, buildRewriteGlossaryClause, parseGlossaryCSV,
+  buildTranslationGlossaryClause, buildRewriteGlossaryClause,
 } from '@/lib/glossary-match'
 
 // ---------------------------------------------------------------------------
