@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.9.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.10.0-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,15 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.10.0-beta.1
+**Far fewer calls to the AI model from the Text tab (beta).** One small **database migration** (`006-usage-log-tracking`, adds five columns to the usage log): `leksis update` takes a backup first and applies it. Between the app restart and the migration, usage log entries fail to be written (requests are not affected).
+- **Translates when you pause**: typing waits for a pause (1 s by default); pasting, dictation, the Translate button, the new **Ctrl+Enter** shortcut and a language or tone change translate at once. A new request cancels the previous one, which stops the model, and the previous translation stays on screen, dimmed, until the new one arrives
+- **Nothing useless is sent**: not the same text again (spaces aside), not a text under 3 characters, not under 20 characters while typing with auto-detect, not a translation into the same language (French → French (Switzerland)), which now shows a message instead
+- **Only changed paragraphs are retranslated**: after the first translation, editing one paragraph sends only that paragraph to the model, with the paragraph before it as context; unchanged paragraphs appear instantly. Recent translations are kept in the server's memory, per user, for 30 minutes (never on disk) — the privacy policy says so
+- **All thresholds are in Settings → Features & limits** (pause, minimum lengths, cache duration and size, context on/off)
+- **More useful usage log**: each entry now says what started the request (typing, paste, button…), how it ended (completed, cancelled, cache hit, skipped, error), how many characters really went to the model, how long it took, and which requests belong to the same input. Languages are always codes (`fr`, `de-CH`), `n/a` where they do not apply. The new columns are at the end of the CSV export
+- To check on your model: if it translates the context paragraph too, turn off "Send the previous paragraph as context"
 
 ### v1.9.0
 **Security update — update now — and a feedback inbox (tested through two betas).** One small **database migration** (`005-feedback`, creates two tables): `leksis update` takes a backup first and applies it. The feedback button and inbox fail briefly between the app restart and the migration.
