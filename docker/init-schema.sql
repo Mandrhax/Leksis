@@ -83,7 +83,8 @@ CREATE INDEX IF NOT EXISTS audit_log_created_at_idx ON audit_log(created_at DESC
 -- ============================================================
 -- usage_log — AI call tracking
 -- Used by src/lib/usage.ts (logUsage)
--- Columns: user_id, user_email, feature, source_lang, target_lang, model, char_count
+-- Columns: user_id, user_email, feature, source_lang, target_lang, model, char_count,
+--          trigger_type, status, model_chars, latency_ms, request_group_id (migration 006)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS usage_log (
   id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -94,7 +95,12 @@ CREATE TABLE IF NOT EXISTS usage_log (
   target_lang TEXT,
   model       TEXT,
   char_count  INTEGER,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  trigger_type     TEXT,
+  status           TEXT,
+  model_chars      INTEGER,
+  latency_ms       INTEGER,
+  request_group_id TEXT
 );
 CREATE INDEX IF NOT EXISTS usage_log_created_at_idx ON usage_log(created_at DESC);
 

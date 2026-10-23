@@ -5,13 +5,15 @@ import { getAiOrError, gateStream } from '@/lib/llm'
 import { buildTranslationPrompt, buildMarkdownTranslationPrompt } from '@/lib/prompts'
 import { validateTextInput, isValidLangName, isValidLangCode } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
-import { logUsage } from '@/lib/usage'
+import { trackUsageStream } from '@/lib/usage'
+import { UsageTrackingSchema } from '@/lib/usage-schema'
 import { isFeatureEnabled } from '@/lib/features-guard'
 import { requireUser } from '@/lib/user-guard'
 import { fetchGlossaryEntries, buildTranslationGlossaryClause } from '@/lib/glossary'
 import type { Formality } from '@/types/leksis'
 
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now()
   const guard = await requireUser({ rateLimit: true })
   if (guard.error) return guard.error
   const { session } = guard
@@ -27,6 +29,8 @@ export async function POST(req: NextRequest) {
     targetCode: string
     formality?: Formality | null
     markdownMode?: boolean
+    trigger?: unknown
+    requestGroupId?: unknown
   }
 
   try {
@@ -36,6 +40,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { text, sourceLang, sourceCode, targetLang, targetCode, formality, markdownMode } = body
+  const tracking = UsageTrackingSchema.parse({ trigger: body.trigger, requestGroupId: body.requestGroupId })
 
   const { maxTextChars } = await getDynamicLimits()
   const validationError = validateTextInput(text, maxTextChars)
@@ -83,18 +88,22 @@ export async function POST(req: NextRequest) {
         text,
       })
 
-  logUsage({
-    userId:    session.user.id,
-    userEmail: session.user.email ?? 'unknown',
-    feature:   'text',
-    sourceLang: sourceCode || 'auto',
-    targetLang: targetCode,
-    model:     cfg.translationModel,
-    charCount: text.length,
-  })
-
-  const stream = gateStream(cfg.maxConcurrentAiRequests, req.signal, () =>
-    provider.stream({ prompt, signal: req.signal, model: cfg.translationModel }))
+  const stream = trackUsageStream(
+    gateStream(cfg.maxConcurrentAiRequests, req.signal, () =>
+      provider.stream({ prompt, signal: req.signal, model: cfg.translationModel })),
+    {
+      userId:     session.user.id,
+      userEmail:  session.user.email ?? 'unknown',
+      feature:    'text',
+      sourceLang: sourceCode || 'auto',
+      targetLang: targetCode,
+      model:      cfg.translationModel,
+      charCount:  text.length,
+      modelChars: text.length,
+      ...tracking,
+    },
+    startedAt,
+  )
 
   return new Response(stream, {
     headers: {

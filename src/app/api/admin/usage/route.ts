@@ -11,6 +11,11 @@ interface UsageRow {
   model:       string | null
   char_count:  number | null
   created_at:  string
+  trigger_type:     string | null
+  status:           string | null
+  model_chars:      number | null
+  latency_ms:       number | null
+  request_group_id: string | null
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -47,14 +52,16 @@ export async function GET(req: NextRequest) {
 
   if (format === 'csv') {
     const result = await query<UsageRow>(
-      `SELECT id, user_email, feature, source_lang, target_lang, model, char_count, created_at
+      `SELECT id, user_email, feature, source_lang, target_lang, model, char_count, created_at,
+              trigger_type, status, model_chars, latency_ms, request_group_id
        FROM usage_log
        ${where}
        ORDER BY created_at DESC
        LIMIT 10000`,
       params
     )
-    const header = 'date,utilisateur,feature,source_lang,target_lang,model,char_count'
+    // Colonnes de suivi ajoutées en fin de ligne : les scripts qui lisent les 7 premières restent valables
+    const header = 'date,utilisateur,feature,source_lang,target_lang,model,char_count,trigger,status,model_chars,latency_ms,request_group_id'
     const lines = result.rows.map(r => [
       new Date(r.created_at).toISOString(),
       r.user_email,
@@ -63,6 +70,11 @@ export async function GET(req: NextRequest) {
       r.target_lang,
       r.model,
       r.char_count,
+      r.trigger_type,
+      r.status,
+      r.model_chars,
+      r.latency_ms,
+      r.request_group_id,
     ].map(csvField).join(','))
     const csv = [header, ...lines].join('\n')
     return new Response(csv, {
@@ -78,7 +90,7 @@ export async function GET(req: NextRequest) {
     query<{ key: string; cnt: number }>(
       `SELECT ${col} AS key, count(*)::int AS cnt
        FROM usage_log
-       ${where}${where ? ' AND' : ' WHERE'} ${col} IS NOT NULL
+       ${where}${where ? ' AND' : ' WHERE'} ${col} IS NOT NULL AND ${col} <> 'n/a'
        GROUP BY ${col}`,
       params
     )

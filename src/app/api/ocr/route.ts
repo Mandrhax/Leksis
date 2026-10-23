@@ -5,11 +5,12 @@ import { buildOcrPrompt } from '@/lib/prompts'
 export const maxDuration = 300
 import { validateImageSize, requestTooLarge } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
-import { logUsage } from '@/lib/usage'
+import { trackUsageStream, NO_LANG } from '@/lib/usage'
 import { isFeatureEnabled } from '@/lib/features-guard'
 import { requireUser } from '@/lib/user-guard'
 
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now()
   const guard = await requireUser({ rateLimit: true })
   if (guard.error) return guard.error
   const { session } = guard
@@ -49,17 +50,21 @@ export async function POST(req: NextRequest) {
   if (ai.error) return ai.error
   const { cfg, provider } = ai.ai
 
-  logUsage({
-    userId:    session.user.id,
-    userEmail: session.user.email ?? 'unknown',
-    feature:   'image',
-    model:     cfg.ocrModel,
-    charCount: Math.round(image.size / 1024), // Ko
-  })
-
   const prompt = buildOcrPrompt()
-  const stream = gateStream(cfg.maxConcurrentAiRequests, req.signal, () =>
-    provider.stream({ prompt, images: [base64], signal: req.signal, model: cfg.ocrModel }))
+  const stream = trackUsageStream(
+    gateStream(cfg.maxConcurrentAiRequests, req.signal, () =>
+      provider.stream({ prompt, images: [base64], signal: req.signal, model: cfg.ocrModel })),
+    {
+      userId:     session.user.id,
+      userEmail:  session.user.email ?? 'unknown',
+      feature:    'image',
+      sourceLang: NO_LANG,
+      targetLang: NO_LANG,
+      model:      cfg.ocrModel,
+      charCount:  Math.round(image.size / 1024), // Ko
+    },
+    startedAt,
+  )
 
   return new Response(stream, {
     headers: {

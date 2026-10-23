@@ -5,13 +5,14 @@ import { buildTranscribePrompt } from '@/lib/prompts'
 export const maxDuration = 300
 import { validateAudioSize, requestTooLarge } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
-import { logUsage } from '@/lib/usage'
+import { logUsage, NO_LANG } from '@/lib/usage'
 import { isFeatureEnabled } from '@/lib/features-guard'
 import { requireUser } from '@/lib/user-guard'
 
 const SUPPORTED_TYPES = ['audio/webm', 'audio/mp4', 'audio/wav', 'audio/mpeg', 'audio/ogg']
 
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now()
   const guard = await requireUser({ rateLimit: true })
   if (guard.error) return guard.error
   const { session } = guard
@@ -59,13 +60,15 @@ export async function POST(req: NextRequest) {
   const arrayBuffer = await audio.arrayBuffer()
   const base64 = Buffer.from(arrayBuffer).toString('base64')
 
-  logUsage({
-    userId:    session.user.id,
-    userEmail: session.user.email ?? 'unknown',
+  const usage = {
+    userId:     session.user.id,
+    userEmail:  session.user.email ?? 'unknown',
     feature,
-    model:     cfg.voiceModel,
-    charCount: Math.round(audio.size / 1024), // Ko
-  })
+    sourceLang: NO_LANG,
+    targetLang: NO_LANG,
+    model:      cfg.voiceModel,
+    charCount:  Math.round(audio.size / 1024), // Ko
+  }
 
   try {
     const text = await withAiSlot(cfg.maxConcurrentAiRequests, () => provider.complete({
@@ -76,8 +79,10 @@ export async function POST(req: NextRequest) {
       model: cfg.voiceModel,
     }), req.signal)
 
+    logUsage({ ...usage, status: 'completed', latencyMs: Date.now() - startedAt })
     return NextResponse.json({ text: text.trim() })
   } catch (err) {
+    logUsage({ ...usage, status: req.signal.aborted ? 'cancelled' : 'error', latencyMs: Date.now() - startedAt })
     console.error('[dictate] transcription failed:', err)
     return NextResponse.json({ error: 'Transcription failed. The AI server did not return a result.' }, { status: 502 })
   }

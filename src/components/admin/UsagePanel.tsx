@@ -23,6 +23,13 @@ interface UsageRow {
   created_at:  string
 }
 
+// « n/a » = langue sans objet pour la fonction (OCR, cible d'une réécriture) : affichée comme une absence
+function langCell(source: string | null, target: string | null): string {
+  const s = source && source !== 'n/a' ? source : null
+  const t = target && target !== 'n/a' ? target : null
+  return s && t ? `${s} → ${t}` : s ?? t ?? '—'
+}
+
 function toInputDate(d: Date) {
   return d.toISOString().slice(0, 10)
 }
@@ -212,9 +219,7 @@ export function UsagePanel() {
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-on-surface-variant">
-                        {row.source_lang && row.target_lang
-                          ? `${row.source_lang} → ${row.target_lang}`
-                          : row.source_lang ?? row.target_lang ?? '—'}
+                        {langCell(row.source_lang, row.target_lang)}
                       </td>
                       <td className="px-4 py-2.5 text-on-surface-variant font-mono truncate max-w-[160px]">{row.model ?? '—'}</td>
                       <td className="px-4 py-2.5 text-on-surface-variant text-right">{row.char_count?.toLocaleString() ?? '—'}</td>

@@ -17,6 +17,7 @@ import {
 } from '@/lib/validators'
 
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now()
   const guard = await requireUser({ rateLimit: true })
   if (guard.error) return guard.error
   const { session } = guard
@@ -96,6 +97,18 @@ export async function POST(req: NextRequest) {
     ? await fetchGlossaryCandidates(session.user.id, sourceCode, targetCode)
     : []
 
+  // Codes de langue (et non les noms affichés) dans le journal
+  const usage = {
+    userId:     session.user.id,
+    userEmail:  session.user.email ?? 'unknown',
+    feature:    'document' as const,
+    sourceLang: sourceCode,
+    targetLang: targetCode || targetLang,
+    model:      cfg.translationModel,
+    charCount,
+    modelChars: charCount,
+  }
+
   let translatedSegments: string[]
   try {
     const { segments, stats } = await translateSegments(
@@ -113,19 +126,12 @@ export async function POST(req: NextRequest) {
     // Le modèle a mal respecté les séparateurs : à savoir pour choisir ou régler le modèle
     if (stats.retries || stats.splits) console.warn(`[translate/document] separators not respected by ${cfg.translationModel}:`, stats)
   } catch (err) {
+    logUsage({ ...usage, status: req.signal.aborted ? 'cancelled' : 'error', latencyMs: Date.now() - startedAt })
     console.error('[translate/document] translation failed:', err)
     return NextResponse.json({ error: 'Translation failed. The AI server did not return a result.' }, { status: 502 })
   }
 
-  logUsage({
-    userId:    session.user.id,
-    userEmail: session.user.email ?? 'unknown',
-    feature:   'document',
-    sourceLang: sourceLang ?? 'auto',
-    targetLang,
-    model:     cfg.translationModel,
-    charCount,
-  })
+  logUsage({ ...usage, status: 'completed', latencyMs: Date.now() - startedAt })
 
   const translatedBlocks = applySegments(blocks, translatedSegments)
 

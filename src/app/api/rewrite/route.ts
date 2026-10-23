@@ -5,7 +5,7 @@ import { buildRewritePrompt, buildCorrectPrompt, buildLangClause } from '@/lib/p
 export const maxDuration = 300
 import { validateTextInput, isValidLangName } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
-import { logUsage } from '@/lib/usage'
+import { trackUsageStream, NO_LANG } from '@/lib/usage'
 import { isFeatureEnabled } from '@/lib/features-guard'
 import { requireUser } from '@/lib/user-guard'
 import { getConfiguredTones } from '@/lib/tones'
@@ -15,6 +15,7 @@ import type { RewriteMode, RewriteLength } from '@/types/leksis'
 const LENGTHS: RewriteLength[] = ['Shorter', 'Keep', 'Longer']
 
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now()
   const guard = await requireUser({ rateLimit: true })
   if (guard.error) return guard.error
   const { session } = guard
@@ -91,17 +92,22 @@ export async function POST(req: NextRequest) {
         text,
       })
 
-  logUsage({
-    userId:    session.user.id,
-    userEmail: session.user.email ?? 'unknown',
-    feature:   'rewrite',
-    sourceLang: sourceLang,
-    model:     cfg.rewriteModel,
-    charCount: text.length,
-  })
-
-  const stream = gateStream(cfg.maxConcurrentAiRequests, req.signal, () =>
-    provider.stream({ system, prompt, signal: req.signal, model: cfg.rewriteModel }))
+  // Réécriture : même langue en sortie, pas de cible (n/a) ; source inconnue = auto
+  const stream = trackUsageStream(
+    gateStream(cfg.maxConcurrentAiRequests, req.signal, () =>
+      provider.stream({ system, prompt, signal: req.signal, model: cfg.rewriteModel })),
+    {
+      userId:     session.user.id,
+      userEmail:  session.user.email ?? 'unknown',
+      feature:    'rewrite',
+      sourceLang: sourceLang || 'auto',
+      targetLang: NO_LANG,
+      model:      cfg.rewriteModel,
+      charCount:  text.length,
+      modelChars: text.length,
+    },
+    startedAt,
+  )
 
   return new Response(stream, {
     headers: {
