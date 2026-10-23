@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.10.0-beta.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.10.0-beta.2/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,12 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.10.0-beta.2
+**Long texts no longer restart at every pause, and the dashboard tells you about new versions (beta).** No new database migration (beta.1's `006` is enough).
+- **Typing no longer cancels a translation in progress**: it finishes (its paragraphs are kept), then only the latest version of your text is sent. On a long text, each pause used to restart the whole translation and nothing was ever shown. Pasting, the Translate button, a language or tone change and clearing still cancel at once
+- **"New version available" on the admin dashboard** (Leksis card), with the command to run and a link to the release notes. A stable installation is only told about stable versions, a beta one about betas too
+- The server reads the public list of Leksis releases on GitHub once a day; nothing about your installation is sent. Without Internet access the card says the check is not possible. Can be switched off in Settings → General; the privacy policy mentions it while it is on
 
 ### v1.10.0-beta.1
 **Far fewer calls to the AI model from the Text tab (beta).** One small **database migration** (`006-usage-log-tracking`, adds five columns to the usage log): `leksis update` takes a backup first and applies it. Between the app restart and the migration, usage log entries fail to be written (requests are not affected).
