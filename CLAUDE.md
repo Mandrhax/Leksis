@@ -159,13 +159,15 @@ src/
 │   ├── prompts.ts           Tous les prompts
 │   ├── file-parser.ts       PDF / DOCX / TXT / CSV → blocs ; blocksToSegments / applySegments
 │   ├── doc-translate.ts     Lots de segments + contrôle des `|||` (pur, testable)
+│   ├── translate-scheduler.ts (client-safe) quand l'onglet Texte traduit : debounce, annulation, skips — voir « Traduction de texte »
+│   ├── translate-incremental.ts, translation-cache.ts (server-only), text-segments.ts, text-translation-config.ts (client-safe)
 │   ├── pdf-vision.ts        PDF scanné → OCR par le modèle vision
 │   ├── settings.ts          getSetting (cache 5 s) / updateSetting / getAllSettings
 │   ├── settings-schema.ts   Schémas zod des réglages + SETTING_DEFAULTS (partagé PATCH / import / reset / formulaires)
 │   ├── users.ts             Rôle relu en base, liste paginée, changeUser / removeUser (garde-fous)
 │   ├── user-guard.ts        requireUser() : 401, mode maintenance, limite de débit
 │   ├── admin-guard.ts       requireAdmin() / getAdminSession()
-│   ├── rate-limit.ts, otp.ts, smtp.ts, audit.ts, usage.ts, retention.ts
+│   ├── rate-limit.ts, otp.ts, smtp.ts, audit.ts, usage.ts (+ usage-schema.ts client-safe), retention.ts
 │   ├── site-assets.ts       Upload logo / fond : magic bytes, taille, erreurs à code
 │   ├── caddy-config.ts (client-safe), caddy.ts, caddy-tls.ts
 │   ├── legal-content.ts (dispatcher pur EN/DE/FR/IT → legal-content-{en,de,fr,it}.ts), legal.ts (server-only : lit la config réelle), legal-pdf.ts (export PDF, pdf-lib)
@@ -518,6 +520,14 @@ Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git e
 - Installations neuves : `docker/init-schema.sql` (exécuté au premier démarrage du volume seulement). Installations existantes : `docker/migrations/NNN-nom.sql`, **idempotentes et non destructives**, appliquées par `leksis update` / `leksis migrate` (suivi dans la table `schema_migrations`, backup automatique avant). Toute évolution de schéma = les deux
 - Le code qui dépend d'une nouvelle colonne échoue brièvement entre le redémarrage de l'app et l'application de la migration pendant `update` : le signaler dans les notes de version
 - Pas d'adaptateur NextAuth : les tables `accounts`, `sessions`, `verification_token` n'existent plus (supprimées par la migration 001, avec `db_config`, `seo` et l'ancien `ollama_config`)
+
+### Traduction de texte : déclenchement, cache, paragraphes
+
+- **Quand traduire** : `lib/translate-scheduler.ts` (pur, sans React, testé sous Node avec de faux minuteurs). Frappe = attente de `debounceMs` ; collage, dictée, bouton / Ctrl+Entrée, langue, ton, swap = immédiat. Une nouvelle requête annule la précédente (AbortController → `req.signal` coupe le moteur) et un numéro de version écarte toute réponse périmée ; l'ancienne traduction reste affichée, atténuée, jusqu'au premier fragment. Rien ne part si le texte (aux espaces près), les langues et le ton sont ceux de la traduction affichée ou en cours, sous `minChars`, en détection auto sous `autoDetectMinChars` (frappe seulement), ou vers la même langue de base (`sameBaseLanguage()` : `fr` = `fr-CH`, sauf `zh-Hans` ↔ `zh-Hant`) — ce dernier cas affiche `textTab.sameLanguage` et `/api/translate` le refuse aussi (400 `same_language`, ligne `skipped`)
+- **Réglages** : `features.textTranslation` (Réglages → Features & limits) — `debounceMs`, `minChars`, `autoDetectMinChars`, `cacheTtlMinutes`, `cacheMaxEntries`, `segmentContext`. Défauts et bornes dans `lib/text-translation-config.ts` (client-safe), lus côté serveur par `getTextTranslationConfig()` (`limits.ts`) ; le navigateur ne reçoit que les 3 seuils de déclenchement
+- **Cache** (`lib/translation-cache.ts`) : en mémoire du serveur seulement, LRU + TTL, clé = sha256(utilisateur + modèle + prompt complet) — jamais partagé entre utilisateurs, jamais une réponse coupée. Les pages légales le disent (`LegalContext.textCacheMinutes`) : toute modification de sa portée doit y être répercutée
+- **Paragraphes** (`lib/translate-incremental.ts`) : première traduction / un seul paragraphe / plus de la moitié inconnue = un appel sur le texte entier (paires source → traduction mises en cache si le nombre de paragraphes correspond) ; sinon seuls les paragraphes nouveaux ou modifiés partent, un appel chacun, avec le paragraphe source précédent en contexte (`buildTranslationPrompt({ context })`). La clé d'un paragraphe ignore le contexte. Le client reçoit toujours un seul flux de texte brut. `markdownMode` (Extract & translate) : texte entier seulement
+- **Journal d'usage** (migration 006) : la ligne est écrite **à la fin** de la réponse (`trackUsageStream`) avec `status` (`completed`, `cancelled`, `cache_hit`, `skipped`, `error`), `trigger_type`, `model_chars` (caractères réellement envoyés au modèle), `latency_ms`, `request_group_id` (fourni par le client, nouveau à l'effacement, au swap et au collage qui remplace tout). Langues en codes BCP 47 (`normalizeUsageLang`), `n/a` quand sans objet (OCR, dictée, cible d'une réécriture). Colonnes ajoutées en fin de CSV
 
 ### Documents
 
