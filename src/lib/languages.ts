@@ -114,3 +114,16 @@ export function detectLanguage(text: string): Language | null {
 
   return LANGUAGES.find(l => l.code === bestCode) ?? null
 }
+
+/**
+ * Même langue de base (`fr` = `fr-CH`, `en` = `en-GB`) : traduire de l'une vers l'autre ne fait que recopier
+ * le texte. Exception : `zh-Hans` ↔ `zh-Hant` est une vraie conversion d'écriture. `auto` ou vide = inconnu.
+ */
+export function sameBaseLanguage(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b || a === 'auto' || b === 'auto') return false
+  const [baseA] = a.toLowerCase().split('-')
+  const [baseB] = b.toLowerCase().split('-')
+  if (baseA !== baseB) return false
+  if (baseA === 'zh') return a.toLowerCase() === b.toLowerCase()
+  return true
+}

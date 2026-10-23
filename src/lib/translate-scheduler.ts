@@ -3,11 +3,13 @@
 // - frappe (`typing`, `auto_detect`) : attend une pause de `debounceMs` ;
 // - collage, bouton / Ctrl+Entrée, changement de langue ou de ton : immédiat ;
 // - une nouvelle traduction annule celle en cours (AbortController → le serveur coupe le modèle) et toute
-//   réponse d'une version du texte qui n'est plus la courante est ignorée.
+//   réponse d'une version du texte qui n'est plus la courante est ignorée ;
+// - rien ne part pour un texte déjà traduit, trop court ou vers sa propre langue (voir SkipReason).
 
 import type { Formality } from '@/types/leksis'
 import type { UsageTrigger } from '@/lib/usage-schema'
 import type { TextTriggerConfig } from '@/lib/text-translation-config'
+import { sameBaseLanguage } from '@/lib/languages'
 
 export interface TranslationInput {
   text:       string
@@ -42,9 +44,33 @@ export interface SchedulerCallbacks {
   onError:   (message: string) => void
   /** true : la traduction affichée correspond à une version précédente du texte (en attente de la nouvelle) */
   onStale:   (stale: boolean) => void
+  /** Rien n'est parti, et pourquoi (null : une traduction est repartie) */
+  onSkip:    (reason: SkipReason | null) => void
 }
 
+/**
+ * - `identical` : même texte (aux espaces près), mêmes langues et même ton que la traduction affichée ou en cours ;
+ * - `too_short` : moins de `minChars` caractères ;
+ * - `auto_detect_wait` : détection auto, la frappe attend `autoDetectMinChars` (le bouton ne l'attend pas) ;
+ * - `same_language` : source et cible de même langue de base (`fr` → `fr-CH`), message affiché.
+ */
+export type SkipReason = 'identical' | 'too_short' | 'auto_detect_wait' | 'same_language'
+
 const DEBOUNCED: ReadonlySet<UsageTrigger> = new Set(['typing', 'auto_detect'])
+
+/** Espaces et tabulations réduits, lignes nettoyées, lignes vides multiples ramenées à une : ne change pas la traduction */
+export function normalizeForCompare(text: string): string {
+  return text
+    .split('\n')
+    .map(line => line.replace(/[ \t ]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function requestKey(input: TranslationInput): string {
+  return JSON.stringify([normalizeForCompare(input.text), input.sourceCode, input.targetCode, input.formality])
+}
 
 /** Identifiant de saisie. `crypto.randomUUID` n'existe qu'en contexte sécurisé (HTTPS) : l'appliance tourne souvent en HTTP. */
 export function newRequestGroupId(): string {
@@ -62,6 +88,9 @@ export class TranslationScheduler {
   private controller: AbortController | null = null
   private groupId = newRequestGroupId()
   private version = 0
+  /** Requête en cours, et dernière traduction arrivée au bout (celle qui est affichée) */
+  private inFlightKey: string | null = null
+  private shownKey: string | null = null
 
   constructor(
     private config: TextTriggerConfig,
@@ -91,6 +120,7 @@ export class TranslationScheduler {
   cancel(): void {
     this.clearTimer()
     this.abortInFlight()
+    this.inFlightKey = null
     this.version++
     this.cb.onStale(false)
     this.cb.onLoading(false)
@@ -105,10 +135,48 @@ export class TranslationScheduler {
     this.controller = null
   }
 
+  /** La traduction affichée a été effacée : le même texte pourra être retraduit */
+  forget(): void { this.shownKey = null }
+
+  /** Texte source effacé : plus rien en cours ni d'affiché */
+  reset(): void {
+    this.cancel()
+    this.forget()
+    this.cb.onSkip(null)
+  }
+
+  private skipReason(input: TranslationInput, trigger: UsageTrigger, key: string): SkipReason | null {
+    const length = normalizeForCompare(input.text).length
+    if (length < this.config.minChars) return 'too_short'
+    if (input.autoDetect && DEBOUNCED.has(trigger) && length < this.config.autoDetectMinChars) return 'auto_detect_wait'
+    if (sameBaseLanguage(input.sourceCode, input.targetCode)) return 'same_language'
+    if (key === this.inFlightKey || key === this.shownKey) return 'identical'
+    return null
+  }
+
   private async start(input: TranslationInput, trigger: UsageTrigger): Promise<void> {
-    if (!input.text.trim()) { this.cancel(); this.cb.onOutput(''); return }
+    if (!input.text.trim()) { this.cancel(); this.shownKey = null; this.cb.onOutput(''); this.cb.onSkip(null); return }
+
+    const key = requestKey(input)
+    const skip = this.skipReason(input, trigger, key)
+    if (skip === 'identical') {
+      // Retour au texte affiché pendant qu'une autre version était en route : celle-ci n'est plus voulue
+      if (key !== this.inFlightKey && this.controller) this.cancel()
+      this.cb.onSkip(skip)
+      return
+    }
+    if (skip) {
+      // Plus rien d'affiché ne correspond au texte : on vide plutôt que de laisser une traduction périmée
+      this.cancel()
+      this.shownKey = null
+      this.cb.onOutput('')
+      this.cb.onSkip(skip)
+      return
+    }
+    this.cb.onSkip(null)
 
     this.abortInFlight()
+    this.inFlightKey = key
     const controller = new AbortController()
     this.controller = controller
     // Numéro de version : un fragment d'une requête remplacée entre-temps est ignoré, même si l'abandon
@@ -143,11 +211,14 @@ export class TranslationScheduler {
       }
       // Réponse vide : l'ancienne traduction ne correspond plus au texte
       if (isCurrent() && !received) this.cb.onOutput('')
+      if (isCurrent()) this.shownKey = key
     } catch (err) {
+      if (isCurrent()) this.shownKey = null
       if (isCurrent() && !isAbortError(err)) this.cb.onError((err as Error).message || 'Error')
     } finally {
       if (isCurrent()) {
         this.controller = null
+        this.inFlightKey = null
         this.cb.onStale(false)
         this.cb.onLoading(false)
       }

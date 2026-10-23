@@ -22,6 +22,7 @@ export const messages = {
     inputPlaceholder:   'Enter text to translate...',
     translate:          'Translate',
     translateShortcut:  'Translate now (Ctrl+Enter)',
+    sameLanguage:       'The source and target are the same language. Choose another target language to translate.',
     outputPlaceholder:  'Result will appear here...',
     copied:             'Copied!',
     copy:               'Copy',

@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
-import { LANGUAGES, detectLanguage } from '@/lib/languages'
+import { LANGUAGES, detectLanguage, sameBaseLanguage } from '@/lib/languages'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
 import type { Language } from '@/types/leksis'
@@ -210,7 +210,8 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
       setDetectedLang(detected?.name ?? null)
       setWordCount(extracted.trim().split(/\s+/).filter(Boolean).length)
 
-      if (mode === 'translate' && extracted.trim()) {
+      // Texte déjà dans la langue cible : le texte extrait est le résultat (le serveur refuserait fr → fr-CH)
+      if (mode === 'translate' && extracted.trim() && !sameBaseLanguage(detected?.code, targetLang.code)) {
         setStep('translating')
 
         const transRes = await fetch('/api/translate', {

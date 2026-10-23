@@ -24,6 +24,7 @@ export const messages = {
     inputPlaceholder:   'Text zum Übersetzen eingeben...',
     translate:          'Übersetzen',
     translateShortcut:  'Jetzt übersetzen (Strg+Eingabe)',
+    sameLanguage:       'Quelle und Ziel sind dieselbe Sprache. Wählen Sie eine andere Zielsprache, um zu übersetzen.',
     outputPlaceholder:  'Ergebnis erscheint hier...',
     copied:             'Kopiert!',
     copy:               'Kopieren',

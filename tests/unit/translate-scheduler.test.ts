@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { TranslationScheduler, type TranslationBody, type TranslationInput } from '@/lib/translate-scheduler'
+import { TranslationScheduler, normalizeForCompare, type SkipReason, type TranslationBody, type TranslationInput } from '@/lib/translate-scheduler'
+import { sameBaseLanguage } from '@/lib/languages'
 
 const CONFIG = { debounceMs: 1000, minChars: 3, autoDetectMinChars: 20 }
 
@@ -41,12 +42,13 @@ function fakeServer() {
 
 function setup() {
   const server = fakeServer()
-  const state = { output: '', loading: false, error: '', stale: false }
+  const state = { output: '', loading: false, error: '', stale: false, skips: [] as (SkipReason | null)[] }
   const scheduler = new TranslationScheduler(CONFIG, server.translate, {
     onLoading: l => { state.loading = l },
     onOutput:  o => { state.output = o },
     onError:   e => { state.error = e },
     onStale:   s => { state.stale = s },
+    onSkip:    r => { state.skips.push(r) },
   })
   return { scheduler, server, state }
 }
@@ -155,7 +157,7 @@ describe('cancellation', () => {
         const chunk = await new Promise<string>(r => { late.push = r })
         yield chunk
       },
-    }), { onLoading: () => {}, onOutput: o => { state.output = o }, onError: () => {}, onStale: () => {} })
+    }), { onLoading: () => {}, onOutput: o => { state.output = o }, onError: () => {}, onStale: () => {}, onSkip: () => {} })
     deaf.request(() => input('Bonjour'), 'button')
     await flush()
     deaf.cancel()
@@ -196,7 +198,7 @@ describe('cancellation', () => {
     const state = { error: '' }
     const failing = new TranslationScheduler(CONFIG, () => ({
       async *[Symbol.asyncIterator]() { await new Promise(r => setTimeout(r, 10)); throw new Error('HTTP 502') },
-    }), { onLoading: () => {}, onOutput: () => {}, onError: e => { state.error = e }, onStale: () => {} })
+    }), { onLoading: () => {}, onOutput: () => {}, onError: e => { state.error = e }, onStale: () => {}, onSkip: () => {} })
     failing.request(() => input('Bonjour'), 'button')
     failing.cancel()
     await vi.advanceTimersByTimeAsync(20)
@@ -215,5 +217,159 @@ describe('cancellation', () => {
     server.calls[0].end()
     await flush()
     expect(state.loading).toBe(false)
+  })
+})
+
+describe('nothing useless is sent', () => {
+  async function translated(s: ReturnType<typeof setup>, text: string, over: Partial<TranslationInput> = {}) {
+    s.scheduler.request(() => input(text, over), 'button')
+    await flush()
+    const call = s.server.calls.at(-1)!
+    call.push(`DE(${text})`)
+    call.end()
+    await flush()
+  }
+
+  it('skips a text identical to the one displayed, spaces aside', async () => {
+    const s = setup()
+    await translated(s, 'Bonjour à tous.\n\nMerci.')
+    s.scheduler.request(() => input('  Bonjour   à tous. \n\n\n Merci.  '), 'typing')
+    await vi.advanceTimersByTimeAsync(CONFIG.debounceMs)
+    s.scheduler.request(() => input('Bonjour à tous.\n\nMerci.'), 'button')
+    await flush()
+    expect(s.server.calls).toHaveLength(1)
+    expect(s.state.skips.at(-1)).toBe('identical')
+    expect(s.state.output).toBe('DE(Bonjour à tous.\n\nMerci.)')
+  })
+
+  it('skips a request identical to the one in flight', async () => {
+    const s = setup()
+    s.scheduler.request(() => input('Bonjour à tous'), 'paste')
+    await flush()
+    s.scheduler.request(() => input('Bonjour à tous'), 'button')
+    await flush()
+    expect(s.server.calls).toHaveLength(1)
+    expect(s.server.calls[0].signal.aborted).toBe(false)
+  })
+
+  it('the same text with another language or tone is translated again', async () => {
+    const s = setup()
+    await translated(s, 'Hello everyone', { sourceCode: 'en', sourceName: 'English', formality: 'Informal' })
+    await translated(s, 'Hello everyone', { sourceCode: 'en', sourceName: 'English', formality: 'Formal' })
+    await translated(s, 'Hello everyone', { sourceCode: 'en', sourceName: 'English', formality: 'Formal', targetCode: 'it', targetName: 'Italian' })
+    expect(s.server.calls).toHaveLength(3)
+  })
+
+  it('going back to the displayed text cancels the other version in flight', async () => {
+    const s = setup()
+    await translated(s, 'Bonjour à tous')
+    s.scheduler.request(() => input('Bonjour à tous et toutes'), 'button')
+    await flush()
+    s.scheduler.request(() => input('Bonjour à tous'), 'button')
+    await flush()
+    expect(s.server.calls).toHaveLength(2)
+    expect(s.server.calls[1].signal.aborted).toBe(true)
+    expect(s.state).toMatchObject({ output: 'DE(Bonjour à tous)', loading: false, stale: false })
+  })
+
+  it('after a cancel, an error (Retry) or a cleared output, the same text can be sent again', async () => {
+    // cancelled mid-way
+    const s = setup()
+    s.scheduler.request(() => input('Bonjour à tous'), 'button')
+    await flush()
+    s.scheduler.cancel()
+    s.scheduler.request(() => input('Bonjour à tous'), 'button')
+    await flush()
+    expect(s.server.calls).toHaveLength(2)
+
+    // output cleared by the user
+    s.server.calls[1].push('Hallo')
+    s.server.calls[1].end()
+    await flush()
+    s.scheduler.forget()
+    s.scheduler.request(() => input('Bonjour à tous'), 'button')
+    await flush()
+    expect(s.server.calls).toHaveLength(3)
+
+    // engine error, then Retry
+    let attempts = 0
+    const errors: string[] = []
+    const flaky = new TranslationScheduler(CONFIG, () => ({
+      async *[Symbol.asyncIterator]() {
+        if (++attempts === 1) throw new Error('HTTP 502')
+        yield 'Hallo'
+      },
+    }), { onLoading: () => {}, onOutput: () => {}, onError: e => { if (e) errors.push(e) }, onStale: () => {}, onSkip: () => {} })
+    flaky.request(() => input('Bonjour à tous'), 'button')
+    await flush()
+    flaky.request(() => input('Bonjour à tous'), 'button')
+    await flush()
+    expect(errors).toEqual(['HTTP 502'])
+    expect(attempts).toBe(2)
+  })
+
+  it('skips a text under the minimum length and clears the old translation', async () => {
+    const s = setup()
+    await translated(s, 'Bonjour')
+    s.scheduler.request(() => input('Bo'), 'typing')
+    await vi.advanceTimersByTimeAsync(CONFIG.debounceMs)
+    s.scheduler.request(() => input(' ok '), 'button')
+    await flush()
+    expect(s.server.calls).toHaveLength(1)
+    expect(s.state.skips.at(-1)).toBe('too_short')
+    expect(s.state.output).toBe('')
+  })
+
+  it('skips a translation into the same base language and says so', async () => {
+    const s = setup()
+    for (const [src, tgt] of [['fr', 'fr-CH'], ['en', 'en'], ['en', 'en-GB'], ['de-CH', 'de']]) {
+      s.scheduler.request(() => input('Bonjour à tous', { sourceCode: src, targetCode: tgt }), 'lang_change')
+      await flush()
+    }
+    expect(s.server.calls).toHaveLength(0)
+    expect(s.state.skips).toEqual(['same_language', 'same_language', 'same_language', 'same_language'])
+  })
+
+  it('still converts between Chinese scripts, and auto-detect is never "same language"', async () => {
+    const s = setup()
+    s.scheduler.request(() => input('你好，世界', { sourceCode: 'zh-Hans', targetCode: 'zh-Hant' }), 'button')
+    await flush()
+    s.scheduler.request(() => input('Bonjour à tous, comment allez-vous ?', { sourceCode: 'auto', autoDetect: true, targetCode: 'fr' }), 'button')
+    await flush()
+    expect(s.server.calls).toHaveLength(2)
+  })
+
+  it('with auto-detect, typing waits for autoDetectMinChars but the button does not', async () => {
+    const s = setup()
+    const auto = { sourceCode: 'auto', sourceName: 'Unknown', autoDetect: true }
+    s.scheduler.request(() => input('Bonjour à t', auto), 'auto_detect')
+    await vi.advanceTimersByTimeAsync(CONFIG.debounceMs)
+    expect(s.server.calls).toHaveLength(0)
+    expect(s.state.skips.at(-1)).toBe('auto_detect_wait')
+
+    s.scheduler.request(() => input('Bonjour à tous, comment ça va', auto), 'auto_detect')
+    await vi.advanceTimersByTimeAsync(CONFIG.debounceMs)
+    expect(s.server.calls).toHaveLength(1)
+
+    s.scheduler.request(() => input('Bonjour à t', auto), 'button')
+    await flush()
+    expect(s.server.calls).toHaveLength(2)
+  })
+})
+
+describe('helpers', () => {
+  it('normalizeForCompare only removes differences that do not change a translation', () => {
+    expect(normalizeForCompare('  a \t b \n\n\n\n c  ')).toBe('a b\n\nc')
+    expect(normalizeForCompare('a\nb')).not.toBe(normalizeForCompare('a\n\nb'))
+  })
+
+  it('sameBaseLanguage', () => {
+    expect(sameBaseLanguage('fr', 'fr-CH')).toBe(true)
+    expect(sameBaseLanguage('FR-ch', 'fr-be')).toBe(true)
+    expect(sameBaseLanguage('fr', 'de-CH')).toBe(false)
+    expect(sameBaseLanguage('zh-Hans', 'zh-Hant')).toBe(false)
+    expect(sameBaseLanguage('zh-Hans', 'zh-Hans')).toBe(true)
+    expect(sameBaseLanguage('auto', 'fr')).toBe(false)
+    expect(sameBaseLanguage(undefined, 'fr')).toBe(false)
   })
 })

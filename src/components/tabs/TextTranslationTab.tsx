@@ -11,7 +11,7 @@ import type { Language, Formality } from '@/types/leksis'
 import { ReportResultLink } from '@/components/ui/ReportResultLink'
 import type { FeedbackCategory } from '@/lib/feedback-schema'
 import type { UsageTrigger } from '@/lib/usage-schema'
-import { TranslationScheduler, fetchTranslation, type TranslationInput } from '@/lib/translate-scheduler'
+import { TranslationScheduler, fetchTranslation, type TranslationInput, type SkipReason } from '@/lib/translate-scheduler'
 import { TEXT_TRANSLATION_DEFAULTS, toTextTriggers, type TextTriggerConfig } from '@/lib/text-translation-config'
 
 const TEXT_TRIGGER_DEFAULTS = toTextTriggers(TEXT_TRANSLATION_DEFAULTS)
@@ -56,6 +56,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
   const [error, setError]               = useState<string | null>(null)
   // La sortie affichée correspond à une version précédente du texte : atténuée jusqu'à la nouvelle
   const [isStale, setIsStale]           = useState(false)
+  const [notice, setNotice]             = useState<SkipReason | null>(null)
 
   // Quand partir (debounce, immédiat) et annulation de la requête précédente : voir lib/translate-scheduler.ts
   const [scheduler] = useState(() => new TranslationScheduler(triggers, fetchTranslation, {
@@ -63,6 +64,8 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
     onOutput:  setOutputText,
     onError:   message => setError(message || null),
     onStale:   setIsStale,
+    // Seul « même langue » s'affiche : les autres cas (texte identique, trop court) se voient d'eux-mêmes
+    onSkip:    reason => setNotice(reason === 'same_language' ? reason : null),
   }))
   useEffect(() => { scheduler.setConfig(triggers) }, [scheduler, triggers])
   useEffect(() => () => scheduler.cancel(), [scheduler])
@@ -109,7 +112,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
 
   const handleTextChange = (text: string, trigger: UsageTrigger = 'typing') => {
     setSourceText(text)
-    if (!text.trim()) { scheduler.cancel(); setOutputText(''); setDetectedLang(null); return }
+    if (!text.trim()) { scheduler.reset(); setOutputText(''); setDetectedLang(null); return }
 
     if (sourceLang === null) {
       // Détection locale (sans appel IA) au moment du départ, sur le texte final de la rafale de frappe
@@ -184,7 +187,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
   }
 
   const handleClearInput = () => {
-    scheduler.cancel()
+    scheduler.reset()
     scheduler.newGroup()
     setSourceText('')
     setOutputText('')
@@ -193,7 +196,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
     setError(null)
   }
 
-  const handleClearOutput = () => setOutputText('')
+  const handleClearOutput = () => { scheduler.forget(); setOutputText('') }
 
   const [copied, copy] = useCopyToClipboard()
   const handleCopy = () => { if (outputText) copy(outputText) }
@@ -307,6 +310,11 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
               </span>
             ) : isLoading ? (
               <span className="inline-block w-[2px] h-[1em] bg-primary align-text-bottom animate-pulse" aria-hidden="true" />
+            ) : notice === 'same_language' ? (
+              <div role="status" className="flex flex-col items-center justify-center h-full text-center gap-2">
+                <span className="material-symbols-outlined text-4xl text-outline-variant/60" aria-hidden="true">info</span>
+                <span className="text-on-surface-variant text-sm max-w-xs">{t.textTab.sameLanguage}</span>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center gap-2">
                 <span className="material-symbols-outlined text-4xl text-outline-variant/40" aria-hidden="true">translate</span>

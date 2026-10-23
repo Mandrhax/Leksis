@@ -5,7 +5,8 @@ import { getAiOrError, gateStream } from '@/lib/llm'
 import { buildTranslationPrompt, buildMarkdownTranslationPrompt } from '@/lib/prompts'
 import { validateTextInput, isValidLangName, isValidLangCode } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
-import { trackUsageStream } from '@/lib/usage'
+import { logUsage, trackUsageStream } from '@/lib/usage'
+import { sameBaseLanguage } from '@/lib/languages'
 import { UsageTrackingSchema } from '@/lib/usage-schema'
 import { isFeatureEnabled } from '@/lib/features-guard'
 import { requireUser } from '@/lib/user-guard'
@@ -61,6 +62,16 @@ export async function POST(req: NextRequest) {
   }
   if (formality != null && formality !== 'Formal' && formality !== 'Informal') {
     return NextResponse.json({ error: 'Invalid formality.' }, { status: 400 })
+  }
+
+  // Défense en profondeur (l'onglet Texte ne l'envoie déjà plus) : fr → fr-CH ne ferait que recopier le texte
+  if (sameBaseLanguage(sourceCode, targetCode)) {
+    logUsage({
+      userId: session.user.id, userEmail: session.user.email ?? 'unknown', feature: 'text',
+      sourceLang: sourceCode, targetLang: targetCode, charCount: text.length, modelChars: 0,
+      status: 'skipped', latencyMs: Date.now() - startedAt, ...tracking,
+    })
+    return NextResponse.json({ error: 'Source and target are the same language.', code: 'same_language' }, { status: 400 })
   }
 
   const ai = await getAiOrError()
