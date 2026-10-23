@@ -4,8 +4,9 @@ export const maxDuration = 300 // 5 min — needed for large model cold-start + 
 import { getAiOrError, gateStream } from '@/lib/llm'
 import { buildTranslationPrompt, buildMarkdownTranslationPrompt } from '@/lib/prompts'
 import { validateTextInput, isValidLangName, isValidLangCode } from '@/lib/validators'
-import { getDynamicLimits } from '@/lib/limits'
-import { logUsage, trackUsageStream } from '@/lib/usage'
+import { getDynamicLimits, getTextTranslationConfig } from '@/lib/limits'
+import { logUsage, trackUsageStream, type UsageEntry } from '@/lib/usage'
+import { TranslationCache, translationCache, collectOnComplete, streamOfText } from '@/lib/translation-cache'
 import { sameBaseLanguage } from '@/lib/languages'
 import { UsageTrackingSchema } from '@/lib/usage-schema'
 import { isFeatureEnabled } from '@/lib/features-guard'
@@ -99,22 +100,38 @@ export async function POST(req: NextRequest) {
         text,
       })
 
-  const stream = trackUsageStream(
-    gateStream(cfg.maxConcurrentAiRequests, req.signal, () =>
-      provider.stream({ prompt, signal: req.signal, model: cfg.translationModel })),
-    {
-      userId:     session.user.id,
-      userEmail:  session.user.email ?? 'unknown',
-      feature:    'text',
-      sourceLang: sourceCode || 'auto',
-      targetLang: targetCode,
-      model:      cfg.translationModel,
-      charCount:  text.length,
-      modelChars: text.length,
-      ...tracking,
-    },
-    startedAt,
-  )
+  const usage: UsageEntry = {
+    userId:     session.user.id,
+    userEmail:  session.user.email ?? 'unknown',
+    feature:    'text',
+    sourceLang: sourceCode || 'auto',
+    targetLang: targetCode,
+    model:      cfg.translationModel,
+    charCount:  text.length,
+    modelChars: text.length,
+    ...tracking,
+  }
+
+  // Même texte, mêmes réglages, même modèle : la traduction est déjà connue (mémoire du serveur, par utilisateur)
+  const { cacheTtlMinutes, cacheMaxEntries } = await getTextTranslationConfig()
+  const cacheLimits = { ttlMinutes: cacheTtlMinutes, maxEntries: cacheMaxEntries }
+  const cacheOn  = cacheTtlMinutes > 0 && cacheMaxEntries > 0
+  const cacheKey = TranslationCache.key(session.user.id, cfg.translationModel, prompt)
+  const cached   = cacheOn ? translationCache.get(cacheKey) : undefined
+
+  let source: ReadableStream<Uint8Array>
+  if (cached !== undefined) {
+    usage.status     = 'cache_hit'
+    usage.modelChars = 0
+    source = streamOfText(cached)
+  } else {
+    source = collectOnComplete(
+      gateStream(cfg.maxConcurrentAiRequests, req.signal, () =>
+        provider.stream({ prompt, signal: req.signal, model: cfg.translationModel })),
+      translated => { if (cacheOn) translationCache.set(cacheKey, translated, cacheLimits) },
+    )
+  }
+  const stream = trackUsageStream(source, usage, startedAt)
 
   return new Response(stream, {
     headers: {

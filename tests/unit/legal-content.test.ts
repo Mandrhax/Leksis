@@ -14,6 +14,7 @@ const BASE: LegalContext = {
   auditRetentionDays: 730,
   feedbackEnabled: true,
   feedbackRetentionDays: 365,
+  textCacheMinutes: 30,
   aiScope: 'local',
   features: { text: true, document: true, image: true, rewrite: true },
   limits: { maxTextChars: 5000, maxDocChars: 12000, maxImageMB: 10, rateLimitPerMin: 30 },
@@ -78,6 +79,19 @@ describe('privacy policy — user feedback', () => {
       const items = (d: LegalDocument) => d.sections.flatMap(s => s.items ?? []).length
       expect(items(on) - items(off)).toBe(2) // one "what is processed" item, one retention item
     }
+  })
+})
+
+describe('privacy policy — text translation cache', () => {
+  it('says recent translations stay in memory, and for how long, in every language', () => {
+    for (const locale of ['en', 'de', 'fr', 'it'] as const) {
+      const on = flat(buildPrivacyPolicy(ctx({ textCacheMinutes: 45 }), locale))
+      const off = buildPrivacyPolicy(ctx({ textCacheMinutes: 0 }), locale)
+      const items = (d: LegalDocument) => d.sections.flatMap(s => s.items ?? []).length
+      expect(on).toContain('45')
+      expect(items(buildPrivacyPolicy(ctx({ textCacheMinutes: 45 }), locale)) - items(off)).toBe(1)
+    }
+    expect(flat(buildPrivacyPolicy(ctx({ textCacheMinutes: 45 })))).toContain('for at most 45 minutes')
   })
 })
 

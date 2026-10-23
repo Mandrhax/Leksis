@@ -4,6 +4,7 @@ import { getAiConfig, isExternalUrl } from '@/lib/llm'
 import { aiModeOf } from '@/lib/llm/types'
 import { RETENTION_DEFAULTS, SETTING_DEFAULTS } from '@/lib/settings-schema'
 import type { AiScope, LegalContext } from '@/lib/legal-content'
+import { resolveTextTranslationConfig, type TextTranslationConfig } from '@/lib/text-translation-config'
 
 async function safeSetting(key: string): Promise<Record<string, unknown>> {
   try { return await getSetting<Record<string, unknown>>(key) } catch { return {} } // base injoignable : valeurs par défaut
@@ -22,6 +23,11 @@ async function resolveAiScope(): Promise<AiScope> {
   } catch {
     return 'external'
   }
+}
+
+/** Le cache n'existe que si l'onglet Texte est actif et que la durée ET la taille sont non nulles */
+function textCacheMinutes(textEnabled: boolean, cfg: TextTranslationConfig): number {
+  return textEnabled && cfg.cacheMaxEntries > 0 ? cfg.cacheTtlMinutes : 0
 }
 
 const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v.trim() : fallback)
@@ -46,6 +52,7 @@ export async function loadLegalContext(): Promise<LegalContext> {
     auditRetentionDays: num(general.auditRetentionDays, RETENTION_DEFAULTS.auditRetentionDays),
     feedbackEnabled:    features.feedback !== false,
     feedbackRetentionDays: num(general.feedbackRetentionDays, RETENTION_DEFAULTS.feedbackRetentionDays),
+    textCacheMinutes:   textCacheMinutes(tabs.text !== false, resolveTextTranslationConfig(features.textTranslation)),
     aiScope,
     features: {
       text:     tabs.text     !== false,

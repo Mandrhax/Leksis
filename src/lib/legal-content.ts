@@ -10,7 +10,7 @@ import * as fr from '@/lib/legal-content-fr'
 import * as it from '@/lib/legal-content-it'
 
 /** À changer à chaque modification du texte de référence (une des 4 langues). */
-export const LEGAL_TEMPLATE_VERSION = '2026-10-22'
+export const LEGAL_TEMPLATE_VERSION = '2026-10-23'
 
 /**
  * Où partent les textes des utilisateurs :
@@ -34,6 +34,8 @@ export interface LegalContext {
   /** Bouton « Signaler un problème » activé : les messages et images sont enregistrés */
   feedbackEnabled:    boolean
   feedbackRetentionDays: number
+  /** Traductions de texte gardées en mémoire du serveur (minutes) ; 0 = pas de cache ou onglet Texte désactivé */
+  textCacheMinutes:   number
   aiScope:            AiScope
   features:           { text: boolean; document: boolean; image: boolean; rewrite: boolean }
   limits:             { maxTextChars: number; maxDocChars: number; maxImageMB: number; rateLimitPerMin: number }
