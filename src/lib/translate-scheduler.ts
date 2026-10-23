@@ -2,8 +2,9 @@
 //
 // - frappe (`typing`, `auto_detect`) : attend une pause de `debounceMs` ;
 // - collage, bouton / Ctrl+Entrée, changement de langue ou de ton : immédiat ;
-// - une nouvelle traduction annule celle en cours (AbortController → le serveur coupe le modèle) et toute
-//   réponse d'une version du texte qui n'est plus la courante est ignorée ;
+// - collage, bouton, langue, ton : annule la traduction en cours (AbortController → le serveur coupe le modèle) ;
+//   la frappe, elle, la laisse finir et n'envoie que la dernière version ensuite (au plus une en attente) ;
+// - toute réponse d'une version du texte qui n'est plus la courante est ignorée ;
 // - rien ne part pour un texte déjà traduit, trop court ou vers sa propre langue (voir SkipReason).
 
 import type { Formality } from '@/types/leksis'
@@ -91,6 +92,8 @@ export class TranslationScheduler {
   /** Requête en cours, et dernière traduction arrivée au bout (celle qui est affichée) */
   private inFlightKey: string | null = null
   private shownKey: string | null = null
+  /** Dernière version tapée pendant une traduction en cours : part quand celle-ci se termine */
+  private pending: { input: TranslationInput; trigger: UsageTrigger } | null = null
 
   constructor(
     private config: TextTriggerConfig,
@@ -119,6 +122,7 @@ export class TranslationScheduler {
   /** Annule la traduction prévue ou en cours ; toute réponse encore en route est ignorée */
   cancel(): void {
     this.clearTimer()
+    this.pending = null
     this.abortInFlight()
     this.inFlightKey = null
     this.version++
@@ -133,6 +137,13 @@ export class TranslationScheduler {
   private abortInFlight() {
     this.controller?.abort()
     this.controller = null
+  }
+
+  // Méthode à part : relu après des `await`, TypeScript croirait sinon `pending` toujours null à cet endroit
+  private takePending() {
+    const next = this.pending
+    this.pending = null
+    return next
   }
 
   /** La traduction affichée a été effacée : le même texte pourra être retraduit */
@@ -160,7 +171,9 @@ export class TranslationScheduler {
     const key = requestKey(input)
     const skip = this.skipReason(input, trigger, key)
     if (skip === 'identical') {
-      // Retour au texte affiché pendant qu'une autre version était en route : celle-ci n'est plus voulue
+      // Retour au texte en cours ou affiché : la version en attente n'est plus voulue, et si c'est le texte
+      // affiché, celle en route non plus
+      this.pending = null
       if (key !== this.inFlightKey && this.controller) this.cancel()
       this.cb.onSkip(skip)
       return
@@ -175,6 +188,15 @@ export class TranslationScheduler {
     }
     this.cb.onSkip(null)
 
+    // Frappe pendant une traduction : on la laisse finir (ses paragraphes restent en cache côté serveur, la
+    // suite n'en renverra qu'un) et la dernière version du texte part ensuite. L'annuler à chaque pause jetait
+    // tout le travail d'un long texte (58 s pour 1800 caractères) sans jamais rien afficher.
+    if (DEBOUNCED.has(trigger) && this.controller) {
+      this.pending = { input, trigger }
+      return
+    }
+
+    this.pending = null
     this.abortInFlight()
     this.inFlightKey = key
     const controller = new AbortController()
@@ -221,6 +243,8 @@ export class TranslationScheduler {
         this.inFlightKey = null
         this.cb.onStale(false)
         this.cb.onLoading(false)
+        const next = this.takePending()
+        if (next) void this.start(next.input, next.trigger)
       }
     }
   }
