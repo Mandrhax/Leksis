@@ -6,6 +6,9 @@ import type { ToastState } from './AdminToast'
 import type { Formality } from '@/types/leksis'
 import { useI18n } from '@/lib/i18n'
 import { useDirtyTracking } from '@/hooks/useDirtyTracking'
+import {
+  TEXT_TRANSLATION_BOUNDS, TEXT_TRANSLATION_DEFAULTS, resolveTextTranslationConfig, type TextTranslationConfig,
+} from '@/lib/text-translation-config'
 
 interface FeaturesTabs {
   text:     boolean
@@ -32,6 +35,7 @@ interface FeaturesData {
   tabs:             FeaturesTabs
   defaults:         FeaturesDefaults
   limits:           FeaturesLimits
+  textTranslation:  TextTranslationConfig
 }
 
 const DEFAULT_FEATURES: FeaturesData = {
@@ -39,6 +43,7 @@ const DEFAULT_FEATURES: FeaturesData = {
   tabs:             { text: true, document: true, image: true, rewrite: true },
   defaults:         { sourceLang: 'auto', targetLang: 'en', formality: 'Informal' },
   limits:           { maxTextChars: 5000, maxDocChars: 12000, maxImageMB: 10, rateLimitPerMin: 30 },
+  textTranslation:  TEXT_TRANSLATION_DEFAULTS,
 }
 
 interface Props {
@@ -54,6 +59,7 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
     tabs:             { ...DEFAULT_FEATURES.tabs,     ...(initial.tabs     ?? {}) },
     defaults:         { ...DEFAULT_FEATURES.defaults, ...(initial.defaults ?? {}) },
     limits:           { ...DEFAULT_FEATURES.limits,   ...(initial.limits   ?? {}) },
+    textTranslation:  resolveTextTranslationConfig(initial.textTranslation),
   })
   const [saving, setSaving] = useState(false)
   const { dirty, markSaved } = useDirtyTracking(data)
@@ -92,6 +98,20 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
     setData(prev => ({ ...prev, defaults: { ...prev.defaults, [field]: value } }))
   }
 
+  // Pendant la saisie, tout entier ≤ max (taper « 1500 » passe par « 1 ») ; le minimum est appliqué en quittant le champ
+  function setTextTranslation(field: keyof typeof TEXT_TRANSLATION_BOUNDS, raw: string) {
+    const n = parseInt(raw, 10)
+    if (!isNaN(n) && n >= 0 && n <= TEXT_TRANSLATION_BOUNDS[field].max) {
+      setData(prev => ({ ...prev, textTranslation: { ...prev.textTranslation, [field]: n } }))
+    }
+  }
+
+  function clampTextTranslation(field: keyof typeof TEXT_TRANSLATION_BOUNDS) {
+    const { min } = TEXT_TRANSLATION_BOUNDS[field]
+    setData(prev => prev.textTranslation[field] >= min ? prev
+      : { ...prev, textTranslation: { ...prev.textTranslation, [field]: min } })
+  }
+
   function setLimit(field: keyof FeaturesLimits, raw: string) {
     const n = parseInt(raw, 10)
     // 0 = illimité, autorisé seulement pour la limite de débit
@@ -104,6 +124,7 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
 
+      <div className="flex flex-col gap-3">
       {/* Section A — Modules actifs */}
       <div className="adm-card space-y-4">
         <div>
@@ -167,6 +188,119 @@ export function FeaturesForm({ initial, onToast, onDirtyChange }: Props) {
           </label>
         </div>
       </div>
+
+      {/* Section D — Traduction de texte automatique */}
+      <div className="adm-card space-y-4">
+        <div>
+          <h3 className="adm-eyebrow mb-1">{t.featuresForm.sectionTextTranslation}</h3>
+          <p className="text-xs text-on-surface-variant">{t.featuresForm.textTranslationDesc}</p>
+        </div>
+        <div>
+          <label className="adm-label">
+            {t.featuresForm.debounceLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.debounceUnit}</span>
+          </label>
+          <input
+            type="number"
+            min={TEXT_TRANSLATION_BOUNDS.debounceMs.min}
+            max={TEXT_TRANSLATION_BOUNDS.debounceMs.max}
+            step={100}
+            value={data.textTranslation.debounceMs}
+            onChange={e => setTextTranslation('debounceMs', e.target.value)}
+            onBlur={() => clampTextTranslation('debounceMs')}
+            className="w-full sm:w-1/2 adm-input"
+          />
+          <p className="mt-1 text-xs text-on-surface-variant">{t.featuresForm.debounceHint}</p>
+        </div>
+        <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="adm-label">
+                {t.featuresForm.minCharsLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.charsUnit}</span>
+              </label>
+              <input
+                type="number"
+                min={TEXT_TRANSLATION_BOUNDS.minChars.min}
+                max={TEXT_TRANSLATION_BOUNDS.minChars.max}
+                value={data.textTranslation.minChars}
+                onChange={e => setTextTranslation('minChars', e.target.value)}
+                onBlur={() => clampTextTranslation('minChars')}
+                className="adm-input"
+              />
+            </div>
+            <div>
+              <label className="adm-label">
+                {t.featuresForm.autoDetectMinCharsLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.charsUnit}</span>
+              </label>
+              <input
+                type="number"
+                min={TEXT_TRANSLATION_BOUNDS.autoDetectMinChars.min}
+                max={TEXT_TRANSLATION_BOUNDS.autoDetectMinChars.max}
+                value={data.textTranslation.autoDetectMinChars}
+                onChange={e => setTextTranslation('autoDetectMinChars', e.target.value)}
+                onBlur={() => clampTextTranslation('autoDetectMinChars')}
+                className="adm-input"
+              />
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-on-surface-variant">{t.featuresForm.minCharsHint}</p>
+        </div>
+        <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="adm-label">
+                {t.featuresForm.cacheTtlLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.cacheTtlUnit}</span>
+              </label>
+              <input
+                type="number"
+                min={TEXT_TRANSLATION_BOUNDS.cacheTtlMinutes.min}
+                max={TEXT_TRANSLATION_BOUNDS.cacheTtlMinutes.max}
+                value={data.textTranslation.cacheTtlMinutes}
+                onChange={e => setTextTranslation('cacheTtlMinutes', e.target.value)}
+                onBlur={() => clampTextTranslation('cacheTtlMinutes')}
+                className="adm-input"
+              />
+            </div>
+            <div>
+              <label className="adm-label">
+                {t.featuresForm.cacheMaxLabel} <span className="text-on-surface-variant font-normal">{t.featuresForm.cacheMaxUnit}</span>
+              </label>
+              <input
+                type="number"
+                min={TEXT_TRANSLATION_BOUNDS.cacheMaxEntries.min}
+                max={TEXT_TRANSLATION_BOUNDS.cacheMaxEntries.max}
+                step={100}
+                value={data.textTranslation.cacheMaxEntries}
+                onChange={e => setTextTranslation('cacheMaxEntries', e.target.value)}
+                onBlur={() => clampTextTranslation('cacheMaxEntries')}
+                className="adm-input"
+              />
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-on-surface-variant">{t.featuresForm.cacheHint}</p>
+        </div>
+        <label className="flex items-center justify-between gap-4 bg-surface-container border border-outline-variant/20 rounded-lg px-4 py-3 cursor-pointer hover:bg-surface-container/60 transition-colors">
+          <div>
+            <span className="text-sm font-medium text-on-surface">{t.featuresForm.segmentContextLabel}</span>
+            <p className="text-xs text-on-surface-variant">{t.featuresForm.segmentContextDesc}</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={data.textTranslation.segmentContext}
+            onClick={() => setData(prev => ({ ...prev, textTranslation: { ...prev.textTranslation, segmentContext: !prev.textTranslation.segmentContext } }))}
+            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+              data.textTranslation.segmentContext ? 'bg-primary' : 'bg-outline-variant/40'
+            }`}
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                data.textTranslation.segmentContext ? 'translate-x-4' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </label>
+      </div>
+      </div>{/* end left column */}
 
       {/* Section B + C stacked in right column */}
       <div className="flex flex-col gap-3">

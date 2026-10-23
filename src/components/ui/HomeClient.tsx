@@ -13,6 +13,7 @@ import { LegalLinks }           from '@/components/ui/LegalLinks'
 import { I18nProvider, useI18n } from '@/lib/i18n'
 import type { ToneConfig, Formality } from '@/types/leksis'
 import type { FeedbackCategory } from '@/lib/feedback-schema'
+import type { TextTriggerConfig } from '@/lib/text-translation-config'
 
 type TabId = 'text' | 'document' | 'image' | 'rewrite'
 
@@ -37,6 +38,7 @@ interface Props {
   maxTextChars:      number
   maxDocChars:       number
   maxImageMB:        number
+  textTriggers:      TextTriggerConfig
   configuredTones:   ToneConfig[]
   voiceInputEnabled: boolean
   feedbackEnabled:   boolean
@@ -51,7 +53,7 @@ export function HomeClient(props: Props) {
   )
 }
 
-function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, defaultFormality, maxTextChars, maxDocChars, maxImageMB, configuredTones, voiceInputEnabled, feedbackEnabled, appVersion }: Props) {
+function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColor, footerLinks, enabledTabs, defaultSourceLang, defaultTargetLang, defaultFormality, maxTextChars, maxDocChars, maxImageMB, textTriggers, configuredTones, voiceInputEnabled, feedbackEnabled, appVersion }: Props) {
   const { t } = useI18n()
 
   const ALL_TABS: { id: TabId; label: string; icon: string }[] = [
@@ -176,7 +178,7 @@ function HomeWorkspace({ logoUrl, logoSize, siteName, footerText, footerTextColo
         <div className="w-full max-w-[1440px]">
           {enabledTabs.text && (
             <div className={safeActiveTab === 'text' ? '' : 'hidden'}>
-              <TextTranslationTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} defaultFormality={defaultFormality} maxTextChars={maxTextChars} voiceInputEnabled={voiceInputEnabled} onReport={onReport} />
+              <TextTranslationTab defaultSourceLang={defaultSourceLang} defaultTargetLang={defaultTargetLang} defaultFormality={defaultFormality} maxTextChars={maxTextChars} triggers={textTriggers} voiceInputEnabled={voiceInputEnabled} onReport={onReport} />
             </div>
           )}
           {enabledTabs.document && (

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { AUDIO_MAX_BYTES, DOCUMENT_MAX_CHARS, IMAGE_MAX_BYTES, RATE_LIMIT_PER_MIN, TEXT_MAX_CHARS } from '@/lib/validators'
+import { TEXT_TRANSLATION_BOUNDS, TEXT_TRANSLATION_DEFAULTS } from '@/lib/text-translation-config'
 
 // Schémas des réglages du site (site_settings), utilisés à l'enregistrement ET à l'import d'une configuration.
 // Ces valeurs finissent dans du CSS (<style>, url('…')), dans des attributs href ou dans des prompts :
@@ -79,6 +80,7 @@ export const AuthConfigSchema = z.object({
 })
 
 const langCode = z.string().regex(/^(auto|[A-Za-z0-9-]{1,20})$/, 'Invalid language code')
+const boundedInt = ({ min, max }: { min: number; max: number }) => z.number().int().min(min).max(max).optional()
 
 export const FeaturesSchema = z.object({
   /** Bouton « Signaler un problème ou suggérer une amélioration » (menu du compte) */
@@ -98,6 +100,15 @@ export const FeaturesSchema = z.object({
     maxImageMB:      z.number().int().min(1).max(50).optional(),
     maxAudioMB:      z.number().int().min(1).max(50).optional(),
     rateLimitPerMin: z.number().int().min(0).max(10_000).optional(),
+  }).optional(),
+  /** Traduction de texte automatique : debounce, seuils, cache serveur */
+  textTranslation: z.object({
+    debounceMs:         boundedInt(TEXT_TRANSLATION_BOUNDS.debounceMs),
+    minChars:           boundedInt(TEXT_TRANSLATION_BOUNDS.minChars),
+    autoDetectMinChars: boundedInt(TEXT_TRANSLATION_BOUNDS.autoDetectMinChars),
+    cacheTtlMinutes:    boundedInt(TEXT_TRANSLATION_BOUNDS.cacheTtlMinutes),
+    cacheMaxEntries:    boundedInt(TEXT_TRANSLATION_BOUNDS.cacheMaxEntries),
+    segmentContext:     z.boolean().optional(),
   }).optional(),
 })
 
@@ -149,6 +160,7 @@ export const SETTING_DEFAULTS = {
       maxAudioMB:      AUDIO_MAX_BYTES / (1024 * 1024),
       rateLimitPerMin: RATE_LIMIT_PER_MIN,
     },
+    textTranslation: TEXT_TRANSLATION_DEFAULTS,
   },
 } as const
 

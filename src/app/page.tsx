@@ -1,6 +1,7 @@
 import { HomeClient } from '@/components/ui/HomeClient'
 import type { Formality } from '@/types/leksis'
 import { DEFAULT_TONES, normalizeTones } from '@/lib/tones-defaults'
+import { TEXT_TRANSLATION_DEFAULTS, resolveTextTranslationConfig, toTextTriggers } from '@/lib/text-translation-config'
 import pkg from '../../package.json'
 
 export const dynamic = 'force-dynamic'
@@ -21,6 +22,7 @@ async function loadPageSettings() {
       tabs?:             { text?: boolean; document?: boolean; image?: boolean; rewrite?: boolean }
       defaults?:         { sourceLang?: string; targetLang?: string; formality?: Formality }
       limits?:           { maxTextChars?: number; maxDocChars?: number; maxImageMB?: number }
+      textTranslation?:  unknown
     }
 
     const tabs = {
@@ -51,6 +53,7 @@ async function loadPageSettings() {
       maxTextChars:      features.limits?.maxTextChars  ?? 5000,
       maxDocChars:       features.limits?.maxDocChars   ?? 12000,
       maxImageMB:        features.limits?.maxImageMB    ?? 10,
+      textTriggers:      toTextTriggers(resolveTextTranslationConfig(features.textTranslation)),
       configuredTones,
       voiceInputEnabled,
       feedbackEnabled:   features.feedback !== false,
@@ -70,6 +73,7 @@ async function loadPageSettings() {
       maxTextChars:      5000,
       maxDocChars:       12000,
       maxImageMB:        10,
+      textTriggers:      toTextTriggers(TEXT_TRANSLATION_DEFAULTS),
       configuredTones:   DEFAULT_TONES,
       voiceInputEnabled: false,
       feedbackEnabled:   false,

@@ -1,5 +1,6 @@
 import 'server-only'
 import { TEXT_MAX_CHARS, DOCUMENT_MAX_CHARS, IMAGE_MAX_BYTES, AUDIO_MAX_BYTES, RATE_LIMIT_PER_MIN } from '@/lib/validators'
+import { resolveTextTranslationConfig, type TextTranslationConfig } from '@/lib/text-translation-config'
 
 export interface DynamicLimits {
   maxTextChars:    number
@@ -36,5 +37,16 @@ export async function getDynamicLimits(): Promise<DynamicLimits> {
       maxAudioBytes:   AUDIO_MAX_BYTES,
       rateLimitPerMin: RATE_LIMIT_PER_MIN,
     }
+  }
+}
+
+/** Seuils de la traduction de texte (debounce, minimums, cache) — les défauts si la base est inaccessible. */
+export async function getTextTranslationConfig(): Promise<TextTranslationConfig> {
+  try {
+    const { getSetting } = await import('@/lib/settings')
+    const cfg = await getSetting<{ textTranslation?: unknown }>('features')
+    return resolveTextTranslationConfig(cfg?.textTranslation)
+  } catch {
+    return resolveTextTranslationConfig(undefined)
   }
 }

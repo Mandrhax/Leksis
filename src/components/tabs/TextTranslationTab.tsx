@@ -10,6 +10,11 @@ import { useI18n } from '@/lib/i18n'
 import type { Language, Formality } from '@/types/leksis'
 import { ReportResultLink } from '@/components/ui/ReportResultLink'
 import type { FeedbackCategory } from '@/lib/feedback-schema'
+import type { UsageTrigger } from '@/lib/usage-schema'
+import { TranslationScheduler, fetchTranslation, type TranslationInput } from '@/lib/translate-scheduler'
+import { TEXT_TRANSLATION_DEFAULTS, toTextTriggers, type TextTriggerConfig } from '@/lib/text-translation-config'
+
+const TEXT_TRIGGER_DEFAULTS = toTextTriggers(TEXT_TRANSLATION_DEFAULTS)
 
 const DEFAULT_TARGET: Language = { code: 'fr', name: 'French' }
 const TARGET_KEY = 'leksisTargetLang'
@@ -31,12 +36,14 @@ interface Props {
   defaultTargetLang?: string
   maxTextChars?:      number
   defaultFormality?:  Formality
+  /** Seuils de déclenchement (Réglages → Features & limits) */
+  triggers?:          TextTriggerConfig
   voiceInputEnabled?: boolean
   /** Ouvre « Signaler un problème » avec cette catégorie (absent : bouton désactivé par l'admin) */
   onReport?:          (category: FeedbackCategory) => void
 }
 
-export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_CHARS, defaultFormality = 'Informal', voiceInputEnabled = false, onReport }: Props) {
+export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_CHARS, defaultFormality = 'Informal', triggers = TEXT_TRIGGER_DEFAULTS, voiceInputEnabled = false, onReport }: Props) {
   const { t } = useI18n()
 
   const [sourceText, setSourceText]     = useState('')
@@ -48,10 +55,17 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
   const [isLoading, setIsLoading]       = useState(false)
   const [error, setError]               = useState<string | null>(null)
 
-  const abortRef    = useRef<AbortController | null>(null)
-  const detectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const transTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const outputRef   = useRef<HTMLDivElement>(null)
+  // Quand partir (debounce, immédiat) et annulation de la requête précédente : voir lib/translate-scheduler.ts
+  const [scheduler] = useState(() => new TranslationScheduler(triggers, fetchTranslation, {
+    onLoading: setIsLoading,
+    onOutput:  setOutputText,
+    onError:   message => setError(message || null),
+  }))
+  useEffect(() => { scheduler.setConfig(triggers) }, [scheduler, triggers])
+  useEffect(() => () => scheduler.cancel(), [scheduler])
+
+  const pasteRef  = useRef(false)
+  const outputRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const el = outputRef.current
@@ -64,93 +78,72 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
     try { localStorage.setItem(TARGET_KEY, JSON.stringify(targetLang)) } catch { /* ignore */ }
   }, [targetLang])
 
-  const abort = useCallback(() => {
-    abortRef.current?.abort()
-    abortRef.current = null
-    if (detectTimer.current) { clearTimeout(detectTimer.current); detectTimer.current = null }
-    if (transTimer.current)  { clearTimeout(transTimer.current);  transTimer.current  = null }
-    setIsLoading(false)
-  }, [])
-
   const isFormalityActive = useCallback((src: Language | null, detected: Language | null) => {
     const code = src?.code ?? detected?.code ?? ''
     return code.startsWith('en')
   }, [])
 
-  const runTranslation = useCallback(async (
+  const buildInput = useCallback((
     text: string, src: Language | null, detected: Language | null, tgt: Language, fmt: Formality
-  ) => {
-    if (!text.trim()) { setOutputText(''); return }
-
-    abort()
-    const controller = new AbortController()
-    abortRef.current = controller
-    setIsLoading(true)
-    setError(null)
-    setOutputText('')
-
+  ): TranslationInput => {
     const effectiveSrc = src ?? detected
-
-    try {
-      const res = await fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text,
-          sourceLang: effectiveSrc?.name ?? 'Unknown',
-          sourceCode: effectiveSrc?.code ?? 'auto',
-          targetLang: tgt.name,
-          targetCode: tgt.code,
-          formality: isFormalityActive(src, detected) ? fmt : null,
-        }),
-        signal: controller.signal,
-      })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error((data as { error?: string }).error || `HTTP ${res.status}`)
-      }
-
-      const reader  = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let accumulated = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        accumulated += decoder.decode(value, { stream: true })
-        setOutputText(accumulated)
-      }
-    } catch (err) {
-      if ((err as Error).name !== 'AbortError') setError((err as Error).message)
-    } finally {
-      setIsLoading(false)
+    return {
+      text,
+      sourceName: effectiveSrc?.name ?? 'Unknown',
+      sourceCode: effectiveSrc?.code ?? 'auto',
+      targetName: tgt.name,
+      targetCode: tgt.code,
+      formality:  isFormalityActive(src, detected) ? fmt : null,
+      autoDetect: src === null,
     }
-  }, [abort, isFormalityActive])
+  }, [isFormalityActive])
 
-  const handleTextChange = (text: string) => {
+  const runTranslation = useCallback((
+    text: string, src: Language | null, detected: Language | null, tgt: Language, fmt: Formality, trigger: UsageTrigger
+  ) => {
+    scheduler.request(() => buildInput(text, src, detected, tgt, fmt), trigger)
+  }, [scheduler, buildInput])
+
+  const handleTextChange = (text: string, trigger: UsageTrigger = 'typing') => {
     setSourceText(text)
-    if (!text.trim()) { abort(); setOutputText(''); setDetectedLang(null); return }
-
-    if (detectTimer.current) clearTimeout(detectTimer.current)
-    if (transTimer.current)  clearTimeout(transTimer.current)
+    if (!text.trim()) { scheduler.cancel(); setOutputText(''); setDetectedLang(null); return }
 
     if (sourceLang === null) {
-      detectTimer.current = setTimeout(() => {
+      // Détection locale (sans appel IA) au moment du départ, sur le texte final de la rafale de frappe
+      scheduler.request(() => {
         const detected = detectLanguage(text)
         setDetectedLang(detected)
-        transTimer.current = setTimeout(() => {
-          runTranslation(text, null, detected, targetLang, formality)
-        }, 800)
-      }, 400)
+        return buildInput(text, null, detected, targetLang, formality)
+      }, trigger === 'typing' ? 'auto_detect' : trigger)
     } else {
-      transTimer.current = setTimeout(() => {
-        runTranslation(text, sourceLang, null, targetLang, formality)
-      }, 800)
+      runTranslation(text, sourceLang, null, targetLang, formality, trigger)
     }
   }
 
+  const handleInputChange = (text: string) => {
+    const trigger: UsageTrigger = pasteRef.current ? 'paste' : 'typing'
+    pasteRef.current = false
+    handleTextChange(text, trigger)
+  }
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    pasteRef.current = true
+    const el = e.currentTarget
+    // Le collage remplace tout le texte : c'est une nouvelle saisie
+    if (el.selectionStart === 0 && el.selectionEnd === el.value.length) scheduler.newGroup()
+  }
+
+  const handleTranslateNow = () => {
+    if (sourceText.trim()) runTranslation(sourceText, sourceLang, detectedLang, targetLang, formality, 'button')
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleTranslateNow() }
+  }
+
   const handleDictated = (text: string) => {
-    handleTextChange(sourceText.trim() ? `${sourceText.trim()} ${text}` : text)
+    // Bloc de texte inséré d'un coup, comme un collage : pas d'attente de fin de frappe
+    handleTextChange(sourceText.trim() ? `${sourceText.trim()} ${text}` : text, 'paste')
   }
 
   const handleSourceLangChange = (lang: Language) => {
@@ -160,16 +153,16 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
       if (isAuto) {
         const detected = detectLanguage(sourceText)
         setDetectedLang(detected)
-        runTranslation(sourceText, null, detected, targetLang, formality)
+        runTranslation(sourceText, null, detected, targetLang, formality, 'lang_change')
       } else {
-        runTranslation(sourceText, lang, null, targetLang, formality)
+        runTranslation(sourceText, lang, null, targetLang, formality, 'lang_change')
       }
     }
   }
 
   const handleTargetLangChange = (lang: Language) => {
     setTargetLang(lang)
-    if (sourceText.trim()) runTranslation(sourceText, sourceLang, detectedLang, lang, formality)
+    if (sourceText.trim()) runTranslation(sourceText, sourceLang, detectedLang, lang, formality, 'lang_change')
   }
 
   const handleSwap = () => {
@@ -178,16 +171,18 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
     const newSource = targetLang        // old target becomes new source
     const newTarget = effectiveSrc      // old source becomes new target
     const textToTranslate = outputText
+    scheduler.newGroup()
     setSourceText(textToTranslate)
     setOutputText('')
     setSourceLang(newSource)
     setDetectedLang(null)
     setTargetLang(newTarget)
-    setTimeout(() => runTranslation(textToTranslate, newSource, null, newTarget, formality), 0)
+    runTranslation(textToTranslate, newSource, null, newTarget, formality, 'lang_change')
   }
 
   const handleClearInput = () => {
-    abort()
+    scheduler.cancel()
+    scheduler.newGroup()
     setSourceText('')
     setOutputText('')
     setSourceLang(null)
@@ -202,7 +197,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
 
   const handleFormality = (f: Formality) => {
     setFormality(f)
-    if (sourceText.trim()) runTranslation(sourceText, sourceLang, detectedLang, targetLang, f)
+    if (sourceText.trim()) runTranslation(sourceText, sourceLang, detectedLang, targetLang, f, 'lang_change')
   }
 
   const formalityActive = isFormalityActive(sourceLang, detectedLang)
@@ -234,7 +229,9 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
           </div>
           <textarea
             value={sourceText}
-            onChange={e => handleTextChange(e.target.value)}
+            onChange={e => handleInputChange(e.target.value)}
+            onPaste={handlePaste}
+            onKeyDown={handleKeyDown}
             placeholder={t.textTab.inputPlaceholder}
             maxLength={maxTextChars}
             className="w-full flex-grow bg-transparent border-none focus:ring-0 translation-text placeholder:text-on-surface-variant resize-none outline-none"
@@ -246,7 +243,8 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
                 <MicButton feature="text" onTranscript={handleDictated} disabled={isLoading} />
               )}
               <button
-                onClick={() => { if (sourceText.trim()) runTranslation(sourceText, sourceLang, detectedLang, targetLang, formality) }}
+                onClick={handleTranslateNow}
+                title={t.textTab.translateShortcut}
                 disabled={isLoading || !sourceText.trim() || sourceText.length > maxTextChars}
                 className="action-btn"
               >
@@ -292,7 +290,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
               <div className="flex items-center gap-3">
                 <span className="text-error text-sm">{error}</span>
                 <button
-                  onClick={() => runTranslation(sourceText, sourceLang, detectedLang, targetLang, formality)}
+                  onClick={() => runTranslation(sourceText, sourceLang, detectedLang, targetLang, formality, 'button')}
                   className="text-button text-xs shrink-0"
                 >
                   <span className="material-symbols-outlined text-sm" aria-hidden="true">refresh</span>
