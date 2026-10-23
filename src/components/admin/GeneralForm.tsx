@@ -14,6 +14,7 @@ interface GeneralData {
   usageRetentionDays: number
   auditRetentionDays: number
   feedbackRetentionDays: number
+  updateCheck: boolean
 }
 
 interface Props {
@@ -32,6 +33,7 @@ export function GeneralForm({ initial, onToast, onDirtyChange }: Props) {
     usageRetentionDays: initial.usageRetentionDays ?? RETENTION_DEFAULTS.usageRetentionDays,
     auditRetentionDays: initial.auditRetentionDays ?? RETENTION_DEFAULTS.auditRetentionDays,
     feedbackRetentionDays: initial.feedbackRetentionDays ?? RETENTION_DEFAULTS.feedbackRetentionDays,
+    updateCheck: initial.updateCheck ?? true,
   })
   const [saving, setSaving] = useState(false)
   const { dirty, markSaved } = useDirtyTracking(data)
@@ -150,6 +152,27 @@ export function GeneralForm({ initial, onToast, onDirtyChange }: Props) {
             />
           </div>
         )}
+      </div>
+
+      {/* Nouvelles versions */}
+      <div className="adm-card space-y-4">
+        <h3 className="adm-eyebrow">{t.generalForm.sectionUpdates}</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-on-surface">{t.generalForm.updateCheckLabel}</p>
+            <p className="text-xs text-on-surface-variant mt-0.5">{t.generalForm.updateCheckDesc}</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={data.updateCheck}
+            aria-label={t.generalForm.updateCheckLabel}
+            onClick={() => setData(prev => ({ ...prev, updateCheck: !prev.updateCheck }))}
+            className={`w-11 h-6 shrink-0 rounded-full transition-colors ${data.updateCheck ? 'bg-primary' : 'bg-outline-variant/40'}`}
+          >
+            <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform mx-1 ${data.updateCheck ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
+        </div>
       </div>
 
       </div>{/* end right column */}

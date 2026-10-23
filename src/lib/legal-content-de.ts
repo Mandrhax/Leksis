@@ -110,6 +110,7 @@ export function buildPrivacyPolicy(c: LegalContext): LegalDocument {
         'Gespeicherte Geheimnisse, wie ein API-Schlüssel für den KI-Dienst, werden verschlüsselt und nie in der Oberfläche angezeigt oder exportiert.',
         ...(c.limits.rateLimitPerMin > 0 ? ['KI-Anfragen unterliegen einer Ratenbegrenzung pro Benutzer.'] : []),
         'Verbindungen werden mit HTTPS verschlüsselt, sobald der Administrator dies aktiviert hat.',
+        ...(c.updateCheck ? ['Um Administratoren auf neue Versionen hinzuweisen, liest der Server einmal täglich die öffentliche Liste der Leksis-Versionen auf GitHub. Dabei werden weder Inhalte noch Konten noch andere Informationen über Sie gesendet.'] : []),
       ],
     },
     {

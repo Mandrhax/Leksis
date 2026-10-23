@@ -110,6 +110,7 @@ export function buildPrivacyPolicy(c: LegalContext): LegalDocument {
         'I segreti memorizzati, come una chiave API per il servizio IA, sono cifrati e non vengono mai mostrati nell’interfaccia né esportati.',
         ...(c.limits.rateLimitPerMin > 0 ? ['Le richieste IA sono soggette a un limite di frequenza per utente.'] : []),
         'Le connessioni sono cifrate con HTTPS quando l’amministratore lo ha attivato.',
+        ...(c.updateCheck ? ['Per segnalare le nuove versioni agli amministratori, il server legge una volta al giorno l’elenco pubblico delle versioni di Leksis su GitHub. Non viene inviato alcun contenuto, account o altra informazione che vi riguardi.'] : []),
       ],
     },
     {

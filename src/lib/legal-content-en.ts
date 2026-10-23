@@ -110,6 +110,7 @@ export function buildPrivacyPolicy(c: LegalContext): LegalDocument {
         'Stored secrets, such as an API key for the AI service, are encrypted and are never shown in the interface or exported.',
         ...(c.limits.rateLimitPerMin > 0 ? ['AI requests are rate-limited per user.'] : []),
         'Connections are encrypted with HTTPS when the administrator has enabled it.',
+        ...(c.updateCheck ? ['To report new versions to administrators, the server reads the public list of Leksis releases on GitHub once a day. No content, account or other information about you is sent.'] : []),
       ],
     },
     {

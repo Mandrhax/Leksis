@@ -529,6 +529,13 @@ Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git e
 - **Paragraphes** (`lib/translate-incremental.ts`) : première traduction / un seul paragraphe / plus de la moitié inconnue = un appel sur le texte entier (paires source → traduction mises en cache si le nombre de paragraphes correspond) ; sinon seuls les paragraphes nouveaux ou modifiés partent, un appel chacun, avec le paragraphe source précédent en contexte (`buildTranslationPrompt({ context })`). La clé d'un paragraphe ignore le contexte. Le client reçoit toujours un seul flux de texte brut. `markdownMode` (Extract & translate) : texte entier seulement
 - **Journal d'usage** (migration 006) : la ligne est écrite **à la fin** de la réponse (`trackUsageStream`) avec `status` (`completed`, `cancelled`, `cache_hit`, `skipped`, `error`), `trigger_type`, `model_chars` (caractères réellement envoyés au modèle), `latency_ms`, `request_group_id` (fourni par le client, nouveau à l'effacement, au swap et au collage qui remplace tout). Langues en codes BCP 47 (`normalizeUsageLang`), `n/a` quand sans objet (OCR, dictée, cible d'une réécriture). Colonnes ajoutées en fin de CSV
 
+- **Frappe pendant une traduction** : elle ne l'annule pas (ses paragraphes finissent en cache) ; seule la dernière version tapée part ensuite (au plus une en attente). Collage, bouton, langue, ton, effacement et swap annulent tout de suite
+
+### Nouvelle version disponible (dashboard admin)
+
+- `lib/update-check.ts` (server-only) lit la liste publique des releases GitHub (`LEKSIS_UPDATE_CHECK_URL` la remplace : e2e, miroir), au plus une fois par jour (une fois par heure après un échec), en mémoire. **Seul appel sortant de l'appli hors moteur IA** : rien sur l'installation n'est envoyé ; réglage `general.updateCheck` (défaut `true`, Réglages → General) et phrase conditionnelle dans la politique de confidentialité (`LegalContext.updateCheck`, 4 langues)
+- Même règle de canal que `latest_tag` d'install.sh (`lib/version-compare.ts`, pur) : une installation stable ne voit jamais les pré-versions. Sans Internet : « vérification impossible », jamais une erreur. Route `GET /api/admin/update-check`, affichée dans la carte Leksis du dashboard (lien vers les notes de version seulement si `https://github.com/…`)
+
 ### Documents
 
 - Traduction par **lots de 3000 caractères** (`lib/doc-translate.ts`) : le nombre de segments renvoyé est vérifié, redemandé une fois, puis le lot est coupé en deux jusqu'à un segment isolé — jamais de décalage silencieux. Le prompt annonce le nombre de segments ; les segments vides ne partent pas au modèle ; un avertissement serveur est journalisé quand le modèle ne respecte pas les `|||`

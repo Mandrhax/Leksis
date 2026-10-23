@@ -15,6 +15,7 @@ const BASE: LegalContext = {
   feedbackEnabled: true,
   feedbackRetentionDays: 365,
   textCacheMinutes: 30,
+  updateCheck: true,
   aiScope: 'local',
   features: { text: true, document: true, image: true, rewrite: true },
   limits: { maxTextChars: 5000, maxDocChars: 12000, maxImageMB: 10, rateLimitPerMin: 30 },
@@ -92,6 +93,16 @@ describe('privacy policy — text translation cache', () => {
       expect(items(buildPrivacyPolicy(ctx({ textCacheMinutes: 45 }), locale)) - items(off)).toBe(1)
     }
     expect(flat(buildPrivacyPolicy(ctx({ textCacheMinutes: 45 })))).toContain('for at most 45 minutes')
+  })
+})
+
+describe('privacy policy — version check', () => {
+  it('mentions the daily call to GitHub only while the check is enabled, in every language', () => {
+    for (const locale of ['en', 'de', 'fr', 'it'] as const) {
+      const items = (d: LegalDocument) => d.sections.flatMap(s => s.items ?? []).length
+      expect(items(buildPrivacyPolicy(ctx({ updateCheck: true }), locale)) - items(buildPrivacyPolicy(ctx({ updateCheck: false }), locale))).toBe(1)
+      expect(flat(buildPrivacyPolicy(ctx({ updateCheck: true }), locale))).toContain('GitHub')
+    }
   })
 })
 

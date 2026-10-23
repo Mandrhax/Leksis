@@ -13,6 +13,7 @@ const ctx: LegalContext = {
   feedbackEnabled: true,
   feedbackRetentionDays: 365,
   textCacheMinutes: 30,
+  updateCheck: true,
   aiScope: 'external', // exerce aussi le rendu des sections d'avertissement
   features: { text: true, document: true, image: true, rewrite: true },
   limits: { maxTextChars: 5000, maxDocChars: 12000, maxImageMB: 10, rateLimitPerMin: 30 },

@@ -53,6 +53,7 @@ export async function loadLegalContext(): Promise<LegalContext> {
     feedbackEnabled:    features.feedback !== false,
     feedbackRetentionDays: num(general.feedbackRetentionDays, RETENTION_DEFAULTS.feedbackRetentionDays),
     textCacheMinutes:   textCacheMinutes(tabs.text !== false, resolveTextTranslationConfig(features.textTranslation)),
+    updateCheck:        general.updateCheck !== false,
     aiScope,
     features: {
       text:     tabs.text     !== false,

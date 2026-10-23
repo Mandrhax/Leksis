@@ -50,6 +50,8 @@ export const GeneralSchema = z.object({
   usageRetentionDays: z.number().int().min(0).max(RETENTION_MAX_DAYS),
   auditRetentionDays: z.number().int().min(0).max(RETENTION_MAX_DAYS),
   feedbackRetentionDays: z.number().int().min(0).max(RETENTION_MAX_DAYS),
+  /** Dashboard : « nouvelle version disponible » (interroge la liste publique des versions sur GitHub) */
+  updateCheck:        z.boolean(),
 }).partial()
 
 /**
@@ -146,7 +148,7 @@ export const TonesSchema = z.array(ToneSchema).min(1).max(6)
 export const SETTING_DEFAULTS = {
   branding:    { siteName: 'Leksis', primaryColor: '#565e74', secondaryColor: '#506076', headerLogoSize: '32' },
   design:      { buttonRadius: '0.75rem', footerText: '© Leksis', footerLinks: [] },
-  general:     { contactEmail: '', globalBanner: '', maintenanceMode: false, maintenanceMessage: '', ...RETENTION_DEFAULTS },
+  general:     { contactEmail: '', globalBanner: '', maintenanceMode: false, maintenanceMessage: '', ...RETENTION_DEFAULTS, updateCheck: true },
   legal:       { organization: '', contact: '', privacyNotes: '', usageRules: '' },
   auth_config: { method: 'otp_display' as AuthMethod, allowedDomains: '', inviteOnly: false },
   features: {

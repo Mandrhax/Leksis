@@ -77,6 +77,13 @@ const aiServer = createServer((req, res) => {
   req.on('end', () => {
     res.setHeader('Content-Type', 'application/json')
     if (req.url === '/api/tags') return res.end(JSON.stringify({ models: [{ name: 'fake-model', size: 1, modified_at: '' }] }))
+    // Stands in for the GitHub release list (LEKSIS_UPDATE_CHECK_URL): the e2e never calls the Internet
+    if (req.url === '/releases') {
+      return res.end(JSON.stringify([
+        { tag_name: 'v99.0.0', prerelease: false, draft: false, html_url: 'https://github.com/Mandrhax/Leksis/releases/tag/v99.0.0' },
+        { tag_name: 'v1.0.0', prerelease: false, draft: false, html_url: 'https://github.com/Mandrhax/Leksis/releases/tag/v1.0.0' },
+      ]))
+    }
     if (req.url !== '/api/generate') { res.statusCode = 404; return res.end('{}') }
     const { prompt, stream } = JSON.parse(body)
     if (stream === true) return streamText(prompt, res)
@@ -122,6 +129,7 @@ const env = {
   AI_MODEL: 'fake-model',
   AI_OCR_MODEL: 'fake-model',
   AI_REWRITE_MODEL: 'fake-model',
+  LEKSIS_UPDATE_CHECK_URL: `http://127.0.0.1:${AI_PORT}/releases`,
 }
 const app = spawn(process.execPath, [standalone], { env, stdio: ['ignore', 'pipe', 'pipe'] })
 let appLog = ''
@@ -360,6 +368,19 @@ try {
   await adminPage.keyboard.up('Control')
   await new Promise(r => setTimeout(r, 500))
   check('Ctrl+Enter on an unchanged text does not call the model again', aiCalls.length === 1, JSON.stringify(aiCalls))
+
+  // ── Dashboard: new version available ─────────────────────────
+  await adminPage.goto(BASE + '/admin/dashboard', { waitUntil: 'networkidle0' })
+  const updateBox = await adminPage.waitForSelector('[data-testid=update-available]', { timeout: 10000 }).then(el => el.evaluate(e => e.innerText)).catch(() => '')
+  check('the dashboard says a new version is available', updateBox.includes('v99.0.0') && updateBox.includes('leksis update'), updateBox)
+  const updateOff = await adminPage.evaluate(async () => {
+    const general = (await fetch('/api/admin/settings').then(r => r.json())).general ?? {}
+    await fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'general', value: { ...general, updateCheck: false } }) })
+    const info = await fetch('/api/admin/update-check').then(r => r.json())
+    await fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'general', value: { ...general, updateCheck: true } }) })
+    return info.status
+  })
+  check('the version check can be switched off', updateOff === 'disabled', updateOff)
 
   // ── Log retention ──────────────────────────────────────────────
   check('the retention job is scheduled when the server starts', appLog.includes('[retention] scheduled'))

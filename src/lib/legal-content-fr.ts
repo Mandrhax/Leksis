@@ -110,6 +110,7 @@ export function buildPrivacyPolicy(c: LegalContext): LegalDocument {
         'Les secrets stockés, comme une clé d’API pour le service IA, sont chiffrés et ne sont jamais affichés dans l’interface ni exportés.',
         ...(c.limits.rateLimitPerMin > 0 ? ['Les requêtes IA sont soumises à une limite de débit par utilisateur.'] : []),
         'Les connexions sont chiffrées en HTTPS lorsque l’administrateur l’a activé.',
+        ...(c.updateCheck ? ['Pour signaler les nouvelles versions aux administrateurs, le serveur lit une fois par jour la liste publique des versions de Leksis sur GitHub. Aucun contenu, aucun compte ni aucune autre information vous concernant n’est envoyé.'] : []),
       ],
     },
     {

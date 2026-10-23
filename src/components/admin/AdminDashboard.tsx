@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import type { Messages } from '@/locales/en'
 import { timeAgo } from '@/lib/relative-time'
+import type { UpdateInfo } from '@/lib/update-check'
 
 type AdminPagesMessages = Messages['adminPages']
 
@@ -170,6 +171,14 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
     { key: 'caddy',  name: 'Caddy',      icon: 'router',    href: '/admin/services/caddy', ok: null, version: null, latency: null },
   ])
   const [loadedModels, setLoadedModels] = useState<number | null>(null)
+  // Nouvelle version publiée pour le canal de l'installation (lib/update-check.ts, au plus un appel GitHub par jour)
+  const [update, setUpdate] = useState<UpdateInfo | null>(null)
+  useEffect(() => {
+    fetch('/api/admin/update-check', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(setUpdate)
+      .catch(() => setUpdate(null))
+  }, [])
 
   async function fetchMetrics() {
     setServices(s => s.map(svc => ({ ...svc, ok: null, version: null, latency: null })))
@@ -325,11 +334,31 @@ export function AdminDashboard({ stats, recentActivity, appVersion, trend, featu
                 <span className="font-headline font-bold text-sm text-on-surface flex-1">Leksis</span>
                 <StatusBadge ok={true} at={at} />
               </div>
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 items-baseline">
                 <span className="text-xs text-on-surface-variant">
                   <span className="font-medium text-on-surface">v{appVersion}</span>
                 </span>
+                {update?.status === 'up_to_date' && (
+                  <span className="text-xs text-on-surface-variant">{at.dashboardUpToDate}</span>
+                )}
+                {update?.status === 'unavailable' && (
+                  <span className="text-xs text-on-surface-variant" title={update.checkedAt}>{at.dashboardUpdateUnknown}</span>
+                )}
               </div>
+              {update?.status === 'available' && update.latest && (
+                <div role="status" data-testid="update-available" className="mt-3 rounded-lg bg-amber-500/10 border border-amber-500/25 px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-on-surface">
+                    <span className="material-symbols-outlined text-base leading-none text-amber-600" aria-hidden="true">upgrade</span>
+                    {at.dashboardUpdateAvailable.replace('{0}', update.latest)}
+                  </div>
+                  <div className="mt-1 text-xs text-on-surface-variant">
+                    {at.dashboardUpdateHint}
+                    {update.url && (
+                      <> · <a href={update.url} target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">{at.dashboardUpdateNotes}</a></>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             {/* Backup card */}
             <button
