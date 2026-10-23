@@ -41,11 +41,12 @@ function fakeServer() {
 
 function setup() {
   const server = fakeServer()
-  const state = { output: '', loading: false, error: '' }
+  const state = { output: '', loading: false, error: '', stale: false }
   const scheduler = new TranslationScheduler(CONFIG, server.translate, {
     onLoading: l => { state.loading = l },
     onOutput:  o => { state.output = o },
     onError:   e => { state.error = e },
+    onStale:   s => { state.stale = s },
   })
   return { scheduler, server, state }
 }
@@ -143,6 +144,63 @@ describe('cancellation', () => {
     expect(server.calls).toHaveLength(1)
     expect(server.calls[0].signal.aborted).toBe(true)
     expect(state.loading).toBe(false)
+  })
+
+  it('ignores an answer for a text that is no longer the current one', async () => {
+    const { scheduler, server, state } = setup()
+    // A translate function that does not stop on abort (answer already on its way)
+    const late: { push?: (s: string) => void } = {}
+    const deaf = new TranslationScheduler(CONFIG, () => ({
+      async *[Symbol.asyncIterator]() {
+        const chunk = await new Promise<string>(r => { late.push = r })
+        yield chunk
+      },
+    }), { onLoading: () => {}, onOutput: o => { state.output = o }, onError: () => {}, onStale: () => {} })
+    deaf.request(() => input('Bonjour'), 'button')
+    await flush()
+    deaf.cancel()
+    late.push!('Hallo (old)')
+    await flush()
+    expect(state.output).toBe('')
+
+    // Same with two requests: only the second one is displayed, whatever the arrival order
+    scheduler.request(() => input('Bonjour'), 'button')
+    await flush()
+    const first = server.calls[0]
+    scheduler.request(() => input('Bonjour à tous'), 'button')
+    await flush()
+    server.calls[1].push('Hallo zäme')
+    first.push('Hallo')
+    await flush()
+    expect(state.output).toBe('Hallo zäme')
+  })
+
+  it('keeps the previous translation, marked stale, until the first chunk of the new one', async () => {
+    const { scheduler, server, state } = setup()
+    scheduler.request(() => input('Bonjour'), 'button')
+    await flush()
+    server.calls[0].push('Hallo')
+    server.calls[0].end()
+    await flush()
+    expect(state).toMatchObject({ output: 'Hallo', stale: false, loading: false })
+
+    scheduler.request(() => input('Bonjour à tous'), 'button')
+    await flush()
+    expect(state).toMatchObject({ output: 'Hallo', stale: true, loading: true })
+    server.calls[1].push('Hallo zäme')
+    await flush()
+    expect(state).toMatchObject({ output: 'Hallo zäme', stale: false })
+  })
+
+  it('an error of a replaced request is not shown', async () => {
+    const state = { error: '' }
+    const failing = new TranslationScheduler(CONFIG, () => ({
+      async *[Symbol.asyncIterator]() { await new Promise(r => setTimeout(r, 10)); throw new Error('HTTP 502') },
+    }), { onLoading: () => {}, onOutput: () => {}, onError: e => { state.error = e }, onStale: () => {} })
+    failing.request(() => input('Bonjour'), 'button')
+    failing.cancel()
+    await vi.advanceTimersByTimeAsync(20)
+    expect(state.error).toBe('')
   })
 
   it('streams the output and clears the loading state at the end', async () => {

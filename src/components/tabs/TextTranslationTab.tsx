@@ -54,12 +54,15 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
   const [formality, setFormality]       = useState<Formality>(defaultFormality)
   const [isLoading, setIsLoading]       = useState(false)
   const [error, setError]               = useState<string | null>(null)
+  // La sortie affichée correspond à une version précédente du texte : atténuée jusqu'à la nouvelle
+  const [isStale, setIsStale]           = useState(false)
 
   // Quand partir (debounce, immédiat) et annulation de la requête précédente : voir lib/translate-scheduler.ts
   const [scheduler] = useState(() => new TranslationScheduler(triggers, fetchTranslation, {
     onLoading: setIsLoading,
     onOutput:  setOutputText,
     onError:   message => setError(message || null),
+    onStale:   setIsStale,
   }))
   useEffect(() => { scheduler.setConfig(triggers) }, [scheduler, triggers])
   useEffect(() => () => scheduler.cancel(), [scheduler])
@@ -298,7 +301,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
                 </button>
               </div>
             ) : outputText ? (
-              <span className="whitespace-pre-wrap">
+              <span className={`whitespace-pre-wrap transition-opacity ${isStale ? 'opacity-50' : ''}`} aria-busy={isLoading}>
                 {outputText}
                 {isLoading && <span className="inline-block w-[2px] h-[1em] bg-primary align-text-bottom ml-0.5 animate-pulse" aria-hidden="true" />}
               </span>

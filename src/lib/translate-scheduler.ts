@@ -2,7 +2,8 @@
 //
 // - frappe (`typing`, `auto_detect`) : attend une pause de `debounceMs` ;
 // - collage, bouton / Ctrl+Entrée, changement de langue ou de ton : immédiat ;
-// - une nouvelle traduction annule celle en cours (AbortController → le serveur coupe le modèle).
+// - une nouvelle traduction annule celle en cours (AbortController → le serveur coupe le modèle) et toute
+//   réponse d'une version du texte qui n'est plus la courante est ignorée.
 
 import type { Formality } from '@/types/leksis'
 import type { UsageTrigger } from '@/lib/usage-schema'
@@ -39,6 +40,8 @@ export interface SchedulerCallbacks {
   /** Texte accumulé de la traduction en cours */
   onOutput:  (text: string) => void
   onError:   (message: string) => void
+  /** true : la traduction affichée correspond à une version précédente du texte (en attente de la nouvelle) */
+  onStale:   (stale: boolean) => void
 }
 
 const DEBOUNCED: ReadonlySet<UsageTrigger> = new Set(['typing', 'auto_detect'])
@@ -58,6 +61,7 @@ export class TranslationScheduler {
   private timer: ReturnType<typeof setTimeout> | null = null
   private controller: AbortController | null = null
   private groupId = newRequestGroupId()
+  private version = 0
 
   constructor(
     private config: TextTriggerConfig,
@@ -83,10 +87,12 @@ export class TranslationScheduler {
     }
   }
 
-  /** Annule la traduction prévue ou en cours */
+  /** Annule la traduction prévue ou en cours ; toute réponse encore en route est ignorée */
   cancel(): void {
     this.clearTimer()
     this.abortInFlight()
+    this.version++
+    this.cb.onStale(false)
     this.cb.onLoading(false)
   }
 
@@ -105,9 +111,14 @@ export class TranslationScheduler {
     this.abortInFlight()
     const controller = new AbortController()
     this.controller = controller
+    // Numéro de version : un fragment d'une requête remplacée entre-temps est ignoré, même si l'abandon
+    // du fetch arrive trop tard (fragment déjà en mémoire, navigateur qui ne coupe pas tout de suite)
+    const version = ++this.version
+    const isCurrent = () => version === this.version
     this.cb.onLoading(true)
     this.cb.onError('')
-    this.cb.onOutput('')
+    // L'ancienne traduction reste affichée (atténuée) jusqu'au premier fragment de la nouvelle
+    this.cb.onStale(true)
 
     const body: TranslationBody = {
       text:           input.text,
@@ -120,17 +131,24 @@ export class TranslationScheduler {
       requestGroupId: this.groupId,
     }
 
+    let acc = ''
+    let received = false
     try {
-      let acc = ''
       for await (const chunk of this.translate(body, controller.signal)) {
+        if (!isCurrent()) return
         acc += chunk
+        received = true
+        this.cb.onStale(false)
         this.cb.onOutput(acc)
       }
+      // Réponse vide : l'ancienne traduction ne correspond plus au texte
+      if (isCurrent() && !received) this.cb.onOutput('')
     } catch (err) {
-      if (!isAbortError(err)) this.cb.onError((err as Error).message || 'Error')
+      if (isCurrent() && !isAbortError(err)) this.cb.onError((err as Error).message || 'Error')
     } finally {
-      if (this.controller === controller) {
+      if (isCurrent()) {
         this.controller = null
+        this.cb.onStale(false)
         this.cb.onLoading(false)
       }
     }
