@@ -97,3 +97,19 @@ describe('buildCorrectPrompt', () => {
     expect(prompt.endsWith('\nteh cat')).toBe(true)
   })
 })
+
+describe('buildTranslationPrompt — context of an incremental translation', () => {
+  const base = { sourceLang: 'French', sourceCode: 'fr', targetLang: 'German', targetCode: 'de-CH', text: 'Troisième paragraphe.' }
+
+  it('without context, the prompt is exactly the one of a whole-text translation', () => {
+    expect(buildTranslationPrompt({ ...base, context: undefined })).toBe(buildTranslationPrompt(base))
+    expect(buildTranslationPrompt(base)).not.toContain('For context only')
+  })
+
+  it('gives the previous paragraph as context, not to translate, and keeps the text last', () => {
+    const p = buildTranslationPrompt({ ...base, context: 'Deuxième paragraphe.' })
+    expect(p).toContain('Do not translate it and do not include it in your answer')
+    expect(p).toContain('<<<\nDeuxième paragraphe.\n>>>')
+    expect(p.endsWith('\n\nTroisième paragraphe.')).toBe(true)
+  })
+})

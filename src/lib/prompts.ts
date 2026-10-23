@@ -12,6 +12,11 @@ type TranslationPromptOptions = {
   formality?: Formality | null
   glossaryClause?: string
   text: string
+  /**
+   * Paragraphe source qui précède `text` (traduction incrémentale, un seul paragraphe retraduit) : donné pour la
+   * cohérence (pronoms, terminologie), à ne pas traduire. Absent = prompt identique à la traduction du texte entier.
+   */
+  context?: string
 }
 
 // Sans consigne de tonalité (source autre que l'anglais), le modèle vouvoie par défaut : on lui
@@ -22,8 +27,13 @@ const REGISTER_LINE =
   'Never make the text more formal or more casual than the original.\n'
 
 export function buildTranslationPrompt({
-  sourceLang, sourceCode, targetLang, targetCode, formality, glossaryClause = '', text,
+  sourceLang, sourceCode, targetLang, targetCode, formality, glossaryClause = '', text, context,
 }: TranslationPromptOptions): string {
+  const contextLine = context
+    ? `For context only, here is the paragraph that comes just before the text to translate. ` +
+      `Do not translate it and do not include it in your answer:\n<<<\n${context}\n>>>\n`
+    : ''
+
   const formalityLine = formality
     ? `Use the ${formality === 'Formal' ? 'formal' : 'informal'} form of address in ${targetLang} (e.g. ${
         formality === 'Formal'
@@ -38,6 +48,7 @@ export function buildTranslationPrompt({
     `while adhering to ${targetLang} grammar, vocabulary, and cultural sensitivities.\n` +
     formalityLine +
     glossaryClause +
+    contextLine +
     `Produce only the ${targetLang} translation, without any additional explanations or commentary. ` +
     `Please translate the following ${sourceLang} text into ${targetLang}:\n\n${text}`
   )

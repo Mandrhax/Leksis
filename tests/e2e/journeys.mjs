@@ -78,7 +78,8 @@ const aiServer = createServer((req, res) => {
     res.setHeader('Content-Type', 'application/json')
     if (req.url === '/api/tags') return res.end(JSON.stringify({ models: [{ name: 'fake-model', size: 1, modified_at: '' }] }))
     if (req.url !== '/api/generate') { res.statusCode = 404; return res.end('{}') }
-    const { prompt } = JSON.parse(body)
+    const { prompt, stream } = JSON.parse(body)
+    if (stream === true) return streamText(prompt, res)
     const joined = prompt.split('\n\n').pop()
     const parts = joined.split(' ||| ')
     aiCalls.push({ segments: parts.length, chars: joined.length, glossary: prompt.includes('Glossary —') })
@@ -87,6 +88,22 @@ const aiServer = createServer((req, res) => {
   })
 })
 await new Promise(resolve => aiServer.listen(AI_PORT, '127.0.0.1', resolve))
+
+// Text tab (streamed NDJSON, like Ollama): upper-cases the text to translate, blank lines kept. A text containing SLOW
+// streams one character every 50 ms, to test cancellation: the call records whether the app cut the connection.
+function streamText(prompt, res) {
+  const text = /into [^:\n]+:\n\n([\s\S]*)$/.exec(prompt)?.[1] ?? ''
+  const call = { stream: true, text, context: prompt.includes('For context only'), closed: false, finished: false }
+  aiCalls.push(call)
+  res.setHeader('Content-Type', 'application/x-ndjson')
+  const out = text.toUpperCase()
+  const send = s => res.write(JSON.stringify({ response: s, done: false }) + '\n')
+  const end = () => { call.finished = true; res.end(JSON.stringify({ response: '', done: true }) + '\n') }
+  if (!text.includes('SLOW')) { send(out); return end() }
+  let i = 0
+  const timer = setInterval(() => { if (i < out.length) send(out[i++]); else { clearInterval(timer); end() } }, 50)
+  res.on('close', () => { clearInterval(timer); if (!call.finished) call.closed = true })
+}
 
 // ── App ─────────────────────────────────────────────────────────
 const env = {
@@ -264,6 +281,85 @@ try {
   check('a long document is translated in several calls, in order',
     long.status === 200 && JSON.stringify(texts(long)) === JSON.stringify(longLines.map(l => l.toUpperCase())), String(long.status))
   check('each call stays within the batch size', aiCalls.length >= 2 && aiCalls.every(c => c.chars <= 3200), JSON.stringify(aiCalls))
+
+  // ── Text translation: incremental paragraphs, cache, skips, cancellation, usage log ──
+  const translateText = (text, extra = {}) => adminPage.evaluate(async (text, extra) => {
+    const r = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text, sourceLang: 'English', sourceCode: 'en', targetLang: 'French', targetCode: 'fr',
+        trigger: 'paste', requestGroupId: 'e2e-group', ...extra,
+      }),
+    })
+    return { status: r.status, text: await r.text() }
+  }, text, extra)
+  const usageRows = group => db.query('SELECT status, trigger_type, char_count, model_chars, latency_ms FROM usage_log WHERE request_group_id = $1 ORDER BY created_at', [group]).then(r => r.rows)
+  async function waitFor(cond, ms = 5000) {
+    for (let t = 0; t < ms; t += 100) { if (await cond()) return true; await new Promise(r => setTimeout(r, 100)) }
+    return false
+  }
+
+  const five = ['First paragraph of the text.', 'Second paragraph, with details.', 'Third paragraph, in the middle.',
+    'Fourth paragraph, almost done.', 'Fifth paragraph, the end.'].join('\n\n')
+  aiCalls.length = 0
+  const firstText = await translateText(five)
+  check('a text is translated in one call the first time', firstText.status === 200 && firstText.text === five.toUpperCase() && aiCalls.length === 1, JSON.stringify({ firstText, aiCalls }))
+
+  aiCalls.length = 0
+  const editedFive = five.replace('in the middle', 'right in the middle')
+  const editedText = await translateText(editedFive)
+  check('modifying one paragraph out of five sends only that paragraph to the model',
+    editedText.text === editedFive.toUpperCase() && aiCalls.length === 1 && aiCalls[0].text === 'Third paragraph, right in the middle.', JSON.stringify({ editedText, aiCalls }))
+  check('the changed paragraph is sent with the previous one as context', aiCalls[0]?.context === true)
+
+  aiCalls.length = 0
+  const again = await translateText(editedFive)
+  check('the same text again comes from the cache, without calling the model', again.text === editedFive.toUpperCase() && aiCalls.length === 0, JSON.stringify(aiCalls))
+
+  const sameLang = await translateText('Bonjour à tous', { sourceLang: 'French', sourceCode: 'fr', targetLang: 'French (Switzerland)', targetCode: 'fr-CH' })
+  check('a translation into the same language is refused without calling the model',
+    sameLang.status === 400 && JSON.parse(sameLang.text).code === 'same_language' && aiCalls.length === 0, sameLang.text)
+
+  await waitFor(async () => (await usageRows('e2e-group')).length >= 4)
+  const textRows = await usageRows('e2e-group')
+  check('usage_log records how each request ended', JSON.stringify(textRows.map(r => r.status)) === '["completed","completed","cache_hit","skipped"]', JSON.stringify(textRows))
+  check('usage_log counts only the characters really sent to the model',
+    textRows[0]?.model_chars === five.length && textRows[1]?.model_chars < textRows[1]?.char_count && textRows[2]?.model_chars === 0, JSON.stringify(textRows))
+  check('usage_log keeps the trigger and the latency', textRows.every(r => r.trigger_type === 'paste' && r.latency_ms !== null), JSON.stringify(textRows))
+
+  aiCalls.length = 0
+  await adminPage.evaluate(async () => {
+    const c = new AbortController()
+    const r = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'A SLOW text that takes a while to translate.', sourceLang: 'English', sourceCode: 'en',
+        targetLang: 'French', targetCode: 'fr', trigger: 'typing', requestGroupId: 'e2e-cancel',
+      }),
+      signal: c.signal,
+    })
+    await r.body.getReader().read()
+    c.abort()
+  }).catch(() => {})
+  check('a cancelled translation stops the model (connection to the engine closed)', await waitFor(() => aiCalls[0]?.closed === true), JSON.stringify(aiCalls))
+  await waitFor(async () => (await usageRows('e2e-cancel')).length === 1)
+  check('the cancelled translation is logged as cancelled', (await usageRows('e2e-cancel'))[0]?.status === 'cancelled', JSON.stringify(await usageRows('e2e-cancel')))
+
+  // In the Text tab: typing sends one request after the pause, Ctrl+Enter on the same text sends nothing
+  aiCalls.length = 0
+  await adminPage.goto(BASE + '/', { waitUntil: 'networkidle0' })
+  await adminPage.waitForSelector('#textTab textarea')
+  await adminPage.type('#textTab textarea', 'Bonjour à tous, ceci est un texte de test', { delay: 30 })
+  await adminPage.waitForFunction(() => document.querySelector('#textTab')?.innerText.includes('BONJOUR À TOUS, CECI EST UN TEXTE DE TEST'), { timeout: 15000 })
+  check('typing a sentence sends a single translation, after the pause', aiCalls.length === 1, JSON.stringify(aiCalls))
+  await adminPage.focus('#textTab textarea')
+  await adminPage.keyboard.down('Control')
+  await adminPage.keyboard.press('Enter')
+  await adminPage.keyboard.up('Control')
+  await new Promise(r => setTimeout(r, 500))
+  check('Ctrl+Enter on an unchanged text does not call the model again', aiCalls.length === 1, JSON.stringify(aiCalls))
 
   // ── Log retention ──────────────────────────────────────────────
   check('the retention job is scheduled when the server starts', appLog.includes('[retention] scheduled'))

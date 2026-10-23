@@ -6,12 +6,13 @@ import { buildTranslationPrompt, buildMarkdownTranslationPrompt } from '@/lib/pr
 import { validateTextInput, isValidLangName, isValidLangCode } from '@/lib/validators'
 import { getDynamicLimits, getTextTranslationConfig } from '@/lib/limits'
 import { logUsage, trackUsageStream, type UsageEntry } from '@/lib/usage'
-import { TranslationCache, translationCache, collectOnComplete, streamOfText } from '@/lib/translation-cache'
+import { translationCache } from '@/lib/translation-cache'
+import { translateIncremental } from '@/lib/translate-incremental'
 import { sameBaseLanguage } from '@/lib/languages'
 import { UsageTrackingSchema } from '@/lib/usage-schema'
 import { isFeatureEnabled } from '@/lib/features-guard'
 import { requireUser } from '@/lib/user-guard'
-import { fetchGlossaryEntries, buildTranslationGlossaryClause } from '@/lib/glossary'
+import { fetchGlossaryCandidates, filterRelevantTerms, buildTranslationGlossaryClause } from '@/lib/glossary'
 import type { Formality } from '@/types/leksis'
 
 export async function POST(req: NextRequest) {
@@ -79,25 +80,21 @@ export async function POST(req: NextRequest) {
   if (ai.error) return ai.error
   const { cfg, provider } = ai.ai
 
-  // Fetch glossary server-side (respects user preferences)
-  const glossaryEntries = await fetchGlossaryEntries(
-    session.user.id,
-    sourceCode || 'auto',
-    targetCode,
-    text,
-  )
-  const glossaryClause = buildTranslationGlossaryClause(glossaryEntries)
+  // Glossaire lu côté serveur (préférences de l'utilisateur) une fois, puis filtré sur chaque texte envoyé :
+  // texte entier ou paragraphe retraduit seul
+  const glossaryCandidates = await fetchGlossaryCandidates(session.user.id, sourceCode || 'auto', targetCode)
 
-  const prompt = markdownMode === true
-    ? buildMarkdownTranslationPrompt({ sourceLang: sourceLang || 'Unknown', targetLang, text })
+  const buildPrompt = (part: string, context?: string) => markdownMode === true
+    ? buildMarkdownTranslationPrompt({ sourceLang: sourceLang || 'Unknown', targetLang, text: part })
     : buildTranslationPrompt({
         sourceLang: sourceLang || 'Unknown',
         sourceCode: sourceCode || 'auto',
         targetLang,
         targetCode,
         formality,
-        glossaryClause,
-        text,
+        glossaryClause: buildTranslationGlossaryClause(filterRelevantTerms(glossaryCandidates, part)),
+        text: part,
+        context,
       })
 
   const usage: UsageEntry = {
@@ -108,30 +105,25 @@ export async function POST(req: NextRequest) {
     targetLang: targetCode,
     model:      cfg.translationModel,
     charCount:  text.length,
-    modelChars: text.length,
     ...tracking,
   }
 
-  // Même texte, mêmes réglages, même modèle : la traduction est déjà connue (mémoire du serveur, par utilisateur)
-  const { cacheTtlMinutes, cacheMaxEntries } = await getTextTranslationConfig()
-  const cacheLimits = { ttlMinutes: cacheTtlMinutes, maxEntries: cacheMaxEntries }
-  const cacheOn  = cacheTtlMinutes > 0 && cacheMaxEntries > 0
-  const cacheKey = TranslationCache.key(session.user.id, cfg.translationModel, prompt)
-  const cached   = cacheOn ? translationCache.get(cacheKey) : undefined
-
-  let source: ReadableStream<Uint8Array>
-  if (cached !== undefined) {
-    usage.status     = 'cache_hit'
-    usage.modelChars = 0
-    source = streamOfText(cached)
-  } else {
-    source = collectOnComplete(
-      gateStream(cfg.maxConcurrentAiRequests, req.signal, () =>
-        provider.stream({ prompt, signal: req.signal, model: cfg.translationModel })),
-      translated => { if (cacheOn) translationCache.set(cacheKey, translated, cacheLimits) },
-    )
-  }
-  const stream = trackUsageStream(source, usage, startedAt)
+  // Cache en mémoire par utilisateur + paragraphes inchangés non renvoyés au modèle (lib/translate-incremental.ts)
+  const textCfg = await getTextTranslationConfig()
+  const translated = translateIncremental({
+    text,
+    userId:         session.user.id,
+    model:          cfg.translationModel,
+    buildPrompt,
+    stream:         prompt => gateStream(cfg.maxConcurrentAiRequests, req.signal, () =>
+      provider.stream({ prompt, signal: req.signal, model: cfg.translationModel })),
+    cache:          translationCache,
+    limits:         { ttlMinutes: textCfg.cacheTtlMinutes, maxEntries: textCfg.cacheMaxEntries },
+    incremental:    markdownMode !== true,
+    segmentContext: textCfg.segmentContext,
+    usage,
+  })
+  const stream = trackUsageStream(translated, usage, startedAt)
 
   return new Response(stream, {
     headers: {
