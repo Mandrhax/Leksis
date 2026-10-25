@@ -312,7 +312,7 @@ try {
     'Fourth paragraph, almost done.', 'Fifth paragraph, the end.'].join('\n\n')
   aiCalls.length = 0
   const firstText = await translateText(five)
-  check('a text is translated in one call the first time', firstText.status === 200 && firstText.text === five.toUpperCase() && aiCalls.length === 1, JSON.stringify({ firstText, aiCalls }))
+  check('the first translation goes paragraph by paragraph (each one kept as soon as it is done)', firstText.status === 200 && firstText.text === five.toUpperCase() && aiCalls.length === 5 && aiCalls.slice(1).every(c => c.context), JSON.stringify({ firstText, aiCalls }))
 
   aiCalls.length = 0
   const editedFive = five.replace('in the middle', 'right in the middle')
@@ -333,7 +333,7 @@ try {
   const textRows = await usageRows('e2e-group')
   check('usage_log records how each request ended', JSON.stringify(textRows.map(r => r.status)) === '["completed","completed","cache_hit","skipped"]', JSON.stringify(textRows))
   check('usage_log counts only the characters really sent to the model',
-    textRows[0]?.model_chars === five.length && textRows[1]?.model_chars < textRows[1]?.char_count && textRows[2]?.model_chars === 0, JSON.stringify(textRows))
+    textRows[0]?.model_chars > five.length && textRows[1]?.model_chars < textRows[1]?.char_count && textRows[2]?.model_chars === 0, JSON.stringify(textRows))
   check('usage_log keeps the trigger and the latency', textRows.every(r => r.trigger_type === 'paste' && r.latency_ms !== null), JSON.stringify(textRows))
 
   aiCalls.length = 0

@@ -15,15 +15,13 @@ const FIVE = [
 ].join('\n\n')
 
 /** Fake model: "translates" every paragraph to DE(<paragraph>), keeping the blank lines; records each prompt */
-function fakeModel(opts: { mergeParagraphs?: boolean; chunk?: number } = {}) {
+function fakeModel(opts: { chunk?: number } = {}) {
   const prompts: { text: string; context?: string }[] = []
   const stream = (prompt: string) => {
     const p = JSON.parse(prompt) as { text: string; context?: string }
     prompts.push(p)
     const { parts, separators } = splitParagraphs(p.text)
-    const out = opts.mergeParagraphs
-      ? parts.map(x => `DE(${x})`).join(' ')
-      : '\n' + joinParagraphs(parts.map(x => `DE(${x})`), separators) + '\n' // models often add newlines
+    const out = '\n' + joinParagraphs(parts.map(x => `DE(${x})`), separators) + '\n' // models often add newlines
     const size = opts.chunk ?? 7
     let i = 0
     return new ReadableStream<Uint8Array>({
@@ -75,26 +73,57 @@ describe('splitParagraphs / joinParagraphs', () => {
 })
 
 describe('translateIncremental', () => {
-  it('first translation: one call on the whole text, as before', async () => {
+  it('first translation: paragraph by paragraph, in order, each with the previous one as context', async () => {
     const model = fakeModel()
     const { output, usage } = run(FIVE, model, new TranslationCache())
-    expect(await output).toContain('DE(Premier paragraphe')
-    expect(model.prompts).toHaveLength(1)
-    expect(model.prompts[0].text).toBe(FIVE)
-    expect(usage.modelChars).toBe(FIVE.length)
+    const { parts, separators } = splitParagraphs(FIVE)
+    expect(await output).toBe(joinParagraphs(parts.map(p => `DE(${p})`), separators))
+    expect(model.prompts.map(p => p.text)).toEqual(parts)
+    expect(model.prompts.map(p => p.context)).toEqual([undefined, ...parts.slice(0, -1)])
+    expect(usage.modelChars).toBe(parts.reduce((s, p, i) => s + p.length + (i ? parts[i - 1].length : 0), 0))
+  })
+
+  it('a single paragraph is still one call', async () => {
+    const model = fakeModel()
+    await run('Un seul paragraphe, sans ligne vide.', model, new TranslationCache()).output
+    expect(model.prompts).toEqual([{ text: 'Un seul paragraphe, sans ligne vide.' }])
+  })
+
+  it('a first translation cancelled half-way keeps the paragraphs already done', async () => {
+    const model = fakeModel({ chunk: 4 })
+    const cache = new TranslationCache()
+    const usage: UsageEntry = { userEmail: 'u@x.ch', feature: 'text' }
+    const reader = translateIncremental({
+      text: FIVE, userId: 'u1', model: 'translategemma:12b',
+      buildPrompt: (t, context) => JSON.stringify({ text: t, context }),
+      stream: model.stream, cache, limits: LIMITS, incremental: true, segmentContext: true, usage,
+    }).getReader()
+    // Read until the third paragraph has started, then the user types
+    for (let n = 0; n < 500 && model.prompts.length < 3; n++) {
+      if ((await reader.read()).done) break
+    }
+    expect(model.prompts).toHaveLength(3)
+    await reader.cancel()
+    expect(usage.modelChars).toBeLessThan(FIVE.length * 2)
+
+    const typed = FIVE + ' Et un mot.'
+    await run(typed, model, cache).output
+    // Paragraphs 1 and 2 come from the cache: only 3 (cut off), 4 and 5 (changed) are sent again
+    expect(model.prompts.slice(3).map(p => p.text)).toEqual(splitParagraphs(typed).parts.slice(2))
   })
 
   it('5 paragraphs, one modified ⇒ exactly one call, for that paragraph, with the previous one as context', async () => {
     const model = fakeModel()
     const cache = new TranslationCache()
     await run(FIVE, model, cache).output
+    model.prompts.length = 0
 
     const edited = FIVE.replace('Troisième paragraphe, au milieu.', 'Troisième paragraphe, au milieu, modifié.')
     const { output, usage } = run(edited, model, cache)
     const text = await output
 
-    expect(model.prompts).toHaveLength(2)
-    expect(model.prompts[1]).toEqual({ text: 'Troisième paragraphe, au milieu, modifié.', context: 'Deuxième paragraphe, avec des détails.' })
+    expect(model.prompts).toHaveLength(1)
+    expect(model.prompts[0]).toEqual({ text: 'Troisième paragraphe, au milieu, modifié.', context: 'Deuxième paragraphe, avec des détails.' })
     expect(text).toBe(joinParagraphs(splitParagraphs(edited).parts.map(p => `DE(${p})`), splitParagraphs(edited).separators))
     expect(usage.modelChars).toBe('Troisième paragraphe, au milieu, modifié.'.length + 'Deuxième paragraphe, avec des détails.'.length)
     expect(usage.modelChars!).toBeLessThan(edited.length)
@@ -106,7 +135,7 @@ describe('translateIncremental', () => {
     await run(FIVE, model, cache).output
     await run(FIVE + '\n\nSixième.', model, cache).output
     await run(FIVE + '\n\nSixième, plus long.', model, cache).output
-    expect(model.prompts.slice(1).map(p => p.text)).toEqual(['Sixième.', 'Sixième, plus long.'])
+    expect(model.prompts.slice(5).map(p => p.text)).toEqual(['Sixième.', 'Sixième, plus long.'])
   })
 
   it('without segmentContext, the changed paragraph is sent alone', async () => {
@@ -114,17 +143,16 @@ describe('translateIncremental', () => {
     const cache = new TranslationCache()
     await run(FIVE, model, cache, { segmentContext: false }).output
     await run(FIVE.replace('au milieu', 'au centre'), model, cache, { segmentContext: false }).output
-    expect(model.prompts[1].context).toBeUndefined()
+    expect(model.prompts[5]).toEqual({ text: 'Troisième paragraphe, au centre.' })
   })
 
-  it('more than half of the paragraphs changed ⇒ one call on the whole text', async () => {
+  it('three paragraphs changed ⇒ three calls, the two others from the cache', async () => {
     const model = fakeModel()
     const cache = new TranslationCache()
     await run(FIVE, model, cache).output
     const rewritten = FIVE.replace('Premier', 'First').replace('Deuxième', 'Second').replace('Troisième', 'Third')
     await run(rewritten, model, cache).output
-    expect(model.prompts).toHaveLength(2)
-    expect(model.prompts[1].text).toBe(rewritten)
+    expect(model.prompts.slice(5).map(p => p.text)).toEqual(splitParagraphs(rewritten).parts.slice(0, 3))
   })
 
   it('the same text again is a cache hit, without any call', async () => {
@@ -134,7 +162,7 @@ describe('translateIncremental', () => {
     const again = run(FIVE, model, cache)
     expect(await again.output).toBe(first)
     expect(again.usage).toMatchObject({ status: 'cache_hit', modelChars: 0 })
-    expect(model.prompts).toHaveLength(1)
+    expect(model.prompts).toHaveLength(5)
   })
 
   it('going back to an earlier version is served from the paragraph cache', async () => {
@@ -145,16 +173,7 @@ describe('translateIncremental', () => {
     const back = run(FIVE.replace('au milieu', 'au centre').replace('au centre', 'au milieu'), model, cache)
     await back.output
     expect(back.usage.status).toBe('cache_hit')
-    expect(model.prompts).toHaveLength(2)
-  })
-
-  it('a model that merges paragraphs: no per-paragraph cache, the next edit re-sends the whole text', async () => {
-    const model = fakeModel({ mergeParagraphs: true })
-    const cache = new TranslationCache()
-    await run(FIVE, model, cache).output
-    await run(FIVE.replace('au milieu', 'au centre'), model, cache).output
-    expect(model.prompts).toHaveLength(2)
-    expect(model.prompts[1].text).toBe(FIVE.replace('au milieu', 'au centre'))
+    expect(model.prompts).toHaveLength(6)
   })
 
   it('a disabled cache (TTL 0) never skips the model', async () => {
@@ -163,7 +182,7 @@ describe('translateIncremental', () => {
     const off = { limits: { ttlMinutes: 0, maxEntries: 1000 } }
     await run(FIVE, model, cache, off).output
     await run(FIVE, model, cache, off).output
-    expect(model.prompts).toHaveLength(2)
+    expect(model.prompts).toHaveLength(10)
   })
 
   it('markdown mode (Extract & translate) never splits the text', async () => {
@@ -179,7 +198,7 @@ describe('translateIncremental', () => {
     const cache = new TranslationCache()
     await run(FIVE, model, cache).output
     await run(FIVE, model, cache, { userId: 'u2' }).output
-    expect(model.prompts).toHaveLength(2)
+    expect(model.prompts).toHaveLength(10)
   })
 
   it('a cancelled incremental answer is not cached', async () => {

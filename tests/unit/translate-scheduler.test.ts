@@ -375,72 +375,14 @@ describe('helpers', () => {
 })
 
 describe('typing during a translation', () => {
-  it('does not abort it; only the latest version is sent once it is done', async () => {
-    const s = setup()
-    s.scheduler.request(() => input('Long texte collé.'), 'paste')
-    await flush()
-    for (const text of ['Long texte collé. A', 'Long texte collé. AB', 'Long texte collé. ABC']) {
-      s.scheduler.request(() => input(text), 'typing')
-      await vi.advanceTimersByTimeAsync(CONFIG.debounceMs)
-    }
-    expect(s.server.calls).toHaveLength(1)
-    expect(s.server.calls[0].signal.aborted).toBe(false)
-    expect(s.state.loading).toBe(true)
-
-    s.server.calls[0].push('Langer Text.')
-    s.server.calls[0].end()
-    await flush()
-    expect(s.server.calls).toHaveLength(2)
-    expect(s.server.calls[1].body).toMatchObject({ text: 'Long texte collé. ABC', trigger: 'typing' })
-    expect(s.state).toMatchObject({ output: 'Langer Text.', stale: true, loading: true })
-  })
-
-  it('the waiting version is still sent after an engine error', async () => {
+  it('cancels it at once and sends the new version (the server keeps the paragraphs already done)', async () => {
     const s = setup()
     s.scheduler.request(() => input('Long texte collé.'), 'paste')
     await flush()
     s.scheduler.request(() => input('Long texte collé. A'), 'typing')
     await vi.advanceTimersByTimeAsync(CONFIG.debounceMs)
-    s.server.calls[0].end() // empty answer, then the queued one
-    await flush()
-    expect(s.server.calls.map(c => c.body.text)).toEqual(['Long texte collé.', 'Long texte collé. A'])
-  })
-
-  it('paste, button or a language change still abort it at once', async () => {
-    for (const trigger of ['paste', 'button', 'lang_change'] as const) {
-      const s = setup()
-      s.scheduler.request(() => input('Long texte collé.'), 'paste')
-      await flush()
-      s.scheduler.request(() => input('Long texte collé. A'), 'typing')
-      await vi.advanceTimersByTimeAsync(CONFIG.debounceMs)
-      s.scheduler.request(() => input('Autre texte, autre chose.'), trigger)
-      await flush()
-      expect(s.server.calls).toHaveLength(2)
-      expect(s.server.calls[0].signal.aborted).toBe(true)
-      s.server.calls[1].end()
-      await flush()
-      expect(s.server.calls).toHaveLength(2) // the typed version waiting was dropped
-    }
-  })
-
-  it('typing back to the text in flight drops the waiting version; cancel() drops it too', async () => {
-    const s = setup()
-    s.scheduler.request(() => input('Long texte collé.'), 'paste')
-    await flush()
-    s.scheduler.request(() => input('Long texte collé. A'), 'typing')
-    await vi.advanceTimersByTimeAsync(CONFIG.debounceMs)
-    s.scheduler.request(() => input('Long texte collé.'), 'typing')
-    await vi.advanceTimersByTimeAsync(CONFIG.debounceMs)
-    s.server.calls[0].end()
-    await flush()
-    expect(s.server.calls).toHaveLength(1)
-
-    s.scheduler.request(() => input('Encore un texte.'), 'paste')
-    await flush()
-    s.scheduler.request(() => input('Encore un texte. B'), 'typing')
-    await vi.advanceTimersByTimeAsync(CONFIG.debounceMs)
-    s.scheduler.cancel()
-    await flush()
     expect(s.server.calls).toHaveLength(2)
+    expect(s.server.calls[0].signal.aborted).toBe(true)
+    expect(s.server.calls[1].body).toMatchObject({ text: 'Long texte collé. A', trigger: 'typing' })
   })
 })

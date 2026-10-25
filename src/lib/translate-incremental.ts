@@ -6,11 +6,13 @@ import type { UsageEntry } from '@/lib/usage'
 // Traduction incrémentale de l'onglet Texte : seuls les paragraphes nouveaux ou modifiés partent au modèle.
 //
 // 1. Texte entier déjà traduit (cache) → renvoyé tel quel, aucun appel.
-// 2. Un seul paragraphe, ou plus de la moitié des paragraphes inconnus (première traduction comprise) → un seul
-//    appel sur le texte entier, comme avant (cohérence complète). Si la traduction a autant de paragraphes que
-//    la source, chaque paire est mise en cache : la modification suivante pourra n'envoyer qu'un paragraphe.
-// 3. Sinon → les paragraphes connus sortent du cache tout de suite, chaque paragraphe inconnu est traduit seul,
-//    dans l'ordre, avec le paragraphe source précédent comme contexte (réglage segmentContext).
+// 2. Un seul paragraphe → un seul appel.
+// 3. Plusieurs paragraphes, première traduction comprise → les paragraphes connus sortent du cache tout de suite,
+//    chaque paragraphe inconnu est traduit seul, dans l'ordre, avec le paragraphe source précédent comme contexte
+//    (réglage segmentContext), et mis en cache dès qu'il est terminé. La frappe peut ainsi annuler la traduction
+//    en cours sans perdre les paragraphes déjà faits : la suivante les reprend du cache et repart de là.
+//    (Avant : la première traduction était un appel unique sur tout le texte — rien en cache avant la fin, donc
+//    tout était perdu à la première pause de frappe sur un long texte.)
 //
 // Le client ne voit qu'un flux de texte brut, dans l'ordre, comme pour un appel unique.
 //
@@ -63,18 +65,14 @@ export function translateIncremental(o: IncrementalOptions): ReadableStream<Uint
     return fromCache(assembled)
   }
 
-  if (parts.length <= 1 || missing * 2 > parts.length) {
+  if (parts.length <= 1) {
     o.usage.modelChars = o.text.length
-    return collectOnComplete(o.stream(fullPrompt), translated => {
-      put(fullKey, translated)
-      const out = splitParagraphs(translated)
-      // Autant de paragraphes en sortie qu'en entrée : la correspondance est sûre, sinon on ne devine pas
-      if (parts.length > 1 && out.parts.length === parts.length) out.parts.forEach((p, i) => put(partKeys[i], p))
-    })
+    return collectOnComplete(o.stream(fullPrompt), translated => put(fullKey, translated))
   }
 
   const contextOf = (i: number) => (o.segmentContext && i > 0 ? parts[i - 1] : undefined)
-  o.usage.modelChars = parts.reduce((sum, p, i) => (known[i] === undefined ? sum + p.length + (contextOf(i)?.length ?? 0) : sum), 0)
+  // Compté au fur et à mesure : une traduction annulée en route n'a envoyé que les paragraphes déjà partis
+  o.usage.modelChars = 0
 
   return streamFromGenerator((async function* () {
     const done: string[] = []
@@ -86,6 +84,7 @@ export function translateIncremental(o: IncrementalOptions): ReadableStream<Uint
         yield encoder.encode(cached)
         continue
       }
+      o.usage.modelChars = (o.usage.modelChars ?? 0) + parts[i].length + (contextOf(i)?.length ?? 0)
       let translated = ''
       for await (const chunk of trimmedText(o.stream(o.buildPrompt(parts[i], contextOf(i))))) {
         translated += chunk
