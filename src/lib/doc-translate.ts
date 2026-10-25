@@ -90,11 +90,12 @@ export async function translateSegments(
     return [...await run(batch.slice(0, mid)), ...await run(batch.slice(mid))]
   }
 
-  // Seuls les segments non vides passent par le modèle
+  // Seuls les segments qui contiennent des lettres passent par le modèle : vides, nombres, dates, montants
+  // (cellules de tableau, de CSV) restent tels quels
   const positions: number[] = []
   const texts: string[] = []
   segments.forEach((s, i) => {
-    if (s.trim()) { positions.push(i); texts.push(neutralizeSeparator(s)) }
+    if (/\p{L}/u.test(s)) { positions.push(i); texts.push(neutralizeSeparator(s)) }
   })
 
   const batches = splitIntoBatches(texts, opts.maxChars)

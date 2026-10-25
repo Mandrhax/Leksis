@@ -309,6 +309,29 @@ try {
     const r = await fetch('/api/translate/document', { method: 'POST', body: form, headers: { Accept: 'application/x-ndjson' } })
     return { type: r.headers.get('content-type'), events: (await r.text()).trim().split(String.fromCharCode(10)).map(l => JSON.parse(l)) }
   }, longLines.join(String.fromCharCode(10)))
+  // A Word document is translated inside the original file: formatting and header kept
+  const { Document: DocxDocument, Header: DocxHeader, Packer: DocxPacker, Paragraph: DocxParagraph, TextRun: DocxRun } = await import('docx')
+  const wordFile = await DocxPacker.toBuffer(new DocxDocument({ sections: [{
+    headers: { default: new DocxHeader({ children: [new DocxParagraph('Internal header')] }) },
+    children: [new DocxParagraph({ children: [new DocxRun('Plain and '), new DocxRun({ text: 'bold text', bold: true })] })],
+  }] }))
+  const wordResult = await adminPage.evaluate(async b64 => {
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+    const form = new FormData()
+    form.append('file', new File([bytes], 'letter.docx'))
+    form.append('targetLang', 'French')
+    form.append('sourceLang', 'English')
+    const r = await fetch('/api/translate/document', { method: 'POST', body: form })
+    return { status: r.status, json: await r.json() }
+  }, Buffer.from(wordFile).toString('base64'))
+  const JSZip = (await import('jszip')).default
+  const wordZip = wordResult.json.docx ? await JSZip.loadAsync(Buffer.from(wordResult.json.docx, 'base64')) : null
+  const wordBody = wordZip ? await wordZip.file('word/document.xml').async('string') : ''
+  const wordHeader = wordZip ? await wordZip.file(Object.keys(wordZip.files).find(f => /^word\/header\d*\.xml$/.test(f))).async('string') : ''
+  check('a Word document is translated inside the original file (bold run and header kept)',
+    wordResult.status === 200 && wordBody.includes('PLAIN AND BOLD TEXT') && wordBody.includes('<w:b/>') && wordHeader.includes('INTERNAL HEADER'),
+    JSON.stringify({ status: wordResult.status, blocks: wordResult.json.blocks, hasDocx: !!wordResult.json.docx }))
+
   const progressEvents = streamed.events.filter(e => e.progress)
   check('the document stream reports progress batch by batch, then the translated blocks',
     streamed.type?.startsWith('application/x-ndjson') && progressEvents.length >= 3
@@ -386,7 +409,7 @@ try {
   await adminPage.goto(BASE + '/', { waitUntil: 'networkidle0' })
   await adminPage.waitForSelector('#textTab textarea')
   await adminPage.type('#textTab textarea', 'Bonjour à tous, ceci est un texte de test', { delay: 30 })
-  await adminPage.waitForFunction(() => document.querySelector('#textTab')?.innerText.includes('BONJOUR À TOUS, CECI EST UN TEXTE DE TEST'), { timeout: 15000 })
+  await adminPage.waitForFunction(() => (el => !!el && (el.innerText + [...el.querySelectorAll('textarea')].map(a => a.value).join(' ')).includes('BONJOUR À TOUS, CECI EST UN TEXTE DE TEST'))(document.querySelector('#textTab')), { timeout: 15000 })
   check('typing a sentence sends a single translation, after the pause', aiCalls.length === 1, JSON.stringify(aiCalls))
   await adminPage.focus('#textTab textarea')
   await adminPage.keyboard.down('Control')
@@ -403,7 +426,7 @@ try {
   await adminPage.goto(BASE + '/', { waitUntil: 'networkidle0' })
   await adminPage.waitForSelector('#textTab textarea')
   await adminPage.type('#textTab textarea', 'Pourriez-vous nous envoyer votre rapport demain ?', { delay: 10 })
-  await adminPage.waitForFunction(() => document.querySelector('#textTab')?.innerText.includes('POURRIEZ-VOUS NOUS ENVOYER VOTRE RAPPORT DEMAIN ?'), { timeout: 15000 })
+  await adminPage.waitForFunction(() => (el => !!el && (el.innerText + [...el.querySelectorAll('textarea')].map(a => a.value).join(' ')).includes('POURRIEZ-VOUS NOUS ENVOYER VOTRE RAPPORT DEMAIN ?'))(document.querySelector('#textTab')), { timeout: 15000 })
   const register = await adminPage.evaluate(() => ({
     active:   document.querySelector('#textTab .formal-btn.active')?.textContent,
     detected: !!document.querySelector('[data-testid=formality-detected]'),
@@ -415,7 +438,7 @@ try {
   aiCalls.length = 0
   await adminPage.evaluate(() => [...document.querySelectorAll('#textTab .formal-btn')].find(b => b.textContent === 'Informal').click())
   await adminPage.type('#textTab textarea', ' Merci.', { delay: 10 })
-  await adminPage.waitForFunction(() => document.querySelector('#textTab')?.innerText.includes('MERCI.'), { timeout: 15000 })
+  await adminPage.waitForFunction(() => (el => !!el && (el.innerText + [...el.querySelectorAll('textarea')].map(a => a.value).join(' ')).includes('MERCI.'))(document.querySelector('#textTab')), { timeout: 15000 })
   check('a manual formal / informal choice wins over the detection', aiCalls.length >= 1 && aiCalls.every(c => c.register === 'informal'), JSON.stringify(aiCalls))
   await adminPage.evaluate(() => localStorage.removeItem('leksisTargetLang'))
 

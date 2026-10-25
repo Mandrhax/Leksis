@@ -3,6 +3,8 @@ import { getAiOrError, withAiSlot } from '@/lib/llm'
 import { buildDocumentTranslationPrompt } from '@/lib/prompts'
 import { blocksToSegments, applySegments } from '@/lib/file-parser'
 import { extractDocumentBlocks } from '@/lib/document-extract'
+import { detectLanguage } from '@/lib/languages'
+import { docxBlocks, docxSegments, writeDocx } from '@/lib/docx-inplace'
 import { translateSegments } from '@/lib/doc-translate'
 import { fetchGlossaryCandidates, filterRelevantTerms, buildTranslationGlossaryClause } from '@/lib/glossary'
 import { logUsage } from '@/lib/usage'
@@ -43,6 +45,9 @@ export async function POST(req: NextRequest) {
   const sourceCodeRaw = formData.get('sourceCode')
   const targetCode = isValidLangCode(targetCodeRaw) ? targetCodeRaw : ''
   const sourceCode = isValidLangCode(sourceCodeRaw) ? sourceCodeRaw : 'auto'
+  // Tutoiement / vouvoiement imposé par l'utilisateur ; absent = celui du document d'origine
+  const formalityRaw = formData.get('formality')
+  const formality = formalityRaw === 'Formal' || formalityRaw === 'Informal' ? formalityRaw : null
 
   if (!file) return NextResponse.json({ error: 'No file provided.' }, { status: 400 })
   if (!targetLang) return NextResponse.json({ error: 'Target language is required.' }, { status: 400 })
@@ -67,11 +72,19 @@ export async function POST(req: NextRequest) {
   if (extracted.error) {
     return extracted.error instanceof Response ? extracted.error : NextResponse.json(extracted.error, { status: extracted.status })
   }
-  const { blocks, charCount } = extracted
+  const { blocks, charCount, docx } = extracted
+  // DOCX : un segment par paragraphe du XML Word (corps, en-têtes, pieds de page), réécrit ensuite dans le fichier
+  const segmentsIn = docx ? docxSegments(docx) : blocksToSegments(blocks)
+
+  // Langue source non choisie : détectée sur le texte extrait — elle sert au prompt (plutôt que « Auto »), au glossaire
+  // et au journal, et l'onglet l'affiche (« Détection auto · Français »)
+  const detected = !sourceLang || sourceCode === 'auto' ? detectLanguage(segmentsIn.join('\n').slice(0, 4000)) : null
+  const srcName = detected?.name ?? sourceLang ?? ''
+  const srcCode = detected?.code ?? sourceCode
 
   // Glossaire de l'utilisateur : les termes admissibles sont lus une fois, puis filtrés lot par lot
   const glossaryCandidates = targetCode
-    ? await fetchGlossaryCandidates(session.user.id, sourceCode, targetCode)
+    ? await fetchGlossaryCandidates(session.user.id, srcCode, targetCode)
     : []
 
   // Codes de langue (et non les noms affichés) dans le journal
@@ -79,21 +92,20 @@ export async function POST(req: NextRequest) {
     userId:     session.user.id,
     userEmail:  session.user.email ?? 'unknown',
     feature:    'document' as const,
-    sourceLang: sourceCode,
+    sourceLang: srcCode,
     targetLang: targetCode || targetLang,
     model:      cfg.translationModel,
     charCount,
     modelChars: charCount,
   }
 
-  const segmentsIn = blocksToSegments(blocks)
   const translate = async (onProgress?: (done: number, total: number) => void) => {
     try {
       const { segments, stats } = await translateSegments(
         segmentsIn,
         (joined, count) => withAiSlot(cfg.maxConcurrentAiRequests, () => provider.complete({
           prompt: buildDocumentTranslationPrompt({
-            segments: joined, segmentCount: count, sourceLang: sourceLang || 'Auto', targetLang,
+            segments: joined, segmentCount: count, sourceLang: srcName || 'Auto', targetLang, formality,
             glossaryClause: buildTranslationGlossaryClause(filterRelevantTerms(glossaryCandidates, joined)),
           }),
           signal: req.signal,
@@ -104,7 +116,12 @@ export async function POST(req: NextRequest) {
       // Le modèle a mal respecté les séparateurs : à savoir pour choisir ou régler le modèle
       if (stats.retries || stats.splits) console.warn(`[translate/document] separators not respected by ${cfg.translationModel}:`, stats)
       logUsage({ ...usage, status: 'completed', latencyMs: Date.now() - startedAt })
-      return applySegments(blocks, segments)
+      if (docx) {
+        // Le fichier d'origine avec la traduction à la place du texte : mise en page, images, styles conservés
+        const file = (await writeDocx(docx, segments)).toString('base64')
+        return { blocks: docxBlocks(docx, segments), docx: file }
+      }
+      return { blocks: applySegments(blocks, segments) }
     } catch (err) {
       logUsage({ ...usage, status: req.signal.aborted ? 'cancelled' : 'error', latencyMs: Date.now() - startedAt })
       console.error('[translate/document] translation failed:', err)
@@ -116,7 +133,7 @@ export async function POST(req: NextRequest) {
   // Sans « Accept: application/x-ndjson » (scripts, anciens clients) : une seule réponse JSON à la fin
   if (!(req.headers.get('accept') ?? '').includes('application/x-ndjson')) {
     const translated = await translate()
-    return translated ? NextResponse.json({ blocks: translated }) : NextResponse.json(failure, { status: 502 })
+    return translated ? NextResponse.json({ ...translated, detected }) : NextResponse.json(failure, { status: 502 })
   }
 
   // Une ligne JSON par événement : {"progress":{"done","total"}} à chaque lot terminé, puis {"blocks":[…]} ou
@@ -127,8 +144,9 @@ export async function POST(req: NextRequest) {
       const send = (event: object) => {
         try { controller.enqueue(encoder.encode(JSON.stringify(event) + '\n')) } catch { /* client parti */ }
       }
+      if (detected) send({ detected })
       const translated = await translate((done, total) => send({ progress: { done, total } }))
-      send(translated ? { blocks: translated } : failure)
+      send(translated ?? failure)
       try { controller.close() } catch { /* client parti */ }
     },
   }), { headers: { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' } })

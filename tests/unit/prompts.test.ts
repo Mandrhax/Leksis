@@ -113,3 +113,23 @@ describe('buildTranslationPrompt — context of an incremental translation', () 
     expect(p.endsWith('\n\nTroisième paragraphe.')).toBe(true)
   })
 })
+
+describe('buildDocumentTranslationPrompt: form of address', () => {
+  const base = { segments: 'a ||| b', segmentCount: 2, sourceLang: 'English', targetLang: 'French' }
+  it('keeps the register of the original by default', () => {
+    expect(buildDocumentTranslationPrompt(base)).toContain('Keep the register of the original')
+  })
+  it('applies the form of address chosen by the user', () => {
+    expect(buildDocumentTranslationPrompt({ ...base, formality: 'Formal' })).toContain('Use the formal form of address in French')
+    expect(buildDocumentTranslationPrompt({ ...base, formality: 'Informal' })).toContain('Use the informal form of address in French')
+  })
+})
+
+describe('buildMarkdownTranslationPrompt: form of address and glossary (Extract & translate)', () => {
+  it('passes the chosen form of address and the glossary, text still last', () => {
+    const p = buildMarkdownTranslationPrompt({ sourceLang: 'English', targetLang: 'German', text: '## Hi', formality: 'Informal', glossaryClause: 'GLOSSARY\n' })
+    expect(p).toContain('Use the informal form of address in German')
+    expect(p).toContain('GLOSSARY')
+    expect(p.endsWith('## Hi')).toBe(true)
+  })
+})

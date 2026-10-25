@@ -83,7 +83,10 @@ export async function POST(req: NextRequest) {
   const glossaryCandidates = await fetchGlossaryCandidates(session.user.id, sourceCode || 'auto', targetCode)
 
   const buildPrompt = (part: string, context?: string) => markdownMode === true
-    ? buildMarkdownTranslationPrompt({ sourceLang: sourceLang || 'Unknown', targetLang, text: part })
+    ? buildMarkdownTranslationPrompt({
+        sourceLang: sourceLang || 'Unknown', targetLang, text: part, formality,
+        glossaryClause: buildTranslationGlossaryClause(filterRelevantTerms(glossaryCandidates, part)),
+      })
     : buildTranslationPrompt({
         sourceLang: sourceLang || 'Unknown',
         sourceCode: sourceCode || 'auto',

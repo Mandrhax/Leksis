@@ -26,6 +26,16 @@ const REGISTER_LINE =
   'translate it informally; if it addresses the reader formally (for example "vous", "Sie", "usted"), translate it formally. ' +
   'Never make the text more formal or more casual than the original.\n'
 
+/** Consigne de tutoiement / vouvoiement : imposée par l'utilisateur, sinon celle du texte d'origine. */
+function addressLine(formality: Formality | null | undefined, targetLang: string): string {
+  if (!formality) return REGISTER_LINE
+  return `Use the ${formality === 'Formal' ? 'formal' : 'informal'} form of address in ${targetLang} (e.g. ${
+    formality === 'Formal'
+      ? 'formal pronouns such as "vous" in French or "Sie" in German'
+      : 'informal pronouns such as "tu" in French or "du" in German'
+  }).\n`
+}
+
 export function buildTranslationPrompt({
   sourceLang, sourceCode, targetLang, targetCode, formality, glossaryClause = '', text, context,
 }: TranslationPromptOptions): string {
@@ -34,13 +44,7 @@ export function buildTranslationPrompt({
       `Do not translate it and do not include it in your answer:\n<<<\n${context}\n>>>\n`
     : ''
 
-  const formalityLine = formality
-    ? `Use the ${formality === 'Formal' ? 'formal' : 'informal'} form of address in ${targetLang} (e.g. ${
-        formality === 'Formal'
-          ? 'formal pronouns such as "vous" in French or "Sie" in German'
-          : 'informal pronouns such as "tu" in French or "du" in German'
-      }).\n`
-    : REGISTER_LINE
+  const formalityLine = addressLine(formality, targetLang)
 
   return (
     `You are a professional ${sourceLang} (${sourceCode}) to ${targetLang} (${targetCode}) translator. ` +
@@ -63,10 +67,12 @@ type DocumentTranslationPromptOptions = {
   sourceLang: string
   targetLang: string
   glossaryClause?: string
+  /** Tutoiement / vouvoiement imposé ; absent = celui du document d'origine */
+  formality?: Formality | null
 }
 
 export function buildDocumentTranslationPrompt({
-  segments, segmentCount, sourceLang, targetLang, glossaryClause = '',
+  segments, segmentCount, sourceLang, targetLang, glossaryClause = '', formality,
 }: DocumentTranslationPromptOptions): string {
   const countLine = segmentCount && segmentCount > 1
     ? `There are exactly ${segmentCount} segments, so your output must contain exactly ${segmentCount} segments and ${segmentCount - 1} ||| tokens. `
@@ -77,7 +83,7 @@ export function buildDocumentTranslationPrompt({
     `The segments are separated by ||| tokens. ` +
     `You MUST preserve every ||| token exactly as-is in your output — do not remove, merge, or add any. ` +
     countLine +
-    REGISTER_LINE +
+    addressLine(formality, targetLang) +
     glossaryClause +
     `Translate each segment independently. Do not add any explanations.\n\n` +
     segments
@@ -119,13 +125,18 @@ type MarkdownTranslationPromptOptions = {
   sourceLang: string
   targetLang: string
   text: string
+  formality?: Formality | null
+  glossaryClause?: string
 }
 
-export function buildMarkdownTranslationPrompt({ sourceLang, targetLang, text }: MarkdownTranslationPromptOptions): string {
+export function buildMarkdownTranslationPrompt({ sourceLang, targetLang, text, formality, glossaryClause = '' }: MarkdownTranslationPromptOptions): string {
   return (
     `Translate the following text from ${sourceLang} to ${targetLang}.\n` +
     `Return only the translated text in the same Markdown structure as the input.\n` +
-    `Do not translate Markdown syntax (##, ###, **, -, |, etc.) — only translate the natural language content.\n\n` +
+    `Do not translate Markdown syntax (##, ###, **, -, |, etc.) — only translate the natural language content.\n` +
+    addressLine(formality, targetLang) +
+    glossaryClause +
+    `\n` +
     text
   )
 }

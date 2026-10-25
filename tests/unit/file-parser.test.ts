@@ -5,7 +5,7 @@ import {
 import type { Block } from '@/types/leksis'
 import {
   applySegments, blocksToSegments, countBlockChars, isProbablyScanned,
-  parseDocx, parseFile, parseHtmlTable, parseTxt, stripInlineHtml, textToBlocks, mergeWrappedLines, parsePdf, pdfItemsToLines, zipUncompressedSize, DOCX_MAX_UNCOMPRESSED_BYTES,
+  parseDocx, parseFile, parseHtmlTable, parseTxt, stripInlineHtml, textToBlocks, mergeWrappedLines, parsePdf, pdfItemsToLines, parseCsv, zipUncompressedSize, DOCX_MAX_UNCOMPRESSED_BYTES,
 } from '@/lib/file-parser'
 import { blocksToDocx } from '@/lib/docx-export'
 
@@ -204,7 +204,7 @@ describe('blocksToDocx', () => {
       { type: 'table', headers: [], rows: [['A', 'B'], ['1', '2']] },
       { type: 'paragraph', text: 'After' },
     ])
-    // Word refuses a row without any cell (mammoth does not mind, so the XML is checked directly)
+    // Word refuses a row without any cell (a lenient reader does not mind, so the XML is checked directly)
     const JSZip = (await import('jszip')).default
     const xml = await (await JSZip.loadAsync(buf)).file('word/document.xml')!.async('string')
     const rows = xml.match(/<w:tr[ >][\s\S]*?<\/w:tr>/g) ?? []
@@ -240,5 +240,16 @@ describe('parsePdf (pdfjs-dist)', () => {
     const at = (str: string, y: number, hasEOL = false) => ({ str, transform: [1, 0, 0, 1, 0, y], hasEOL })
     expect(pdfItemsToLines([at('Hello', 700), at('world', 700, true), at('Next', 680), at('line', 680.4), at('Third', 660)]))
       .toEqual(['Hello world', 'Next line', 'Third'])
+  })
+})
+
+describe('parseCsv', () => {
+  it('reads a CSV as one table, cell by cell (separator detected, quotes, uneven rows padded)', () => {
+    const csv = '﻿Name;Description;Price\n"Watch; steel";"A ""classic"" model";1200\nStrap;Leather\n'
+    expect(parseCsv(Buffer.from(csv))).toEqual([{
+      type: 'table',
+      headers: ['Name', 'Description', 'Price'],
+      rows: [['Watch; steel', 'A "classic" model', '1200'], ['Strap', 'Leather', '']],
+    }])
   })
 })

@@ -133,3 +133,12 @@ describe('translateSegments', () => {
     expect(translate).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('translateSegments: segments without letters', () => {
+  it('numbers, dates and amounts (table and CSV cells) are kept as they are, never sent to the model', async () => {
+    const translate = vi.fn(upper)
+    const { segments } = await translateSegments(['Total', '1 250.50', '2026-10-25', '42 %', 'paid'], translate)
+    expect(segments).toEqual(['TOTAL', '1 250.50', '2026-10-25', '42 %', 'PAID'])
+    expect(translate.mock.calls.map(c => c[0])).toEqual(['Total ||| paid'])
+  })
+})

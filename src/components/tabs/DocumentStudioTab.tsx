@@ -4,12 +4,14 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
-import type { Block, Language } from '@/types/leksis'
+import type { Block, Formality, Language } from '@/types/leksis'
 import { ReportResultLink } from '@/components/ui/ReportResultLink'
 import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
 import type { FeedbackCategory } from '@/lib/feedback-schema'
 import { apiError, apiErrorMessage } from '@/lib/api-error'
 import { DEFAULT_TARGET_LANGUAGE, loadStoredLanguage, saveStoredLanguage } from '@/lib/stored-language'
+import { hasFormalAddress } from '@/lib/register-detect'
+import { AddressChoice } from '@/components/ui/AddressChoice'
 
 const DOC_TARGET_KEY = 'leksisDocTargetLang'
 
@@ -58,6 +60,15 @@ function blocksToText(blocks: Block[]): string {
   }).filter(Boolean).join('\n\n')
 }
 
+/** CSV traduit : tableaux en lignes, champs entre guillemets, BOM pour qu'Excel lise les accents. */
+function blocksToCsv(blocks: Block[]): string {
+  const field = (s: string) => `"${s.replace(/"/g, '""')}"`
+  const lines = blocks
+    .filter((b): b is Extract<Block, { type: 'table' }> => b.type === 'table')
+    .flatMap(b => [b.headers, ...b.rows].map(r => r.map(field).join(',')))
+  return '﻿' + lines.join('\r\n') + '\r\n'
+}
+
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
@@ -78,9 +89,15 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
   const [mode, setMode]             = useState<Mode>('translate')
   const [sourceLang, setSourceLang] = useState<Language | null>(null)
   const [targetLang, setTargetLang] = useState<Language>(DEFAULT_TARGET_LANGUAGE)
+  // Tutoiement / vouvoiement de la traduction ; null = comme l'original
+  const [formality, setFormality]   = useState<Formality | null>(null)
   const [isLoading, setIsLoading]   = useState(false)
   const [step, setStep]             = useState<'extracting' | 'translating' | null>(null)
   const [progress, setProgress]     = useState<{ done: number; total: number } | null>(null)
+  // DOCX traduit dans le fichier d'origine (base64) : téléchargé tel quel, mise en page conservée
+  const [translatedDocx, setTranslatedDocx] = useState<string | null>(null)
+  // Langue reconnue par le serveur quand la source est en détection automatique
+  const [detectedLang, setDetectedLang] = useState<Language | null>(null)
   const [error, setError]           = useState<string | null>(null)
   const [outputHtml, setOutputHtml] = useState<string>('')
   const [outputBlocks, setOutputBlocks] = useState<Block[] | null>(null)
@@ -93,8 +110,10 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
 
   const handleFile = (f: File) => {
     setFile(f)
+    setDetectedLang(null)
     setOutputHtml('')
     setOutputBlocks(null)
+    setTranslatedDocx(null)
     setError(null)
   }
 
@@ -140,6 +159,7 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
       } else {
         formData.append('targetLang', targetLang.name)
         formData.append('targetCode', targetLang.code)
+        if (formality && hasFormalAddress(targetLang.code)) formData.append('formality', formality)
         if (sourceLang) {
           formData.append('sourceLang', sourceLang.name)
           formData.append('sourceCode', sourceLang.code)
@@ -147,6 +167,8 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
 
         // Flux d'événements : la progression arrive lot par lot ({"progress"}), puis le résultat ({"blocks"})
         setProgress(null)
+        setDetectedLang(null)
+        setTranslatedDocx(null)
         const res = await fetch('/api/translate/document', {
           method: 'POST',
           body: formData,
@@ -162,10 +184,12 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
         let blocks: Block[] | null = null
         const handle = (line: string) => {
           if (!line.trim()) return
-          const event = JSON.parse(line) as { progress?: { done: number; total: number }; blocks?: Block[]; error?: string }
+          const event = JSON.parse(line) as { progress?: { done: number; total: number }; blocks?: Block[]; docx?: string; detected?: Language; error?: string; code?: string }
           if (event.progress) { setStep('translating'); setProgress(event.progress) }
           if (event.blocks) blocks = event.blocks
-          if (event.error) throw new Error(event.error)
+          if (event.docx) setTranslatedDocx(event.docx)
+          if (event.detected) setDetectedLang(event.detected)
+          if (event.error) throw new Error(apiErrorMessage(t, event, 502))
         }
         while (true) {
           const { done, value } = await reader.read()
@@ -186,26 +210,28 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
       setIsLoading(false)
       setStep(null)
     }
-  }, [file, mode, targetLang, sourceLang, t])
+  }, [file, mode, targetLang, sourceLang, formality, t])
 
   const handleTargetLangChange = (lang: Language) => {
     setTargetLang(lang)
     saveStoredLanguage(DOC_TARGET_KEY, lang)
   }
 
-  const handleClearInput = () => { abort(); setFile(null); setOutputHtml(''); setOutputBlocks(null); setError(null) }
-  const handleClearOutput = () => { setOutputHtml(''); setOutputBlocks(null) }
+  const handleClearInput = () => { abort(); setFile(null); setOutputHtml(''); setOutputBlocks(null); setTranslatedDocx(null); setError(null) }
+  const handleClearOutput = () => { setOutputHtml(''); setOutputBlocks(null); setTranslatedDocx(null) }
 
   const [copied, copy] = useCopyToClipboard()
   const handleCopy = () => { if (outputRef.current) copy(outputRef.current.innerText) }
 
+  const isCsvSource = /\.csv$/i.test(file?.name ?? '')
   const handleDownloadTxt = useCallback(() => {
     if (!outputBlocks) return
-    const text = blocksToText(outputBlocks)
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+    // Un CSV reste un CSV (cellule par cellule) ; tout le reste part en texte brut
+    const text = isCsvSource ? blocksToCsv(outputBlocks) : blocksToText(outputBlocks)
+    const blob = new Blob([text], { type: isCsvSource ? 'text/csv;charset=utf-8' : 'text/plain;charset=utf-8' })
     const baseName = file?.name.replace(/\.[^.]+$/, '') ?? 'document'
     const suffix = mode === 'translate' ? `.${targetLang.code}` : ''
-    const filename = `${baseName}${suffix}.txt`
+    const filename = `${baseName}${suffix}.${isCsvSource ? 'csv' : 'txt'}`
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = filename
@@ -213,13 +239,29 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
     a.click()
     a.remove()
     URL.revokeObjectURL(a.href)
-  }, [outputBlocks, file, mode, targetLang])
+  }, [outputBlocks, file, mode, targetLang, isCsvSource])
 
   const handleDownloadDocx = useCallback(async () => {
     if (!outputBlocks) return
     const baseName = file?.name.replace(/\.[^.]+$/, '') ?? 'document'
     const suffix = mode === 'translate' ? `.${targetLang.code}` : ''
     const filename = `${baseName}${suffix}.docx`
+    const save = (blob: Blob) => {
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(a.href)
+    }
+
+    // Document Word traduit sur place par le serveur : le fichier d'origine, mise en page comprise
+    if (translatedDocx) {
+      const bytes = Uint8Array.from(atob(translatedDocx), c => c.charCodeAt(0))
+      save(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }))
+      return
+    }
 
     try {
       const res = await fetch('/api/export/docx', {
@@ -231,18 +273,11 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
         setError(apiErrorMessage(t, await res.json().catch(() => null), res.status))
         return
       }
-      const blob = await res.blob()
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(a.href)
+      save(await res.blob())
     } catch (err) {
       setError((err as Error).message)
     }
-  }, [outputBlocks, file, mode, targetLang, t])
+  }, [outputBlocks, file, mode, targetLang, translatedDocx, t])
 
   const ext    = file?.name.split('.').pop()?.toLowerCase() ?? ''
 
@@ -273,7 +308,7 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
             {/* Source language only matters once we're actually translating — extraction alone doesn't use it */}
             {mode === 'translate' ? (
               <LanguageDropdown
-                value={sourceLang ?? { code: 'auto', name: t.langDropdown.autoDetect }}
+                value={sourceLang ?? { code: 'auto', name: detectedLang ? t.langDropdown.autoDetectWithLang.replace('{0}', detectedLang.name) : t.langDropdown.autoDetect }}
                 onChange={l => setSourceLang(l.code === 'auto' ? null : l)}
                 includeAutoDetect
                 variant="source"
@@ -406,8 +441,8 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
                 onClick={handleDownloadTxt}
                 disabled={!outputBlocks}
                 className="p-2 hover:bg-surface-container-high rounded-md transition-colors disabled:opacity-30"
-                title={t.docTab.downloadTxt}
-                aria-label={t.docTab.downloadTxt}
+                title={isCsvSource ? t.docTab.downloadCsv : t.docTab.downloadTxt}
+                aria-label={isCsvSource ? t.docTab.downloadCsv : t.docTab.downloadTxt}
               >
                 <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">download</span>
               </button>
@@ -453,6 +488,7 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
                 />
               </div>
             )}
+            {mode === 'translate' && <AddressChoice value={formality} onChange={setFormality} targetCode={targetLang.code} />}
           </div>
         </div>
       </div>

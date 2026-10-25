@@ -6,13 +6,15 @@ import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import { detectLanguage, sameBaseLanguage } from '@/lib/languages'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
-import type { Language } from '@/types/leksis'
+import type { Formality, Language } from '@/types/leksis'
 import { ReportResultLink } from '@/components/ui/ReportResultLink'
 import type { FeedbackCategory } from '@/lib/feedback-schema'
 import { prepareOcrImage } from '@/lib/image-prepare'
 import { apiError } from '@/lib/api-error'
 import { DEFAULT_TARGET_LANGUAGE, loadStoredLanguage, saveStoredLanguage } from '@/lib/stored-language'
 import { useAutoScroll } from '@/hooks/useAutoScroll'
+import { hasFormalAddress } from '@/lib/register-detect'
+import { AddressChoice } from '@/components/ui/AddressChoice'
 
 const IMG_TARGET_KEY = 'leksisImgTargetLang'
 
@@ -114,6 +116,8 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
   const [mode, setMode]         = useState<Mode>('extract')
   const [targetLang, setTargetLang] = useState<Language>(DEFAULT_TARGET_LANGUAGE)
+  // Tutoiement / vouvoiement de la traduction ; null = comme l'original
+  const [formality, setFormality]   = useState<Formality | null>(null)
   const [outputText, setOutputText]     = useState('')
   const [detectedLang, setDetectedLang] = useState<string | null>(null)
   const [wordCount, setWordCount]       = useState<number | null>(null)
@@ -217,6 +221,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
             targetLang: targetLang.name,
             targetCode: targetLang.code,
             markdownMode: true,
+            formality: formality && hasFormalAddress(targetLang.code) ? formality : null,
           }),
           signal: controller.signal,
         })
@@ -242,7 +247,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
       setIsLoading(false)
       setStep(null)
     }
-  }, [file, mode, targetLang, t])
+  }, [file, mode, targetLang, formality, t])
 
   const handleClearInput = () => {
     abort()
@@ -481,6 +486,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
                 />
               </div>
             )}
+            {mode === 'translate' && <AddressChoice value={formality} onChange={setFormality} targetCode={targetLang.code} />}
           </div>
         </div>
       </div>

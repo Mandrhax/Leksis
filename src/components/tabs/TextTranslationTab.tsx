@@ -315,6 +315,16 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
                   <span>{t.textTab.retry}</span>
                 </button>
               </div>
+            ) : outputText && !isLoading && !isStale ? (
+              // Traduction terminée : modifiable avant de la copier (une nouvelle traduction la remplace)
+              <textarea
+                value={outputText}
+                onChange={e => setOutputText(e.target.value)}
+                aria-label={t.textTab.editResult}
+                spellCheck
+                className="w-full min-h-full field-sizing-content resize-none bg-transparent border-none outline-none p-0"
+                style={{ font: 'inherit', color: 'inherit', lineHeight: 'inherit' }}
+              />
             ) : outputText ? (
               <span className={`whitespace-pre-wrap transition-opacity ${isStale ? 'opacity-50' : ''}`} aria-busy={isLoading}>
                 {outputText}

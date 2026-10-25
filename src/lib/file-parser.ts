@@ -2,6 +2,8 @@
 
 import 'server-only'
 import type { Block } from '@/types/leksis'
+import { detectDelimiter, parseCsvRecords } from '@/lib/glossary-csv'
+import { readDocx, docxBlocks, docxSegments, type DocxContent } from '@/lib/docx-inplace'
 
 // ── Parsing markdown tables (port de doc-studio.js) ────────────
 
@@ -205,7 +207,7 @@ export function stripInlineHtml(html: string): string {
     .trim()
 }
 
-/** Bloc tableau d'un <table> HTML (mammoth pour les DOCX, sortie du modèle OCR pour les PDF scannés), ou null s'il est vide. */
+/** Bloc tableau d'un <table> HTML (sortie du modèle OCR pour les PDF scannés), ou null s'il est vide. */
 export function parseHtmlTable(html: string): Extract<Block, { type: 'table' }> | null {
   const headers: string[] = []
   const rows: string[][] = []
@@ -225,63 +227,6 @@ export function parseHtmlTable(html: string): Extract<Block, { type: 'table' }> 
 
   if (!headers.length && !rows.length) return null
   return { type: 'table', headers, rows }
-}
-
-function htmlToBlocks(html: string): Block[] {
-  const blocks: Block[] = []
-
-  // Extract tables first, replacing them with placeholders to avoid conflicts
-  const tables: Block[] = []
-  const noTables = html.replace(/<table[\s\S]*?<\/table>/gi, match => {
-    const table = parseHtmlTable(match)
-    if (!table) return ''
-    tables.push(table)
-    return `__TABLE_${tables.length - 1}__`
-  })
-
-  // One token per block-level element. Lists are split at every <ul>/<ol>/<li>, so each
-  // list item (nested ones included) becomes its own paragraph instead of being dropped.
-  const tokens = noTables.split(/(?=<h[1-6][ >]|<p[ >]|<li[ >]|<ul[ >]|<ol[ >]|__TABLE_)/i)
-  let ordered = false
-  let counter = 0
-
-  for (const token of tokens) {
-    const tableMatch = token.match(/^__TABLE_(\d+)__/)
-    if (tableMatch) {
-      blocks.push(tables[parseInt(tableMatch[1])])
-      continue
-    }
-
-    const list = token.match(/^<(ul|ol)[ >]/i)
-    if (list) {
-      ordered = list[1].toLowerCase() === 'ol'
-      counter = 0
-      continue
-    }
-
-    // Heading levels 3–6 are folded into level 2 (the Block model only has two levels)
-    const heading = token.match(/^<h([1-6])[^>]*>([\s\S]*?)(?:<\/h[1-6]>|$)/i)
-    if (heading) {
-      const t = stripInlineHtml(heading[2])
-      if (t) blocks.push({ type: 'heading', level: heading[1] === '1' ? 1 : 2, text: t })
-      continue
-    }
-
-    const item = token.match(/^<li[^>]*>([\s\S]*)$/i)
-    if (item) {
-      const t = stripInlineHtml(item[1])
-      if (t) blocks.push({ type: 'paragraph', text: `${ordered ? `${++counter}.` : '•'} ${t}` })
-      continue
-    }
-
-    const p = token.match(/^<p[^>]*>([\s\S]*?)(?:<\/p>|$)/i)
-    if (p) {
-      const t = stripInlineHtml(p[1])
-      if (t) blocks.push({ type: 'paragraph', text: t })
-    }
-  }
-
-  return blocks
 }
 
 /** Taille décompressée maximale d'un DOCX (toutes ses parties) : au-delà, c'est une bombe ZIP ou un fichier hors d'usage. */
@@ -311,17 +256,21 @@ export function zipUncompressedSize(buf: Buffer): number | null {
   return total
 }
 
-export async function parseDocx(buffer: Buffer): Promise<Block[]> {
-  // jszip (sous mammoth) décompresse en mémoire sans limite : on vérifie d'abord la taille annoncée
+/**
+ * DOCX lu directement dans son XML (lib/docx-inplace.ts) : blocs affichés + document gardé pour y réécrire la
+ * traduction (mise en page conservée). La taille décompressée est vérifiée d'abord : jszip décompresse en mémoire
+ * sans limite.
+ */
+export async function parseDocxDocument(buffer: Buffer): Promise<{ doc: DocxContent; blocks: Block[] }> {
   const size = zipUncompressedSize(buffer)
   if (size === null) throw new Error('Not a valid DOCX (ZIP) file')
   if (size > DOCX_MAX_UNCOMPRESSED_BYTES) throw new Error(`DOCX too large once uncompressed (${size} bytes)`)
+  const doc = await readDocx(buffer)
+  return { doc, blocks: docxBlocks(doc, docxSegments(doc)) }
+}
 
-  const mammoth = await import('mammoth')
-  // Images ignorées : par défaut mammoth les met en base64 dans le HTML (un DOCX de photos de 10 Mo devenait une
-  // chaîne de 13 Mo parcourue par les regex), alors que seul le texte est traduit
-  const result = await mammoth.convertToHtml({ buffer }, { convertImage: mammoth.images.imgElement(async () => ({ src: '' })) })
-  return htmlToBlocks(result.value)
+export async function parseDocx(buffer: Buffer): Promise<Block[]> {
+  return (await parseDocxDocument(buffer)).blocks
 }
 
 // ── TXT / CSV ──────────────────────────────────────────────────
@@ -331,13 +280,30 @@ export function parseTxt(buffer: Buffer): Block[] {
   return textToBlocks(text)
 }
 
+/**
+ * CSV → un tableau (1re ligne = en-têtes), cellule par cellule : chaque cellule est un segment traduit à part,
+ * le modèle ne voit jamais les séparateurs (avant : une ligne = un paragraphe, qu'il pouvait réécrire librement).
+ * Séparateur détecté (virgule, point-virgule, tabulation), guillemets RFC 4180, BOM toléré ; lignes complétées
+ * à la largeur de la plus longue.
+ */
+export function parseCsv(buffer: Buffer): Block[] {
+  const text = buffer.toString('utf-8').replace(/^﻿/, '')
+  const records = parseCsvRecords(text, detectDelimiter(text))
+  if (!records.length) return []
+  const width = Math.max(...records.map(r => r.cells.length))
+  const pad = (cells: string[]) => [...cells, ...Array<string>(width - cells.length).fill('')].map(c => c.trim())
+  const [head, ...rest] = records
+  return [{ type: 'table', headers: pad(head.cells), rows: rest.map(r => pad(r.cells)) }]
+}
+
 // ── Dispatch selon extension ───────────────────────────────────
 
 export async function parseFile(buffer: Buffer, filename: string): Promise<Block[]> {
   const ext = filename.split('.').pop()?.toLowerCase() ?? ''
   if (ext === 'pdf')              return parsePdf(buffer)
   if (ext === 'docx')             return parseDocx(buffer)
-  if (ext === 'txt' || ext === 'csv')  return parseTxt(buffer)
+  if (ext === 'txt')              return parseTxt(buffer)
+  if (ext === 'csv')              return parseCsv(buffer)
   throw new Error(`Unsupported file type: .${ext}`)
 }
 

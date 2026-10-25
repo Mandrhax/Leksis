@@ -18,6 +18,7 @@ export const messages = {
     feedback:       'Report a problem or suggest an improvement',
   },
   textTab: {
+    editResult:         'Translation — you can edit it before copying',
     clear:              'Clear',
     inputPlaceholder:   'Enter text to translate...',
     translate:          'Translate',
@@ -40,6 +41,8 @@ export const messages = {
     micPermissionDenied:'Could not access the microphone.',
   },
   docTab: {
+    downloadCsv:            'Download as CSV',
+    formalityKeep:          'As in the original',
     clear:                  'Clear',
     sourceDocument:         'Source Document',
     dropHere:               'Drop your document here',

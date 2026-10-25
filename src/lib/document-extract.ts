@@ -1,5 +1,6 @@
 import 'server-only'
-import { parseFile, parsePdf, isProbablyScanned, countBlockChars } from '@/lib/file-parser'
+import { parseFile, parsePdf, parseDocxDocument, isProbablyScanned, countBlockChars } from '@/lib/file-parser'
+import { docxSegments, type DocxContent } from '@/lib/docx-inplace'
 import { parsePdfWithVision, PdfPageLimitError } from '@/lib/pdf-vision'
 import { getAiOrError } from '@/lib/llm'
 import { getDynamicLimits } from '@/lib/limits'
@@ -10,11 +11,13 @@ import type { Block } from '@/types/leksis'
 // analyse du fichier, OCR par le modèle vision si c'est un PDF scanné, puis plafond de caractères.
 
 export type ExtractResult =
-  | { blocks: Block[]; charCount: number; error?: undefined }
+  /** `docx` : fichier Word lu dans son XML, pour y réécrire la traduction (mise en page conservée) */
+  | { blocks: Block[]; charCount: number; docx?: DocxContent; error?: undefined }
   | { error: ApiError | Response; status: number; blocks?: undefined }
 
 export async function extractDocumentBlocks(buffer: Buffer, ext: string, filename: string, signal: AbortSignal, logTag: string): Promise<ExtractResult> {
   let blocks: Block[]
+  let docx: DocxContent | undefined
   try {
     if (ext === 'pdf') {
       blocks = await parsePdf(buffer)
@@ -24,6 +27,10 @@ export async function extractDocumentBlocks(buffer: Buffer, ext: string, filenam
         const { provider, cfg } = ai.ai
         blocks = await parsePdfWithVision(buffer, provider, cfg.ocrModel, cfg.maxConcurrentAiRequests, signal)
       }
+    } else if (ext === 'docx') {
+      const parsed = await parseDocxDocument(buffer)
+      blocks = parsed.blocks
+      docx = parsed.doc
     } else {
       blocks = await parseFile(buffer, filename)
     }
@@ -36,12 +43,13 @@ export async function extractDocumentBlocks(buffer: Buffer, ext: string, filenam
   }
 
   const { maxDocChars } = await getDynamicLimits()
-  const charCount = countBlockChars(blocks)
+  // DOCX : tout ce qui sera traduit compte, en-têtes et pieds de page compris
+  const charCount = docx ? docxSegments(docx).join('').length : countBlockChars(blocks)
   if (charCount > maxDocChars) {
     return {
       status: 400,
       error: { error: `Document exceeds the ${maxDocChars} character limit (${charCount} chars).`, code: 'doc_too_long', limit: maxDocChars, count: charCount },
     }
   }
-  return { blocks, charCount }
+  return { blocks, charCount, docx }
 }

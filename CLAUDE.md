@@ -18,7 +18,7 @@ Toute évolution du produit doit s'inscrire dans l'un de ces périmètres.
 - Traduction de texte libre saisi par l'utilisateur
 - Choix de la langue source (avec auto-détection) et cible
 - Tu/vous (Informal/Formal) dès que la langue **cible** fait la distinction (grisé vers l'anglais), **choisi automatiquement d'après le texte source** (`lib/register-detect.ts`), sinon réglage par défaut de l'admin ; un clic de l'utilisateur l'emporte jusqu'à une nouvelle saisie
-- Résultat modifiable et réutilisable
+- Résultat modifiable et réutilisable (une fois la traduction terminée, le panneau de droite devient un champ éditable ; une nouvelle traduction le remplace)
 - Swap source ↔ target avec re-traduction automatique
 - **Dictée vocale optionnelle** (bouton micro) : méthode de saisie alternative, pas une fonctionnalité à part — voir « Dictée vocale » sous « Moteur IA »
 
@@ -37,7 +37,8 @@ Formats supportés :
 Règles importantes :
 - Le texte est **extrait côté serveur**
 - La traduction est effectuée par l'IA via le Gateway
-- Le document traduit conserve autant que possible la structure originale (headings, tables, paragraphes)
+- Le document traduit conserve autant que possible la structure originale (headings, tables, paragraphes). **DOCX : traduit dans le fichier d'origine** (mise en page, styles, images, en-têtes et pieds de page conservés — voir « Documents »). **CSV : cellule par cellule**, rendu en CSV
+- Tutoiement / vouvoiement au choix (« Comme l'original » par défaut, `AddressChoice`) quand la langue cible fait la distinction ; langue source détectée et affichée en détection automatique
 - Séparateur `|||` pour la traduction structurée par segments
 
 ---
@@ -46,7 +47,7 @@ Règles importantes :
 
 - Extraction de texte depuis une image via Ollama vision
 - Affichage du texte extrait avec stats (langue détectée, nombre de mots)
-- Traduction possible du texte extrait (mode "Extract & translate")
+- Traduction possible du texte extrait (mode "Extract & translate") — avec glossaire et tutoiement / vouvoiement au choix (`AddressChoice`)
 
 Cas d'usage typiques :
 - documents scannés
@@ -158,6 +159,9 @@ src/
 │   ├── llm/                 SERVER-ONLY (sauf types.ts) : providers Ollama / OpenAI, config, service, network — point d'entrée `@/lib/llm`
 │   ├── prompts.ts           Tous les prompts
 │   ├── file-parser.ts       PDF / DOCX / TXT / CSV → blocs ; blocksToSegments / applySegments
+│   ├── docx-inplace.ts      DOCX lu dans son XML (paragraphes, tableaux, listes) et traduit dans le fichier d'origine ; docx-export.ts (blocs → DOCX simple, autres formats)
+│   ├── document-extract.ts  Extraction commune aux routes document (analyse, OCR d'un PDF scanné, plafond de caractères)
+│   ├── api-error.ts         (client) codes d'erreur d'API → messages traduits des onglets
 │   ├── doc-translate.ts     Lots de segments + contrôle des `|||` (pur, testable)
 │   ├── translate-scheduler.ts (client-safe) quand l'onglet Texte traduit : debounce, annulation, skips — voir « Traduction de texte »
 │   ├── translate-incremental.ts, translation-cache.ts (server-only), text-segments.ts, text-translation-config.ts (client-safe)
@@ -547,7 +551,7 @@ Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git e
 - Traduction par **lots de 3000 caractères** (`lib/doc-translate.ts`) : le nombre de segments renvoyé est vérifié, redemandé une fois, puis le lot est coupé en deux jusqu'à un segment isolé — jamais de décalage silencieux. Le prompt annonce le nombre de segments ; les segments vides ne partent pas au modèle ; un avertissement serveur est journalisé quand le modèle ne respecte pas les `|||`. **3 lots en parallèle** (`DOC_PARALLEL_BATCHES`, sous la limite de concurrence globale ; chaque lot garde sa place). Avec `Accept: application/x-ndjson` (onglet Document), la réponse est un flux d'événements `{"progress":{done,total}}` puis `{"blocks"}` ou `{"error","code"}` (« Traduction — 3 parties sur 7 ») ; sans cet en-tête, un seul JSON à la fin (scripts, e2e). PDF scanné : 2 pages à la fois (`OCR_PARALLEL_PAGES`)
 - Extraction : `blocksToSegments` / `applySegments` (`file-parser.ts`). Formats : PDF, DOCX, TXT, CSV (pas `.doc`). PDF scanné : OCR par le modèle vision, 20 pages max. Fichiers ≤ 10 Mo, limite de caractères réglable dans l'admin
 - PDF natif : `mergeWrappedLines` recolle les lignes visuelles en paragraphes (une ligne qui atteint ~la marge continue sur la suivante ; traits d'union recollés ; listes et tableaux jamais fusionnés). PDF scanné : page rendue avec le plus grand côté ≤ `OCR_MAX_PAGE_PX` (2000 px, `renderScale` — la taille de page vient du PDF, sans plafond un canvas pouvait faire 1,8 Go), encodée par `canvas.encode()` asynchrone
-- DOCX : taille décompressée lue dans le répertoire ZIP avant mammoth (`zipUncompressedSize`, > 150 Mo refusé — jszip décompresse en mémoire sans limite) ; images ignorées (`convertImage` vide, plus de base64 dans le HTML). Export DOCX : `lib/docx-export.ts` (`blocksToDocx`), sans ligne d'en-tête vide quand le tableau Word n'en a pas (`headers: []`, cas courant — une ligne sans cellule rend le fichier illisible pour Word)
+- DOCX : **lu directement dans le XML Word** (`lib/docx-inplace.ts`, plus de mammoth) — corps, en-têtes, pieds de page et notes ; un paragraphe `<w:p>` = un segment ; titres d'après le style du paragraphe, listes « • » ou « 1. » d'après `numbering.xml`, tableaux d'après `w:tbl/w:tr/w:tc`. Traduction : `writeDocx` remet chaque traduction dans le **premier `<w:t>` du paragraphe** (les suivants sont vidés : un mot en gras au milieu d'une phrase perd son gras) et renvoie le fichier d'origine modifié (base64 `docx` dans le résultat), que l'onglet télécharge tel quel. Taille décompressée lue dans le répertoire ZIP avant (`zipUncompressedSize`, > 150 Mo refusé — jszip décompresse en mémoire sans limite). Le plafond de caractères compte aussi en-têtes et pieds de page. CSV : `parseCsv` (séparateur détecté, RFC 4180) → un tableau, une cellule = un segment, téléchargé en CSV. Les segments sans lettre (nombres, dates, montants) ne partent jamais au modèle. Export DOCX : `lib/docx-export.ts` (`blocksToDocx`), sans ligne d'en-tête vide quand le tableau Word n'en a pas (`headers: []`, cas courant — une ligne sans cellule rend le fichier illisible pour Word)
 - Images OCR : réduites dans le navigateur au-delà de 2400 px (`prepareOcrImage`, `lib/image-prepare.ts`, partagé avec les retours des utilisateurs)
 
 ### Glossaire
