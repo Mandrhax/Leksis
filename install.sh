@@ -2304,8 +2304,11 @@ cmd_update() {
   ollama_local_enabled && opts+=("ollama|Ollama container (pull image)")
   if [[ "$AI_MODE" == "openai" ]]; then opts+=("models|AI models (check they are served by the API)")
   else opts+=("models|AI models (pull the missing ones)"); fi
-  local defaults="" components c
-  [[ -n "$target" ]] && defaults="app"
+  # Images checked by default: their security fixes (Caddy, PostgreSQL minor releases, Ollama) only arrive
+  # through a pull — `app` is rebuilt with --pull, but the other images were never refreshed unless ticked
+  local defaults="caddy postgres" components c
+  if ollama_local_enabled; then defaults+=" ollama"; fi
+  if [[ -n "$target" ]]; then defaults="app ${defaults}"; fi
   components=$(p_multi UPDATE_COMPONENTS "Components to update" "$defaults" "${opts[@]}")
   if [[ -z "$target" && -z "${components// /}" ]]; then
     if $url_migrated; then
