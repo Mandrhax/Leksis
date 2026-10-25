@@ -100,7 +100,8 @@ await new Promise(resolve => aiServer.listen(AI_PORT, '127.0.0.1', resolve))
 // streams one character every 50 ms, to test cancellation: the call records whether the app cut the connection.
 function streamText(prompt, res) {
   const text = /into [^:\n]+:\n\n([\s\S]*)$/.exec(prompt)?.[1] ?? ''
-  const call = { stream: true, text, context: prompt.includes('For context only'), closed: false, finished: false }
+  const register = /Use the formal form/.test(prompt) ? 'formal' : /Use the informal form/.test(prompt) ? 'informal' : 'keep'
+  const call = { stream: true, text, context: prompt.includes('For context only'), register, closed: false, finished: false }
   aiCalls.push(call)
   res.setHeader('Content-Type', 'application/x-ndjson')
   const out = text.toUpperCase()
@@ -368,6 +369,30 @@ try {
   await adminPage.keyboard.up('Control')
   await new Promise(r => setTimeout(r, 500))
   check('Ctrl+Enter on an unchanged text does not call the model again', aiCalls.length === 1, JSON.stringify(aiCalls))
+  const formalityOffForEnglish = await adminPage.evaluate(() => !!document.querySelector('#textTab .formal-btn')?.disabled)
+  check('formal / informal is greyed out for an English target (no distinction)', formalityOffForEnglish)
+
+  // French text that says "vous", German target: the toggle switches to Formal by itself and the prompt asks for it
+  aiCalls.length = 0
+  await adminPage.evaluate(() => localStorage.setItem('leksisTargetLang', JSON.stringify({ code: 'de', name: 'German' })))
+  await adminPage.goto(BASE + '/', { waitUntil: 'networkidle0' })
+  await adminPage.waitForSelector('#textTab textarea')
+  await adminPage.type('#textTab textarea', 'Pourriez-vous nous envoyer votre rapport demain ?', { delay: 10 })
+  await adminPage.waitForFunction(() => document.querySelector('#textTab')?.innerText.includes('POURRIEZ-VOUS NOUS ENVOYER VOTRE RAPPORT DEMAIN ?'), { timeout: 15000 })
+  const register = await adminPage.evaluate(() => ({
+    active:   document.querySelector('#textTab .formal-btn.active')?.textContent,
+    detected: !!document.querySelector('[data-testid=formality-detected]'),
+  }))
+  check('the form of address is detected in the text and selected automatically',
+    register.active === 'Formal' && register.detected && aiCalls.at(-1)?.register === 'formal', JSON.stringify({ register, aiCalls }))
+
+  // A click overrides the detection and is kept while the user goes on typing
+  aiCalls.length = 0
+  await adminPage.evaluate(() => [...document.querySelectorAll('#textTab .formal-btn')].find(b => b.textContent === 'Informal').click())
+  await adminPage.type('#textTab textarea', ' Merci.', { delay: 10 })
+  await adminPage.waitForFunction(() => document.querySelector('#textTab')?.innerText.includes('MERCI.'), { timeout: 15000 })
+  check('a manual formal / informal choice wins over the detection', aiCalls.length >= 1 && aiCalls.every(c => c.register === 'informal'), JSON.stringify(aiCalls))
+  await adminPage.evaluate(() => localStorage.removeItem('leksisTargetLang'))
 
   // ── Dashboard: new version available ─────────────────────────
   await adminPage.goto(BASE + '/admin/dashboard', { waitUntil: 'networkidle0' })

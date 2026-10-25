@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
 import { LANGUAGES, detectLanguage } from '@/lib/languages'
+import { detectRegister, hasFormalAddress } from '@/lib/register-detect'
 import { TEXT_MAX_CHARS } from '@/lib/validators'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { MicButton } from '@/components/ui/MicButton'
@@ -52,6 +53,8 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
   const [detectedLang, setDetectedLang] = useState<Language | null>(null)
   const [targetLang, setTargetLang]     = useState<Language>(DEFAULT_TARGET)
   const [formality, setFormality]       = useState<Formality>(defaultFormality)
+  // D'où vient le choix tu/vous affiché : lu dans le texte, réglage par défaut, ou clic de l'utilisateur
+  const [formalityOrigin, setFormalityOrigin] = useState<'text' | 'default' | 'manual'>('default')
   const [isLoading, setIsLoading]       = useState(false)
   const [error, setError]               = useState<string | null>(null)
   // La sortie affichée correspond à une version précédente du texte : atténuée jusqu'à la nouvelle
@@ -84,10 +87,20 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
     try { localStorage.setItem(TARGET_KEY, JSON.stringify(targetLang)) } catch { /* ignore */ }
   }, [targetLang])
 
-  const isFormalityActive = useCallback((src: Language | null, detected: Language | null) => {
-    const code = src?.code ?? detected?.code ?? ''
-    return code.startsWith('en')
-  }, [])
+  // Tu / vous : utile dès que la langue CIBLE distingue les deux formes (pas vers l'anglais), quelle que soit la source
+  const isFormalityActive = useCallback((tgt: Language) => hasFormalAddress(tgt.code), [])
+
+  // Tant que l'utilisateur n'a pas choisi lui-même, le choix suit le texte source (lib/register-detect.ts), sinon
+  // le réglage par défaut de l'admin. Son clic est gardé jusqu'à une nouvelle saisie (effacement, collage, swap).
+  const formalityManualRef = useRef(false)
+  const resolveFormality = useCallback((text: string, sourceCode: string | undefined, fmt: Formality): Formality => {
+    if (formalityManualRef.current) return fmt
+    const fromText = detectRegister(text, sourceCode)
+    const value = fromText ?? defaultFormality
+    setFormality(value)
+    setFormalityOrigin(fromText ? 'text' : 'default')
+    return value
+  }, [defaultFormality])
 
   const buildInput = useCallback((
     text: string, src: Language | null, detected: Language | null, tgt: Language, fmt: Formality
@@ -99,10 +112,16 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
       sourceCode: effectiveSrc?.code ?? 'auto',
       targetName: tgt.name,
       targetCode: tgt.code,
-      formality:  isFormalityActive(src, detected) ? fmt : null,
+      formality:  isFormalityActive(tgt) ? resolveFormality(text, effectiveSrc?.code, fmt) : null,
       autoDetect: src === null,
     }
-  }, [isFormalityActive])
+  }, [isFormalityActive, resolveFormality])
+
+  const resetFormalityChoice = () => {
+    formalityManualRef.current = false
+    setFormality(defaultFormality)
+    setFormalityOrigin('default')
+  }
 
   const runTranslation = useCallback((
     text: string, src: Language | null, detected: Language | null, tgt: Language, fmt: Formality, trigger: UsageTrigger
@@ -136,7 +155,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
     pasteRef.current = true
     const el = e.currentTarget
     // Le collage remplace tout le texte : c'est une nouvelle saisie
-    if (el.selectionStart === 0 && el.selectionEnd === el.value.length) scheduler.newGroup()
+    if (el.selectionStart === 0 && el.selectionEnd === el.value.length) { scheduler.newGroup(); resetFormalityChoice() }
   }
 
   const handleTranslateNow = () => {
@@ -178,6 +197,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
     const newTarget = effectiveSrc      // old source becomes new target
     const textToTranslate = outputText
     scheduler.newGroup()
+    resetFormalityChoice()
     setSourceText(textToTranslate)
     setOutputText('')
     setSourceLang(newSource)
@@ -189,6 +209,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
   const handleClearInput = () => {
     scheduler.reset()
     scheduler.newGroup()
+    resetFormalityChoice()
     setSourceText('')
     setOutputText('')
     setSourceLang(null)
@@ -202,13 +223,14 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
   const handleCopy = () => { if (outputText) copy(outputText) }
 
   const handleFormality = (f: Formality) => {
+    formalityManualRef.current = true
+    setFormalityOrigin('manual')
     setFormality(f)
     if (sourceText.trim()) runTranslation(sourceText, sourceLang, detectedLang, targetLang, f, 'lang_change')
   }
 
-  const formalityActive = isFormalityActive(sourceLang, detectedLang)
-  // Auto-detect reveals what it actually detected — otherwise the Formality toggle greys out
-  // with no visible reason whenever the guess isn't English.
+  const formalityActive = isFormalityActive(targetLang)
+  // Auto-detect reveals what it actually detected (the source language label)
   const autoDetectLabel = detectedLang
     ? t.langDropdown.autoDetectWithLang.replace('{0}', detectedLang.name)
     : t.langDropdown.autoDetect
@@ -356,7 +378,10 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
 
       {/* Formality toolbar */}
       <div className="flex justify-center items-center z-40 pt-4 pb-2">
-        <div className={`toolbar rewrite-toolbar px-4 py-2.5 transition-opacity duration-200 ${!formalityActive ? 'opacity-40 pointer-events-none' : ''}`}>
+        <div
+          className={`toolbar rewrite-toolbar px-4 py-2.5 transition-opacity duration-200 ${!formalityActive ? 'opacity-40 pointer-events-none' : ''}`}
+          title={formalityActive ? undefined : t.textTab.formalityNotApplicable}
+        >
           <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4">
             <span className="text-xs font-bold text-on-surface tracking-wider">{t.textTab.formality}</span>
             <div className="boundaries">
@@ -371,6 +396,12 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
                 disabled={!formalityActive}
               >{t.textTab.formal}</button>
             </div>
+            {formalityActive && formalityOrigin === 'text' && sourceText.trim() && (
+              <span className="flex items-center gap-1 text-xs text-on-surface-variant" data-testid="formality-detected">
+                <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">auto_awesome</span>
+                {t.textTab.formalityDetected}
+              </span>
+            )}
           </div>
         </div>
       </div>

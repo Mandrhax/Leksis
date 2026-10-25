@@ -17,7 +17,7 @@ Toute évolution du produit doit s'inscrire dans l'un de ces périmètres.
 
 - Traduction de texte libre saisi par l'utilisateur
 - Choix de la langue source (avec auto-détection) et cible
-- Gestion du ton si la source est anglaise (tu/vous — Informal/Formal)
+- Tu/vous (Informal/Formal) dès que la langue **cible** fait la distinction (grisé vers l'anglais), **choisi automatiquement d'après le texte source** (`lib/register-detect.ts`), sinon réglage par défaut de l'admin ; un clic de l'utilisateur l'emporte jusqu'à une nouvelle saisie
 - Résultat modifiable et réutilisable
 - Swap source ↔ target avec re-traduction automatique
 - **Dictée vocale optionnelle** (bouton micro) : méthode de saisie alternative, pas une fonctionnalité à part — voir « Dictée vocale » sous « Moteur IA »
@@ -478,7 +478,7 @@ Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git e
 - **`src/lib/settings-schema.ts`** : schémas zod de chaque clé éditable (`branding`, `design`, `general`, `features`, `rewrite_tones`), utilisés par le PATCH **et** l'import ; `SETTING_DEFAULTS` (réinitialisation, formulaires, limites tirées de `validators.ts`). Toute nouvelle clé de réglage s'y déclare (schéma + défaut) ; un test vérifie que chaque défaut passe son schéma. Les clés inconnues sont retirées à l'enregistrement
 - Clés hors de ce mécanisme : `ai_config` (Services → AI), `caddy_config` (Services → Caddy), `system_status` (écrite par `install.sh` seulement)
 - Tons de réécriture : clé `rewrite_tones` (tableau JSONB, 1 à 6 tons) ; `lib/tones-defaults.ts` (client-safe : défauts, `normalizeTones`) migre l'ancien format (`label: string` → `labels: { en }`) et rétablit le libellé `it` des 6 tons d'origine enregistrés avant l'italien (sauf ton renommé) ; `lib/tones.ts` (server-only) lit la base. `TonesForm` doit envoyer chaque langue de `labels` à l'enregistrement (`it` était oublié → perdu à chaque sauvegarde). `ToneConfig.labels` : `en` requis, `fr`/`de`/`it` en repli sur `en`
-- Tonalité par défaut : `features.defaults.formality` (`Informal` par défaut), pré-remplit `TextTranslationTab`
+- Tonalité par défaut : `features.defaults.formality` (`Informal` par défaut) — utilisée quand le texte source ne dit pas lui-même tu ou vous (source anglaise, aucun pronom de 2ᵉ personne). `lib/register-detect.ts` (pur) : `hasFormalAddress(cible)` active le sélecteur ; `detectRegister(texte, source)` lit tu/vous, du/Sie, tu/Lei, tú/usted, jij/u (une marque de tutoiement l'emporte : « vous », « Sie », « Lei » ont d'autres sens ; « Sie » / « Lei » comptés seulement avec une majuscule en milieu de phrase)
 - **Conservation des journaux** : `general.usageRetentionDays` (365), `auditRetentionDays` (730) et `feedbackRetentionDays` (365, retours des utilisateurs avec leurs images), 0 = garder. `lib/retention.ts` supprime par lots de 10 000, lancé par `instrumentation.ts` 2 min après le démarrage puis toutes les 6 h (`LEKSIS_RETENTION_DELAY_SEC` pour les tests), et s'inscrit à l'audit (`AUTO_PURGE_*`, utilisateur `system`)
 - `headerLogoSize` est dans `branding` (repli de lecture sur `design`) ; le fond du site est une couleur **ou** une image (`BrandingForm` supprime l'image en passant en mode Couleur)
 
