@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/lib/user-guard'
 import { query } from '@/lib/db'
+import { glossaryChanged } from '@/lib/glossary'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -70,6 +71,7 @@ export async function PATCH(req: NextRequest) {
       [userId, glossaryId],
     )
   }
+  glossaryChanged()
 
   return NextResponse.json({ ok: true })
 }

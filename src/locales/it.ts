@@ -56,6 +56,8 @@ export const messages = {
     processing:             'Elaborazione in corso',
     extractingContent:      'Estrazione del contenuto del documento',
     translating:            'Traduzione in corso',
+    translatingProgress:    'Traduzione in corso — {0} parti su {1}',
+    errorIncomplete:        'La traduzione si è interrotta prima della fine. Riprova.',
     extractedPlaceholder:   'Il documento estratto apparirà qui...',
     translatedPlaceholder:  'Il documento tradotto apparirà qui...',
     copied:                 'Copiato!',

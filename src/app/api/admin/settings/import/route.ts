@@ -10,6 +10,7 @@ import { getAiConfig }               from '@/lib/llm'
 import { insertGlossaryRows }        from '@/lib/glossary-entries'
 import { backupEntriesToRows }       from '@/lib/glossary-csv'
 import { resolveLanguageCode }       from '@/lib/languages'
+import { glossaryChanged } from '@/lib/glossary'
 
 // Une config exportée embarque logo (2 Mo) et fond (5 Mo) en base64 : 15 Mo laissent de la marge
 const MAX_IMPORT_BYTES = 15 * 1024 * 1024
@@ -131,6 +132,7 @@ export async function POST(req: NextRequest) {
         await insertGlossaryRows(tx, glossaryId, backupEntriesToRows(g.entries, resolveLanguageCode))
       }
     })
+    glossaryChanged()
     await logAudit(session.user.id, session.user.email!, 'IMPORT_GLOSSARIES', 'glossaries:all', { count: body.glossaries.length })
     imported.push('glossaries')
   }

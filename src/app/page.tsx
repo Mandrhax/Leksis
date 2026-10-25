@@ -8,8 +8,8 @@ export const dynamic = 'force-dynamic'
 
 async function loadPageSettings() {
   try {
-    const { getAllSettings } = await import('@/lib/settings')
-    const settings = await getAllSettings()
+    const { getRequestSettings } = await import('@/lib/settings')
+    const settings = await getRequestSettings()
     const branding  = (settings.branding  ?? {}) as { logoUrl?: string; siteName?: string; headerLogoSize?: string }
     const design    = (settings.design    ?? {}) as {
       headerLogoSize?:   string

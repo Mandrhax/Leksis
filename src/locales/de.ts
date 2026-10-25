@@ -56,6 +56,8 @@ export const messages = {
     processing:             'Verarbeitung',
     extractingContent:      'Dokumentinhalt wird extrahiert',
     translating:            'Übersetzung läuft',
+    translatingProgress:    'Übersetzung läuft — {0} von {1} Teilen',
+    errorIncomplete:        'Die Übersetzung wurde vor dem Ende abgebrochen. Bitte versuchen Sie es erneut.',
     extractedPlaceholder:   'Extrahiertes Dokument erscheint hier...',
     translatedPlaceholder:  'Übersetztes Dokument erscheint hier...',
     copied:                 'Kopiert!',

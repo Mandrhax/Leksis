@@ -3,6 +3,7 @@ import { getAdminSession } from '@/lib/admin-guard'
 import { query } from '@/lib/db'
 import { logAudit } from '@/lib/audit'
 import { entrySchema, ENTRY_COLUMNS, entryFromRow, findDuplicateEntry, termDetail } from '@/lib/glossary-entries'
+import { glossaryChanged } from '@/lib/glossary'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,6 +44,7 @@ export async function PATCH(
   )
   if (!result.rows[0]) return NextResponse.json({ error: 'Not found', code: 'not_found' }, { status: 404 })
   const updated = entryFromRow(result.rows[0])
+  glossaryChanged()
   await logAudit(session.user.id, session.user.email!, 'UPDATE_GLOSSARY_TERM', `glossary:${glossaryId}`, {
     ...termDetail(updated),
     before: before.rows[0] ? termDetail(entryFromRow(before.rows[0])) : null,
@@ -71,6 +73,7 @@ export async function DELETE(
     [entryId, glossaryId],
   )
   if (found.rows[0]) {
+    glossaryChanged()
     await logAudit(session.user.id, session.user.email!, 'DELETE_GLOSSARY_TERM', `glossary:${glossaryId}`, termDetail(entryFromRow(found.rows[0])))
   }
 

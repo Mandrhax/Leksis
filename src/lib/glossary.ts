@@ -29,6 +29,40 @@ export async function fetchGlossaryCandidates(
   targetLang: string,
   nullLangOnly = false,
 ): Promise<GlossaryEntry[]> {
+  const key = `${userId ?? ''}\u0000${sourceLang}\u0000${targetLang}\u0000${nullLangOnly}`
+  const hit = candidateCache.get(key)
+  if (hit && Date.now() - hit.at < CANDIDATE_TTL_MS) return hit.entries
+  const version = glossaryVersion
+  const entries = await queryGlossaryCandidates(userId, sourceLang, targetLang, nullLangOnly)
+  if (entries === null) return []   // base injoignable : jamais mis en cache
+  // Une écriture survenue pendant la requête rend ce résultat douteux : pas mis en cache
+  if (version === glossaryVersion) {
+    if (candidateCache.size >= CANDIDATE_MAX_KEYS) candidateCache.clear()
+    candidateCache.set(key, { entries, at: Date.now() })
+  }
+  return entries
+}
+
+// Cache des candidats : la requête parcourt tout le glossaire (les conditions « IS NULL OR » empêchent tout index)
+// et partait à chaque traduction, donc à chaque pause de frappe. En mémoire (une seule instance), vidé à chaque
+// modification d'un glossaire ou d'une préférence (glossaryChanged) ; le TTL ne couvre qu'une écriture hors appli.
+const CANDIDATE_TTL_MS = 60_000
+const CANDIDATE_MAX_KEYS = 1000
+const candidateCache = new Map<string, { entries: GlossaryEntry[]; at: number }>()
+let glossaryVersion = 0
+
+/** À appeler après toute écriture dans les glossaires, leurs termes ou les préférences des utilisateurs. */
+export function glossaryChanged(): void {
+  glossaryVersion++
+  candidateCache.clear()
+}
+
+async function queryGlossaryCandidates(
+  userId: string | undefined,
+  sourceLang: string,
+  targetLang: string,
+  nullLangOnly: boolean,
+): Promise<GlossaryEntry[] | null> {
   try {
     const params: unknown[] = []
     const conditions: string[] = []
@@ -76,7 +110,7 @@ export async function fetchGlossaryCandidates(
     }))
   } catch {
     // Never break a translation because of glossary errors
-    return []
+    return null
   }
 }
 

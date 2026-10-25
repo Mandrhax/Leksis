@@ -108,4 +108,28 @@ describe('translateSegments', () => {
     const translate: TranslateBatch = async () => { throw new Error('AI server down') }
     await expect(translateSegments(['a', 'b'], translate)).rejects.toThrow('AI server down')
   })
+
+  it('translates several batches at once and keeps every segment in its place, with progress', async () => {
+    let inFlight = 0, peak = 0
+    // Later batches answer first: the result must not depend on the order of completion
+    const translate: TranslateBatch = async joined => {
+      inFlight++; peak = Math.max(peak, inFlight)
+      await new Promise(r => setTimeout(r, joined.startsWith('a') ? 30 : 5))
+      inFlight--
+      return joined.toUpperCase()
+    }
+    const progress: [number, number][] = []
+    const { segments } = await translateSegments(['aaaa', 'bbbb', 'cccc', 'dddd', 'eeee'], translate,
+      { maxChars: 4, concurrency: 3, onProgress: (d, t) => progress.push([d, t]) })
+    expect(segments).toEqual(['AAAA', 'BBBB', 'CCCC', 'DDDD', 'EEEE'])
+    expect(peak).toBe(3)
+    expect(progress[0]).toEqual([0, 5])
+    expect(progress.at(-1)).toEqual([5, 5])
+  })
+
+  it('stops starting new batches once one has failed', async () => {
+    const translate = vi.fn<TranslateBatch>(async joined => { if (joined === 'a') throw new Error('down'); return joined })
+    await expect(translateSegments(['a', 'b', 'c', 'd'], translate, { maxChars: 1, concurrency: 1 })).rejects.toThrow('down')
+    expect(translate).toHaveBeenCalledTimes(1)
+  })
 })

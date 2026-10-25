@@ -120,6 +120,8 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
   const { t } = useI18n()
   const [file, setFile]         = useState<File | null>(null)
   const [preview, setPreview]   = useState<string | null>(null)
+  // Aperçu remplacé ou retiré : l'image précédente est libérée (sinon elle restait en mémoire jusqu'à la fermeture de l'onglet)
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
   const [mode, setMode]         = useState<Mode>('extract')
   const [targetLang, setTargetLang] = useState<Language>(DEFAULT_TARGET)
   const [outputText, setOutputText]     = useState('')
@@ -199,6 +201,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
         throw new Error((data as { error?: string }).error || `HTTP ${res.status}`)
       }
 
+      // Affiché au fil de l'eau, comme les autres onglets (l'auto-défilement suit)
       const reader  = res.body!.getReader()
       const decoder = new TextDecoder()
       let extracted = ''
@@ -206,6 +209,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
         const { done, value } = await reader.read()
         if (done) break
         extracted += decoder.decode(value, { stream: true })
+        setOutputText(extracted)
       }
       setOutputText(extracted)
 
@@ -243,6 +247,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
           const { done, value } = await transReader.read()
           if (done) break
           translated += transDecoder.decode(value, { stream: true })
+          setOutputText(translated)
         }
         setOutputText(translated)
       }

@@ -16,7 +16,7 @@ vi.mock('@/lib/db', () => ({
     })),
 }))
 
-import { fetchGlossaryCandidates, fetchGlossaryEntries } from '@/lib/glossary'
+import { fetchGlossaryCandidates, fetchGlossaryEntries, glossaryChanged } from '@/lib/glossary'
 import { findDuplicateEntry, importGlossaryRows, likePattern } from '@/lib/glossary-entries'
 import type { CsvRow } from '@/lib/glossary-csv'
 import { filterRelevantTerms, langMatches, termMatches, MAX_PROMPT_TERMS } from '@/lib/glossary-match'
@@ -124,6 +124,7 @@ describe('fetchGlossaryCandidates (database)', () => {
     await add('Leksis', 'Leksis', null, null)
     await add('facture', 'Rechnung', 'fr', 'de')
     await add('invoice', 'Rechnung', 'en', 'de')
+    glossaryChanged()   // fresh database: nothing from a previous test may be served from the cache
   })
 
   const sources = async (src: string, tgt: string, nullOnly = false) =>
@@ -157,6 +158,14 @@ describe('fetchGlossaryCandidates (database)', () => {
   it('then keeps the terms present in the text', async () => {
     const found = await fetchGlossaryEntries(undefined, 'fr', 'de', 'Les contrats de Leksis')
     expect(found.map(e => e.source).sort()).toEqual(['Leksis', 'contrat'])
+  })
+
+  it('serves repeated lookups from memory until a glossary changes', async () => {
+    expect(await sources('fr', 'de')).toEqual(['Leksis', 'contrat', 'facture'])
+    await add('avenant', 'Nachtrag', 'fr', 'de')
+    expect(await sources('fr', 'de')).toEqual(['Leksis', 'contrat', 'facture'])
+    glossaryChanged()
+    expect(await sources('fr', 'de')).toEqual(['Leksis', 'avenant', 'contrat', 'facture'])
   })
 
   it('respects the glossaries a user turned off', async () => {

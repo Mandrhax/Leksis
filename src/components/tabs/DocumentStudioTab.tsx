@@ -92,6 +92,7 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
   const [targetLang, setTargetLang] = useState<Language>(DEFAULT_TARGET)
   const [isLoading, setIsLoading]   = useState(false)
   const [step, setStep]             = useState<'extracting' | 'translating' | null>(null)
+  const [progress, setProgress]     = useState<{ done: number; total: number } | null>(null)
   const [error, setError]           = useState<string | null>(null)
   const [outputHtml, setOutputHtml] = useState<string>('')
   const [outputBlocks, setOutputBlocks] = useState<Block[] | null>(null)
@@ -157,19 +158,41 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
           formData.append('sourceCode', sourceLang.code)
         }
 
-        setStep('translating')
+        // Flux d'événements : la progression arrive lot par lot ({"progress"}), puis le résultat ({"blocks"})
+        setProgress(null)
         const res = await fetch('/api/translate/document', {
           method: 'POST',
           body: formData,
           signal: controller.signal,
+          headers: { Accept: 'application/x-ndjson' },
         })
-        if (!res.ok) {
+        if (!res.ok || !res.body) {
           const data = await res.json().catch(() => ({}))
           throw new Error((data as { error?: string }).error || `HTTP ${res.status}`)
         }
-        const data = await res.json() as { blocks: Block[] }
-        setOutputBlocks(data.blocks)
-        setOutputHtml(blocksToHtml(data.blocks))
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let blocks: Block[] | null = null
+        const handle = (line: string) => {
+          if (!line.trim()) return
+          const event = JSON.parse(line) as { progress?: { done: number; total: number }; blocks?: Block[]; error?: string }
+          if (event.progress) { setStep('translating'); setProgress(event.progress) }
+          if (event.blocks) blocks = event.blocks
+          if (event.error) throw new Error(event.error)
+        }
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
+          lines.forEach(handle)
+        }
+        handle(buffer)
+        if (!blocks) throw new Error(t.docTab.errorIncomplete)
+        setOutputBlocks(blocks)
+        setOutputHtml(blocksToHtml(blocks))
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') setError((err as Error).message)
@@ -177,7 +200,7 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
       setIsLoading(false)
       setStep(null)
     }
-  }, [file, mode, targetLang, sourceLang])
+  }, [file, mode, targetLang, sourceLang, t])
 
   const handleTargetLangChange = (lang: Language) => {
     setTargetLang(lang)
@@ -243,7 +266,12 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
     ? [{ label: t.docTab.extractingContent, active: step === 'extracting', done: false }]
     : [
         { label: t.docTab.extractingContent, active: step === 'extracting', done: step === 'translating' },
-        { label: t.docTab.translating,       active: step === 'translating', done: false },
+        {
+          label: progress && progress.total > 1
+            ? t.docTab.translatingProgress.replace('{0}', String(progress.done)).replace('{1}', String(progress.total))
+            : t.docTab.translating,
+          active: step === 'translating', done: false,
+        },
       ]
 
   const placeholder = mode === 'extract'

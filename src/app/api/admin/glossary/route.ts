@@ -3,6 +3,7 @@ import { getAdminSession } from '@/lib/admin-guard'
 import { query } from '@/lib/db'
 import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
+import { glossaryChanged } from '@/lib/glossary'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
   )
 
   const g = result.rows[0]
+  glossaryChanged()
   await logAudit(session.user.id, session.user.email!, 'CREATE_GLOSSARY', `glossary:${g.id}`, { name: g.name })
   return NextResponse.json({
     id: g.id,

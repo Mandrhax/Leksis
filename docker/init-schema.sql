@@ -133,6 +133,8 @@ CREATE TABLE IF NOT EXISTS glossary_entries (
   created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS glossary_entries_glossary_id_idx ON glossary_entries(glossary_id);
+-- Duplicate check (lower(source_term)) and admin list order
+CREATE INDEX IF NOT EXISTS glossary_entries_term_idx ON glossary_entries (glossary_id, lower(source_term));
 
 -- ============================================================
 -- user_glossary_prefs — per-user per-glossary opt-out

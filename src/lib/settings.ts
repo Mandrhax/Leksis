@@ -1,4 +1,5 @@
 import 'server-only'
+import { cache as perRequest } from 'react'
 import { query } from '@/lib/db'
 import { logAudit } from '@/lib/audit'
 
@@ -72,6 +73,12 @@ export async function updateSetting(
   invalidateSettings(key)
   await logAudit(userId, userEmail, 'UPDATE_SETTINGS', `settings:${key}`, auditValue ?? value)
 }
+
+/**
+ * Tous les réglages, lus UNE fois par rendu de page (React cache) : le layout (métadonnées + corps) et la page
+ * d'accueil les demandaient chacun, soit 3 requêtes par chargement. Objet partagé : lecture seule.
+ */
+export const getRequestSettings = perRequest(() => getAllSettings())
 
 /**
  * Lit tous les réglages en une seule requête (et remplit le cache clé par clé).

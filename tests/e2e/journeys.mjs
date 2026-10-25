@@ -300,6 +300,22 @@ try {
     long.status === 200 && JSON.stringify(texts(long)) === JSON.stringify(longLines.map(l => l.toUpperCase())), String(long.status))
   check('each call stays within the batch size', aiCalls.length >= 2 && aiCalls.every(c => c.chars <= 3200), JSON.stringify(aiCalls))
 
+  // The Document tab asks for a stream of events: progress batch by batch, then the result
+  const streamed = await adminPage.evaluate(async text => {
+    const form = new FormData()
+    form.append('file', new File([text], 'doc.txt', { type: 'text/plain' }))
+    form.append('targetLang', 'French')
+    form.append('sourceLang', 'English')
+    const r = await fetch('/api/translate/document', { method: 'POST', body: form, headers: { Accept: 'application/x-ndjson' } })
+    return { type: r.headers.get('content-type'), events: (await r.text()).trim().split(String.fromCharCode(10)).map(l => JSON.parse(l)) }
+  }, longLines.join(String.fromCharCode(10)))
+  const progressEvents = streamed.events.filter(e => e.progress)
+  check('the document stream reports progress batch by batch, then the translated blocks',
+    streamed.type?.startsWith('application/x-ndjson') && progressEvents.length >= 3
+      && progressEvents.at(-1).progress.done === progressEvents.at(-1).progress.total
+      && JSON.stringify(streamed.events.at(-1).blocks?.map(b => b.text)) === JSON.stringify(longLines.map(l => l.toUpperCase())),
+    JSON.stringify(streamed.events.map(e => Object.keys(e)[0])))
+
   // ── Text translation: incremental paragraphs, cache, skips, cancellation, usage log ──
   const translateText = (text, extra = {}) => adminPage.evaluate(async (text, extra) => {
     const r = await fetch('/api/translate', {
@@ -439,6 +455,12 @@ try {
   const usagePolicy = await anon('/legal/usage')
   check('the usage policy is readable without signing in', usagePolicy.status === 200 && usagePolicy.text.includes('Usage policy'), String(usagePolicy.status))
   check('an unknown legal page is a 404', (await anon('/legal/nope')).status === 404)
+  // First render in the browser's language (no English flash): only French strings are sent
+  const frSignin = await fetch(BASE + '/auth/signin', { headers: { 'Accept-Language': 'fr-CH,fr;q=0.9,en;q=0.8' } }).then(r => r.text())
+  check('the sign-in page is rendered in the browser language from the first byte',
+    frSignin.includes('<html lang="fr"') && frSignin.includes('Connectez-vous pour accéder à votre espace de travail.'), frSignin.slice(0, 120))
+  const itSignin = await fetch(BASE + '/auth/signin', { headers: { cookie: 'leksisUILocale=it', 'Accept-Language': 'fr' } }).then(r => r.text())
+  check('the language picked by the user (cookie) wins over the browser language', itSignin.includes('<html lang="it"'), itSignin.slice(0, 120))
   check('the privacy policy reflects the AI server (private network here) and the retention', privacy.text.includes('inside the private network') && privacy.text.includes('365 days'))
   const signinHtml = (await anon('/auth/signin')).text
   check('the sign-in page links to both policies', signinHtml.includes('href="/legal/privacy"') && signinHtml.includes('href="/legal/usage"'))

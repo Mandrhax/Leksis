@@ -43,6 +43,9 @@ export class PdfPageLimitError extends Error {
   }
 }
 
+/** Pages d'un PDF scanné traitées en même temps. */
+const OCR_PARALLEL_PAGES = 2
+
 /** Côté le plus long de l'image envoyée au modèle vision, en pixels. */
 export const OCR_MAX_PAGE_PX = 2000
 
@@ -65,12 +68,26 @@ export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, 
   const pdf = await loadingTask.promise
 
   try {
-    // Une page = un appel au modèle vision, l'un après l'autre : on plafonne avant de commencer
+    // Une page = un appel au modèle vision : on plafonne avant de commencer
     if (pdf.numPages > OCR_MAX_PDF_PAGES) throw new PdfPageLimitError(pdf.numPages, OCR_MAX_PDF_PAGES)
 
-    const allBlocks: Block[] = []
-
-    for (let i = 1; i <= pdf.numPages; i++) {
+    // Deux pages à la fois : la suivante est rendue (CPU) pendant que la précédente est lue par le modèle (GPU).
+    // Chaque page garde sa place ; l'appel au modèle reste sous la limite de concurrence globale.
+    const outputs: string[] = new Array(pdf.numPages)
+    let nextPage = 1
+    let failed = false
+    const worker = async () => {
+      while (!failed && nextPage <= pdf.numPages) {
+        const i = nextPage++
+        try {
+          outputs[i - 1] = await ocrPage(i)
+        } catch (err) {
+          failed = true   // plus aucune nouvelle page : l'extraction échoue de toute façon
+          throw err
+        }
+      }
+    }
+    const ocrPage = async (i: number): Promise<string> => {
       const page = await pdf.getPage(i)
       const viewport = page.getViewport({ scale: renderScale(page.getViewport({ scale: 1 })) })
 
@@ -84,19 +101,21 @@ export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, 
       const base64 = (await canvas.encode('png')).toString('base64')
       page.cleanup()
 
-      const pageOutput = await withAiSlot(maxConcurrent, () => provider.complete({
+      return withAiSlot(maxConcurrent, () => provider.complete({
         prompt: buildOcrPrompt(),
         images: [base64],
         signal,
         model,
       }), signal)
-
-      if (pageOutput.trim()) {
-        if (allBlocks.length > 0) allBlocks.push({ type: 'page-break' })
-        allBlocks.push(...parseOcrOutput(pageOutput.trim()))
-      }
     }
+    await Promise.all(Array.from({ length: Math.min(OCR_PARALLEL_PAGES, pdf.numPages) }, worker))
 
+    const allBlocks: Block[] = []
+    for (const pageOutput of outputs) {
+      if (!pageOutput?.trim()) continue
+      if (allBlocks.length > 0) allBlocks.push({ type: 'page-break' })
+      allBlocks.push(...parseOcrOutput(pageOutput.trim()))
+    }
     return allBlocks
   } finally {
     await loadingTask.destroy().catch(() => {})

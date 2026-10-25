@@ -218,3 +218,63 @@ describe('translateIncremental', () => {
     expect(model.prompts.filter(p => p.text.includes('au centre'))).toHaveLength(2)
   })
 })
+
+describe('translateIncremental: next paragraph translated ahead', () => {
+  /** Model whose answers are released by hand: shows which calls started before others finished */
+  function manualModel() {
+    const calls: { text: string; finish: () => void; cancelled: boolean }[] = []
+    const stream = (prompt: string) => {
+      const { text } = JSON.parse(prompt) as { text: string }
+      let release!: () => void
+      const ready = new Promise<void>(r => { release = r })
+      const call = { text, finish: () => release(), cancelled: false }
+      calls.push(call)
+      return new ReadableStream<Uint8Array>({
+        async pull(c) { await ready; c.enqueue(new TextEncoder().encode(`DE(${text})`)); c.close() },
+        cancel() { call.cancelled = true },
+      })
+    }
+    return { calls, stream }
+  }
+  const tick = () => new Promise(r => setTimeout(r, 0))
+
+  it('starts paragraph 2 while paragraph 1 is still running, output stays in order', async () => {
+    const model = manualModel()
+    const { output } = run('Un.\n\nDeux.\n\nTrois.', model as unknown as ReturnType<typeof fakeModel>, new TranslationCache())
+    await tick()
+    expect(model.calls.map(c => c.text)).toEqual(['Un.', 'Deux.'])
+    model.calls[1].finish()   // paragraph 2 done first…
+    await tick()
+    model.calls[0].finish()   // …then paragraph 1
+    await tick()
+    model.calls[2].finish()
+    expect(await output).toBe('DE(Un.)\n\nDE(Deux.)\n\nDE(Trois.)')
+  })
+
+  it('a cancelled translation cancels the paragraph started ahead and never caches a partial result', async () => {
+    const model = manualModel()
+    const cache = new TranslationCache()
+    const usage: UsageEntry = { userEmail: 'u@x.ch', feature: 'text', charCount: 0 }
+    const stream = translateIncremental({
+      text: 'Un.\n\nDeux.', userId: 'u1', model: 'translategemma:12b',
+      buildPrompt: (t, context) => JSON.stringify({ text: t, context }),
+      stream: model.stream, cache, limits: LIMITS, incremental: true, segmentContext: false, usage,
+    })
+    const reader = stream.getReader()
+    const first = reader.read()
+    await tick()
+    model.calls[0].finish()
+    await first
+    await tick()   // paragraph 1 fully received
+    await reader.cancel()
+    await tick()
+    expect(model.calls[1].cancelled).toBe(true)
+    // Paragraph 1 finished: cached. Paragraph 2 was cut: a new run translates it again
+    const again = manualModel()
+    const second = run('Un.\n\nDeux.', again as unknown as ReturnType<typeof fakeModel>, cache, { segmentContext: false })
+    await tick()
+    expect(again.calls.map(c => c.text)).toEqual(['Deux.'])
+    again.calls[0].finish()
+    expect(await second.output).toBe('DE(Un.)\n\nDE(Deux.)')
+  })
+})

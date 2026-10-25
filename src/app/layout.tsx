@@ -4,6 +4,8 @@ import type { Metadata } from 'next'
 import { Inter, Manrope } from 'next/font/google'
 import { SessionProvider } from 'next-auth/react'
 import { auth } from '@/auth'
+import { I18nBootstrap } from '@/lib/i18n'
+import { getRequestLocale } from '@/lib/i18n-server'
 import { GlobalBanner } from '@/components/GlobalBanner'
 import { MaintenanceScreen } from '@/components/MaintenanceScreen'
 import { buildColorVars } from '@/lib/color-utils'
@@ -43,8 +45,8 @@ type GeneralSettings = {
 async function loadSettings() {
   try {
     // Import dynamique pour éviter que l'import côté client ne soit inclus
-    const { getAllSettings } = await import('@/lib/settings')
-    return await getAllSettings()
+    const { getRequestSettings } = await import('@/lib/settings')
+    return await getRequestSettings()
   } catch {
     return {}
   }
@@ -65,7 +67,7 @@ export async function generateMetadata(): Promise<Metadata> {
 // ── Layout principal ──────────────────────────────────────────────────────────
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [settings, session] = await Promise.all([loadSettings(), auth()])
+  const [settings, session, ui] = await Promise.all([loadSettings(), auth(), getRequestLocale()])
 
   const branding = (settings.branding ?? {}) as BrandingSettings
   const design   = (settings.design   ?? {}) as DesignSettings
@@ -92,10 +94,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const inMaintenance = general.maintenanceMode && !isAdmin
 
   return (
-    <html lang="en" className={htmlClass} suppressHydrationWarning>
+    <html lang={ui.locale} className={htmlClass} suppressHydrationWarning>
       <head>
         <style dangerouslySetInnerHTML={{ __html: `:root{${cssVarsString}}` }} />
-        {/* Material Symbols + Bootstrap Icons : self-hébergés (next/font + npm) — pas de CDN tiers */}
+        {/* Material Symbols : self-hébergé — pas de CDN tiers */}
       </head>
       <body
         className="antialiased font-body selection:bg-primary-container bg-background text-on-background min-h-screen"
@@ -115,11 +117,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         )}
 
         <SessionProvider>
-          {inMaintenance ? (
-            <MaintenanceScreen message={general.maintenanceMessage} />
-          ) : (
-            children
-          )}
+          <I18nBootstrap locale={ui.locale} messages={ui.messages}>
+            {inMaintenance ? (
+              <MaintenanceScreen message={general.maintenanceMessage} />
+            ) : (
+              children
+            )}
+          </I18nBootstrap>
         </SessionProvider>
       </body>
     </html>

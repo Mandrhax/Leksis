@@ -19,6 +19,7 @@ interface UsageRow {
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const DEFAULT_RANGE_DAYS = 30
 
 // Champ CSV entre guillemets. Une valeur qui commence par = + - @ (ou tab / retour chariot) serait lue comme
 // une formule par Excel/LibreOffice — les emails sont saisis librement — on la préfixe donc d'une apostrophe.
@@ -45,6 +46,12 @@ export async function GET(req: NextRequest) {
   const params: string[] = []
   const conditions: string[] = []
 
+  // Statistiques sans période : les 30 derniers jours (sinon 4 agrégats sur toute la table, qui grossit à chaque
+  // traduction). Le CSV garde « tout » : il est trié par date et plafonné à 10 000 lignes, l'index suffit.
+  if (!from && format !== 'csv') {
+    params.push(new Date(Date.now() - DEFAULT_RANGE_DAYS * 86_400_000).toISOString())
+    conditions.push(`created_at >= $${params.length}::timestamptz`)
+  }
   if (from) { params.push(from); conditions.push(`created_at >= $${params.length}::timestamptz`) }
   if (to)   { params.push(to);   conditions.push(`created_at <= ($${params.length}::timestamptz + interval '1 day')`) }
 

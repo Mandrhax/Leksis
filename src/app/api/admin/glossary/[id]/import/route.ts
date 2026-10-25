@@ -5,6 +5,7 @@ import { importGlossaryRows } from '@/lib/glossary-entries'
 import { parseGlossaryCsv, MAX_CSV_ROWS } from '@/lib/glossary-csv'
 import { resolveLanguageCode } from '@/lib/languages'
 import { requestTooLarge } from '@/lib/validators'
+import { glossaryChanged } from '@/lib/glossary'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,6 +47,8 @@ export async function POST(
     return NextResponse.json({ error: 'Import failed.' }, { status: 500 })
   }
   if (!outcome) return NextResponse.json({ error: 'Glossary not found.', code: 'not_found' }, { status: 404 })
+
+  glossaryChanged()
 
   await logAudit(session.user.id, session.user.email!, 'IMPORT_GLOSSARY_CSV', `glossary:${glossaryId}`, {
     imported: outcome.imported, duplicates: outcome.duplicates, rejected: rejected.length,

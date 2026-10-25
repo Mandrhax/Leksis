@@ -60,7 +60,14 @@ export function splitIntoBatches(segments: string[], maxChars = BATCH_MAX_CHARS)
 export async function translateSegments(
   segments: string[],
   translate: TranslateBatch,
-  opts: { maxChars?: number; retries?: number } = {},
+  opts: {
+    maxChars?: number
+    retries?: number
+    /** Lots traduits en même temps (indépendants : chacun garde sa place dans le résultat). 1 = l'un après l'autre. */
+    concurrency?: number
+    /** Appelé à chaque lot terminé (progression affichée à l'utilisateur) */
+    onProgress?: (done: number, total: number) => void
+  } = {},
 ): Promise<{ segments: string[]; stats: TranslateStats }> {
   const retries = opts.retries ?? BATCH_RETRIES
   const stats: TranslateStats = { batches: 0, retries: 0, splits: 0 }
@@ -90,9 +97,31 @@ export async function translateSegments(
     if (s.trim()) { positions.push(i); texts.push(neutralizeSeparator(s)) }
   })
 
+  const batches = splitIntoBatches(texts, opts.maxChars)
+  const results: string[][] = new Array(batches.length)
+  let next = 0
+  let finished = 0
+  let failed = false
+  opts.onProgress?.(0, batches.length)
+  // Quelques lots à la fois : un moteur qui sert plusieurs requêtes (vLLM, OLLAMA_NUM_PARALLEL > 1) traduit le
+  // document d'autant plus vite ; sinon les requêtes attendent leur tour (limite de concurrence, file du moteur)
+  const worker = async () => {
+    while (!failed && next < batches.length) {
+      const b = next++
+      try {
+        results[b] = await run(batches[b])
+      } catch (err) {
+        failed = true   // plus aucun nouveau lot : le document échoue de toute façon
+        throw err
+      }
+      opts.onProgress?.(++finished, batches.length)
+    }
+  }
+  const workers = Math.max(1, Math.min(opts.concurrency ?? 1, batches.length))
+  await Promise.all(Array.from({ length: workers }, worker))
+
   const result = [...segments]
-  const translated: string[] = []
-  for (const batch of splitIntoBatches(texts, opts.maxChars)) translated.push(...await run(batch))
+  const translated = results.flat()
   positions.forEach((pos, i) => { result[pos] = translated[i] })
   return { segments: result, stats }
 }

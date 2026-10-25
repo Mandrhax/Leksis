@@ -108,31 +108,53 @@ export async function POST(req: NextRequest) {
     modelChars: charCount,
   }
 
-  let translatedSegments: string[]
-  try {
-    const { segments, stats } = await translateSegments(
-      blocksToSegments(blocks),
-      (joined, count) => withAiSlot(cfg.maxConcurrentAiRequests, () => provider.complete({
-        prompt: buildDocumentTranslationPrompt({
-          segments: joined, segmentCount: count, sourceLang: sourceLang || 'Auto', targetLang,
-          glossaryClause: buildTranslationGlossaryClause(filterRelevantTerms(glossaryCandidates, joined)),
-        }),
-        signal: req.signal,
-        model: cfg.translationModel,
-      }), req.signal),
-    )
-    translatedSegments = segments
-    // Le modèle a mal respecté les séparateurs : à savoir pour choisir ou régler le modèle
-    if (stats.retries || stats.splits) console.warn(`[translate/document] separators not respected by ${cfg.translationModel}:`, stats)
-  } catch (err) {
-    logUsage({ ...usage, status: req.signal.aborted ? 'cancelled' : 'error', latencyMs: Date.now() - startedAt })
-    console.error('[translate/document] translation failed:', err)
-    return NextResponse.json({ error: 'Translation failed. The AI server did not return a result.' }, { status: 502 })
+  const segmentsIn = blocksToSegments(blocks)
+  const translate = async (onProgress?: (done: number, total: number) => void) => {
+    try {
+      const { segments, stats } = await translateSegments(
+        segmentsIn,
+        (joined, count) => withAiSlot(cfg.maxConcurrentAiRequests, () => provider.complete({
+          prompt: buildDocumentTranslationPrompt({
+            segments: joined, segmentCount: count, sourceLang: sourceLang || 'Auto', targetLang,
+            glossaryClause: buildTranslationGlossaryClause(filterRelevantTerms(glossaryCandidates, joined)),
+          }),
+          signal: req.signal,
+          model: cfg.translationModel,
+        }), req.signal),
+        { concurrency: DOC_PARALLEL_BATCHES, onProgress },
+      )
+      // Le modèle a mal respecté les séparateurs : à savoir pour choisir ou régler le modèle
+      if (stats.retries || stats.splits) console.warn(`[translate/document] separators not respected by ${cfg.translationModel}:`, stats)
+      logUsage({ ...usage, status: 'completed', latencyMs: Date.now() - startedAt })
+      return applySegments(blocks, segments)
+    } catch (err) {
+      logUsage({ ...usage, status: req.signal.aborted ? 'cancelled' : 'error', latencyMs: Date.now() - startedAt })
+      console.error('[translate/document] translation failed:', err)
+      return null
+    }
+  }
+  const failure = { error: 'Translation failed. The AI server did not return a result.', code: 'translation_failed' }
+
+  // Sans « Accept: application/x-ndjson » (scripts, anciens clients) : une seule réponse JSON à la fin
+  if (!(req.headers.get('accept') ?? '').includes('application/x-ndjson')) {
+    const translated = await translate()
+    return translated ? NextResponse.json({ blocks: translated }) : NextResponse.json(failure, { status: 502 })
   }
 
-  logUsage({ ...usage, status: 'completed', latencyMs: Date.now() - startedAt })
-
-  const translatedBlocks = applySegments(blocks, translatedSegments)
-
-  return NextResponse.json({ blocks: translatedBlocks })
+  // Une ligne JSON par événement : {"progress":{"done","total"}} à chaque lot terminé, puis {"blocks":[…]} ou
+  // {"error","code"} — un long document montre où il en est au lieu d'un simple sablier
+  const encoder = new TextEncoder()
+  return new Response(new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: object) => {
+        try { controller.enqueue(encoder.encode(JSON.stringify(event) + '\n')) } catch { /* client parti */ }
+      }
+      const translated = await translate((done, total) => send({ progress: { done, total } }))
+      send(translated ? { blocks: translated } : failure)
+      try { controller.close() } catch { /* client parti */ }
+    },
+  }), { headers: { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' } })
 }
+
+/** Lots de segments traduits en même temps pour un document (sous la limite de concurrence globale) */
+const DOC_PARALLEL_BATCHES = 3

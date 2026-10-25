@@ -74,36 +74,114 @@ export function translateIncremental(o: IncrementalOptions): ReadableStream<Uint
   // Compté au fur et à mesure : une traduction annulée en route n'a envoyé que les paragraphes déjà partis
   o.usage.modelChars = 0
 
+  // Le contexte d'un paragraphe est le paragraphe SOURCE précédent, pas sa traduction : les appels sont
+  // indépendants. Le paragraphe inconnu suivant part donc pendant que le courant s'affiche (PARAGRAPH_LOOKAHEAD),
+  // sa traduction attend en mémoire son tour — sortie toujours dans l'ordre. Un moteur qui sert plusieurs requêtes
+  // à la fois (vLLM, OLLAMA_NUM_PARALLEL > 1) traduit ainsi un long texte bien plus vite ; sinon la 2ᵉ requête
+  // attend simplement son tour chez lui ou dans la limite de concurrence.
+  const running = new Map<number, RunningPart>()
+  const start = (i: number) => {
+    if (known[i] !== undefined || running.has(i)) return
+    o.usage.modelChars = (o.usage.modelChars ?? 0) + parts[i].length + (contextOf(i)?.length ?? 0)
+    const part = runPart(o.stream(o.buildPrompt(parts[i], contextOf(i))))
+    // Mis en cache dès qu'il est terminé, même s'il attend encore son tour d'affichage
+    part.finished.then(text => { if (text !== null) put(partKeys[i], text) })
+    running.set(i, part)
+  }
+  const startAhead = (from: number) => {
+    let ahead = 0
+    for (let j = from; j < parts.length && ahead < PARAGRAPH_LOOKAHEAD; j++) {
+      if (known[j] === undefined) { start(j); ahead++ }
+    }
+  }
+
   return streamFromGenerator((async function* () {
     const done: string[] = []
-    for (let i = 0; i < parts.length; i++) {
-      if (i > 0) yield encoder.encode(separators[i - 1])
-      const cached = known[i]
-      if (cached !== undefined) {
-        done.push(cached)
-        yield encoder.encode(cached)
-        continue
+    try {
+      for (let i = 0; i < parts.length; i++) {
+        if (i > 0) yield encoder.encode(separators[i - 1])
+        const cached = known[i]
+        if (cached !== undefined) {
+          done.push(cached)
+          yield encoder.encode(cached)
+          continue
+        }
+        start(i)
+        startAhead(i + 1)
+        let translated = ''
+        for await (const chunk of running.get(i)!.read()) {
+          translated += chunk
+          yield encoder.encode(chunk)
+        }
+        running.delete(i)
+        done.push(translated)
       }
-      o.usage.modelChars = (o.usage.modelChars ?? 0) + parts[i].length + (contextOf(i)?.length ?? 0)
-      let translated = ''
-      for await (const chunk of trimmedText(o.stream(o.buildPrompt(parts[i], contextOf(i))))) {
-        translated += chunk
-        yield encoder.encode(chunk)
-      }
-      put(partKeys[i], translated)
-      done.push(translated)
+      // Arrivé au bout seulement (pas après une annulation) : le texte entier est connu aussi
+      put(fullKey, joinParagraphs(done, separators))
+    } finally {
+      // Sortie anticipée (le client a coupé) : les paragraphes lancés en avance sont abandonnés aussi
+      for (const part of running.values()) part.cancel()
     }
-    // Arrivé au bout seulement (pas après une annulation) : le texte entier est connu aussi
-    put(fullKey, joinParagraphs(done, separators))
   })())
+}
+
+/** Paragraphes inconnus traduits en avance du paragraphe affiché. */
+const PARAGRAPH_LOOKAHEAD = 1
+
+interface RunningPart {
+  /** Fragments de la traduction, dans l'ordre (ceux déjà reçus d'abord) */
+  read(): AsyncGenerator<string>
+  /** Traduction complète une fois terminée ; null si annulée ou en erreur */
+  finished: Promise<string | null>
+  cancel(): void
+}
+
+/** Lit un flux de traduction en tâche de fond et garde ses fragments jusqu'à ce qu'on les lise. */
+function runPart(stream: ReadableStream<Uint8Array>): RunningPart {
+  const reader = stream.getReader()
+  const chunks: string[] = []
+  let ended = false
+  let cancelled = false
+  let failure: unknown = null
+  let wake: (() => void) | null = null
+  const signal = () => { const w = wake; wake = null; w?.() }
+
+  const finished = (async () => {
+    try {
+      for await (const chunk of trimmedText(reader)) { chunks.push(chunk); signal() }
+      // Coupée en route : jamais en cache (ce ne serait qu'un début de traduction)
+      return cancelled ? null : chunks.join('')
+    } catch (err) {
+      failure = err
+      return null
+    } finally {
+      ended = true
+      signal()
+    }
+  })()
+
+  return {
+    finished,
+    cancel: () => { cancelled = true; reader.cancel().catch(() => {}) },
+    async *read() {
+      let i = 0
+      while (true) {
+        if (i < chunks.length) { yield chunks[i++]; continue }
+        if (ended) {
+          if (failure) throw failure
+          return
+        }
+        await new Promise<void>(resolve => { wake = resolve })
+      }
+    },
+  }
 }
 
 /**
  * Texte d'un flux, sans espaces ni retours à la ligne en tête ou en fin : la traduction d'un paragraphe doit tenir
  * entre ses séparateurs. Les espaces de fin d'un fragment sont retenus jusqu'à savoir si du texte suit.
  */
-async function* trimmedText(stream: ReadableStream<Uint8Array>): AsyncGenerator<string> {
-  const reader  = stream.getReader()
+async function* trimmedText(reader: ReadableStreamDefaultReader<Uint8Array>): AsyncGenerator<string> {
   const decoder = new TextDecoder()
   let started = false
   let pendingSpace = ''

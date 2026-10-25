@@ -54,6 +54,8 @@ export const messages = {
     processing:             'Processing',
     extractingContent:      'Extracting document content',
     translating:            'Translating',
+    translatingProgress:    'Translating — {0} of {1} parts',
+    errorIncomplete:        'The translation stopped before the end. Please try again.',
     extractedPlaceholder:   'Extracted document will appear here...',
     translatedPlaceholder:  'Translated document will appear here...',
     copied:                 'Copied!',
