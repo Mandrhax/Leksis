@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   // Refus avant de lire le corps : évite de charger un fichier énorme en mémoire
   const { maxAudioBytes } = await getDynamicLimits()
   if (requestTooLarge(req, maxAudioBytes)) {
-    return NextResponse.json({ error: validateAudioSize(Infinity, maxAudioBytes) }, { status: 413 })
+    return NextResponse.json(validateAudioSize(Infinity, maxAudioBytes)!, { status: 413 })
   }
 
   let formData: FormData
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   // elle reste soumise à l'activation de l'onglet qui l'utilise.
   const feature: 'text' | 'rewrite' = formData.get('feature') === 'rewrite' ? 'rewrite' : 'text'
   if (!await isFeatureEnabled(feature)) {
-    return NextResponse.json({ error: 'This feature is disabled.' }, { status: 403 })
+    return NextResponse.json({ error: 'This feature is disabled.', code: 'disabled' }, { status: 403 })
   }
 
   const audio = formData.get('audio') as File | null
@@ -41,11 +41,11 @@ export async function POST(req: NextRequest) {
 
   const mimeType = audio.type.split(';')[0].trim().toLowerCase()
   if (!SUPPORTED_TYPES.includes(mimeType)) {
-    return NextResponse.json({ error: `Unsupported audio type: ${audio.type || 'unknown'}` }, { status: 400 })
+    return NextResponse.json({ error: `Unsupported audio type: ${audio.type || 'unknown'}`, code: 'unsupported_format' }, { status: 400 })
   }
 
   const sizeError = validateAudioSize(audio.size, maxAudioBytes)
-  if (sizeError) return NextResponse.json({ error: sizeError }, { status: 400 })
+  if (sizeError) return NextResponse.json(sizeError, { status: 400 })
 
   const ai = await getAiOrError()
   if (ai.error) return ai.error
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
   // La dictée n'existe que via l'API OpenAI-compatible : jamais confiance au client, revérifié ici
   if (cfg.provider !== 'openai' || !cfg.voiceModel) {
-    return NextResponse.json({ error: 'Voice dictation is not configured.' }, { status: 400 })
+    return NextResponse.json({ error: 'Voice dictation is not configured.', code: 'disabled' }, { status: 400 })
   }
 
   const arrayBuffer = await audio.arrayBuffer()
@@ -83,6 +83,6 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     logUsage({ ...usage, status: req.signal.aborted ? 'cancelled' : 'error', latencyMs: Date.now() - startedAt })
     console.error('[dictate] transcription failed:', err)
-    return NextResponse.json({ error: 'Transcription failed. The AI server did not return a result.' }, { status: 502 })
+    return NextResponse.json({ error: 'Transcription failed. The AI server did not return a result.', code: 'transcription_failed' }, { status: 502 })
   }
 }

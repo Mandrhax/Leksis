@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useDialogFocus } from '@/hooks/useDialogFocus'
 import { createPortal } from 'react-dom'
 import { useI18n } from '@/lib/i18n'
 
@@ -31,6 +32,8 @@ export function HelpModal({ open, onClose, activeTab, onFeedback }: Props) {
       : 'text'
 
   const [tab, setTab] = useState<ModalTab>(initialTab)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(open, dialogRef)
 
   // Sync modal tab when workspace tab changes or modal opens
   useEffect(() => {
@@ -67,6 +70,7 @@ export function HelpModal({ open, onClose, activeTab, onFeedback }: Props) {
 
       {/* Modal card */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={t.helpModal.title}
@@ -83,18 +87,20 @@ export function HelpModal({ open, onClose, activeTab, onFeedback }: Props) {
           <button
             className="icon-btn"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t.helpModal.close}
           >
-            <span className="material-symbols-outlined">close</span>
+            <span className="material-symbols-outlined" aria-hidden="true">close</span>
           </button>
         </div>
 
         {/* Tab bar */}
-        <div className="flex border-b border-outline-variant/15 shrink-0 px-2">
+        <div className="flex border-b border-outline-variant/15 shrink-0 px-2" role="tablist">
           {TABS.map(({ id, label }) => (
             <button
               key={id}
               type="button"
+              role="tab"
+              aria-selected={tab === id}
               onClick={() => setTab(id)}
               className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 tab === id

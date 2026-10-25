@@ -70,6 +70,8 @@ export const messages = {
     retry:                  'Erneut versuchen',
   },
   imgTab: {
+    closePreview: 'Vorschau schliessen',
+    previewAlt: 'Vorschau des Bildes',
     sourceImage:          'Quellbild',
     clear:                'Löschen',
     dropHere:             'Bild hier ablegen',
@@ -125,6 +127,7 @@ export const messages = {
     micPermissionDenied:'Zugriff auf das Mikrofon nicht möglich.',
   },
   langDropdown: {
+    listLabel:            'Sprache',
     autoDetect:           'Automatisch erkennen',
     autoDetectWithLang:   'Automatisch erkennen · {0}',
     searchPlaceholder:    'Sprache suchen…',
@@ -165,6 +168,9 @@ export const messages = {
     unsavedBadge: 'Ungespeicherte Änderungen',
   },
   adminSidebar: {
+    openMenu: 'Menü öffnen',
+    closeMenu: 'Menü schliessen',
+    dismiss: 'Schliessen',
     title:                  'Administration',
     navLabel:               'Admin-Navigation',
     navDashboard:           'Dashboard',
@@ -642,6 +648,7 @@ export const messages = {
     tabMonitoring:          'Überwachung',
   },
   dbForm: {
+    blockTablesName: 'Tabelle',
     metricsTitle:              'Live-Metriken',
     metricsRefresh:            'Aktualisieren',
     metricsLoading:            'Laden…',
@@ -661,6 +668,8 @@ export const messages = {
     blockTablesSize:           'Größe',
   },
   caddyForm: {
+    blockUpstreamAddress: 'Adresse',
+    blockUpstreamStatus: 'Status',
     title:                  'Zugriff & HTTPS',
     modeLabel:              'Wie erreichen Benutzer Leksis?',
     modeHttp:               'HTTP',
@@ -1027,6 +1036,7 @@ export const messages = {
     imageCount:          '{0} Bild(er)',
   },
   helpModal: {
+    close:          'Schliessen',
     title: 'Hilfe & Tipps',
     feedbackPrompt: 'Keine Antwort gefunden oder eine Idee?',
     tabs: {
@@ -1070,5 +1080,22 @@ export const messages = {
       tip1:        'Verschiedene Töne liefern sehr unterschiedliche Ergebnisse \u2014 probieren Sie mehrere aus.',
       tip2:        'Verwenden Sie \u201eNur korrigieren\u201c zum Korrekturlesen, ohne die Stimme des Textes zu verändern.',
     },
+  },
+  apiErrors: {
+    generic:             'Es ist ein Fehler aufgetreten (Fehler {0}). Bitte versuchen Sie es erneut.',
+    unauthorized:        'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.',
+    disabled:            'Diese Funktion wurde vom Administrator deaktiviert.',
+    maintenance:         'Der Dienst wird gewartet. Bitte versuchen Sie es später erneut.',
+    rateLimited:         'Zu viele Anfragen. Bitte warten Sie einen Moment und versuchen Sie es erneut.',
+    textRequired:        'Geben Sie zuerst einen Text ein.',
+    textTooLong:         'Der Text überschreitet die Grenze von {0} Zeichen.',
+    tooLarge:            'Die Datei überschreitet die Grenze von {0} MB.',
+    unsupportedFormat:   'Dieses Dateiformat wird nicht unterstützt.',
+    pageLimit:           'Dieses gescannte PDF hat {0} Seiten; die Grenze liegt bei {1}.',
+    extractionFailed:    'Der Text dieser Datei konnte nicht gelesen werden. Sie ist möglicherweise beschädigt oder geschützt.',
+    docTooLong:          'Das Dokument hat {1} Zeichen; die Grenze liegt bei {0}.',
+    translationFailed:   'Die Übersetzung ist fehlgeschlagen: Der KI-Server hat kein Ergebnis geliefert. Bitte versuchen Sie es erneut.',
+    transcriptionFailed: 'Das Diktat konnte nicht transkribiert werden. Bitte versuchen Sie es erneut.',
+    aiUnavailable:       'Der KI-Server ist nicht erreichbar. Versuchen Sie es später erneut oder wenden Sie sich an Ihren Administrator.',
   },
 } satisfies Messages

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { detectLanguage } from '@/lib/languages'
 import { TEXT_MAX_CHARS } from '@/lib/validators'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
@@ -11,6 +11,8 @@ import type { Messages } from '@/locales/en'
 import type { RewriteMode, RewriteLength, ToneConfig, Language } from '@/types/leksis'
 import { ReportResultLink } from '@/components/ui/ReportResultLink'
 import type { FeedbackCategory } from '@/lib/feedback-schema'
+import { apiError } from '@/lib/api-error'
+import { useAutoScroll } from '@/hooks/useAutoScroll'
 
 const LENGTHS: RewriteLength[] = ['Shorter', 'Keep', 'Longer']
 
@@ -60,10 +62,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
   const abortRef  = useRef<AbortController | null>(null)
   const outputRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const el = outputRef.current
-    if (el && isLoading) el.scrollTop = el.scrollHeight
-  }, [outputText, isLoading])
+  useAutoScroll(outputRef, outputText, isLoading)
 
   const abort = useCallback(() => {
     abortRef.current?.abort()
@@ -101,8 +100,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
       })
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error((data as { error?: string }).error || `HTTP ${res.status}`)
+        throw await apiError(t, res)
       }
 
       const reader  = res.body!.getReader()
@@ -123,7 +121,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
     } finally {
       setIsLoading(false)
     }
-  }, [abort, sourceLang])
+  }, [abort, sourceLang, t])
 
   const handleDictated = (text: string) => {
     setInputText(prev => prev.trim() ? `${prev.trim()} ${text}` : text)
@@ -265,8 +263,8 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-on-surface tracking-wider">{t.rewriteTab.mode}</span>
               <div className="boundaries">
-                <button onClick={() => setMode('rewrite')} className={`formal-btn ${mode === 'rewrite' ? 'active' : ''}`}>{t.rewriteTab.rewriteMode}</button>
-                <button onClick={() => setMode('correct')} className={`formal-btn ${mode === 'correct' ? 'active' : ''}`}>{t.rewriteTab.correctOnly}</button>
+                <button type="button" aria-pressed={mode === 'rewrite'} onClick={() => setMode('rewrite')} className={`formal-btn ${mode === 'rewrite' ? 'active' : ''}`}>{t.rewriteTab.rewriteMode}</button>
+                <button type="button" aria-pressed={mode === 'correct'} onClick={() => setMode('correct')} className={`formal-btn ${mode === 'correct' ? 'active' : ''}`}>{t.rewriteTab.correctOnly}</button>
               </div>
             </div>
 
@@ -281,6 +279,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
                     key={tn.id}
                     onClick={() => setTone(tn.id)}
                     title={tn.instruction}
+                    aria-pressed={tone === tn.id}
                     className={`tone-btn ${tone === tn.id ? 'active' : ''}`}
                   >
                     {toneLabel(tn)}
@@ -299,6 +298,7 @@ export function AIRewriteTab({ maxTextChars = TEXT_MAX_CHARS, configuredTones = 
                   <button
                     key={l}
                     onClick={() => setLength(l)}
+                    aria-pressed={length === l}
                     className={`formal-btn ${length === l ? 'active' : ''}`}
                   >
                     {t.rewriteTab[LENGTH_LABELS[l]]}

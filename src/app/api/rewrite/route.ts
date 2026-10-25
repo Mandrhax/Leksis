@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   const { session } = guard
 
   if (!await isFeatureEnabled('rewrite')) {
-    return NextResponse.json({ error: 'This feature is disabled.' }, { status: 403 })
+    return NextResponse.json({ error: 'This feature is disabled.', code: 'disabled' }, { status: 403 })
   }
   let body: {
     text: string
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   const { maxTextChars } = await getDynamicLimits()
   const validationError = validateTextInput(text, maxTextChars)
   if (validationError) {
-    return NextResponse.json({ error: validationError }, { status: 400 })
+    return NextResponse.json(validationError, { status: 400 })
   }
 
   if (!mode || (mode !== 'rewrite' && mode !== 'correct')) {

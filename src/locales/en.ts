@@ -68,6 +68,8 @@ export const messages = {
     retry:                  'Retry',
   },
   imgTab: {
+    closePreview: 'Close the preview',
+    previewAlt: 'Preview of the image',
     sourceImage:          'Source Image',
     clear:                'Clear',
     dropHere:             'Drop an image here',
@@ -123,6 +125,7 @@ export const messages = {
     micPermissionDenied:'Could not access the microphone.',
   },
   langDropdown: {
+    listLabel:            'Language',
     autoDetect:           'Auto Detect',
     autoDetectWithLang:   'Auto Detect · {0}',
     searchPlaceholder:    'Search language…',
@@ -163,6 +166,9 @@ export const messages = {
     unsavedBadge: 'Unsaved changes',
   },
   adminSidebar: {
+    openMenu: 'Open menu',
+    closeMenu: 'Close menu',
+    dismiss: 'Close',
     title:                  'Administration',
     navLabel:               'Admin navigation',
     navDashboard:           'Dashboard',
@@ -640,6 +646,7 @@ export const messages = {
     tabMonitoring:          'Monitoring',
   },
   dbForm: {
+    blockTablesName: 'Table',
     metricsTitle:              'Live metrics',
     metricsRefresh:            'Refresh',
     metricsLoading:            'Loading…',
@@ -659,6 +666,8 @@ export const messages = {
     blockTablesSize:           'Size',
   },
   caddyForm: {
+    blockUpstreamAddress: 'Address',
+    blockUpstreamStatus: 'Status',
     title:                  'Access & HTTPS',
     modeLabel:              'How do users reach Leksis?',
     modeHttp:               'HTTP',
@@ -1025,6 +1034,7 @@ export const messages = {
     imageCount:          '{0} image(s)',
   },
   helpModal: {
+    close:          'Close',
     title: 'Help & Tips',
     feedbackPrompt: 'Can’t find what you need, or have an idea?',
     tabs: {
@@ -1068,6 +1078,23 @@ export const messages = {
       tip1:        'Different tones produce very different results \u2014 try several to find the right fit.',
       tip2:        'Use \u201cCorrect only\u201d for proofreading without altering the voice of the text.',
     },
+  },
+  apiErrors: {
+    generic:             'Something went wrong (error {0}). Please try again.',
+    unauthorized:        'Your session has expired. Sign in again.',
+    disabled:            'This feature has been turned off by the administrator.',
+    maintenance:         'The service is under maintenance. Please try again later.',
+    rateLimited:         'Too many requests. Please wait a moment and try again.',
+    textRequired:        'Enter some text first.',
+    textTooLong:         'The text is longer than the limit of {0} characters.',
+    tooLarge:            'The file is larger than the limit of {0} MB.',
+    unsupportedFormat:   'This file format is not supported.',
+    pageLimit:           'This scanned PDF has {0} pages; the limit is {1}.',
+    extractionFailed:    'The text could not be read from this file. It may be damaged or protected.',
+    docTooLong:          'The document has {1} characters; the limit is {0}.',
+    translationFailed:   'The translation failed: the AI server did not return a result. Please try again.',
+    transcriptionFailed: 'The dictation could not be transcribed. Please try again.',
+    aiUnavailable:       'The AI server cannot be reached. Please try again later or contact your administrator.',
   },
 } as const
 

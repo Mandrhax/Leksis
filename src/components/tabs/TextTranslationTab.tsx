@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
-import { LANGUAGES, detectLanguage } from '@/lib/languages'
+import { detectLanguage } from '@/lib/languages'
 import { detectRegister, hasFormalAddress } from '@/lib/register-detect'
 import { TEXT_MAX_CHARS } from '@/lib/validators'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
@@ -14,23 +14,15 @@ import type { FeedbackCategory } from '@/lib/feedback-schema'
 import type { UsageTrigger } from '@/lib/usage-schema'
 import { TranslationScheduler, fetchTranslation, type TranslationInput, type SkipReason } from '@/lib/translate-scheduler'
 import { TEXT_TRANSLATION_DEFAULTS, toTextTriggers, type TextTriggerConfig } from '@/lib/text-translation-config'
+import { ApiResponseError, apiErrorMessage } from '@/lib/api-error'
+import { DEFAULT_TARGET_LANGUAGE, loadStoredLanguage, saveStoredLanguage } from '@/lib/stored-language'
+import { useAutoScroll } from '@/hooks/useAutoScroll'
 
 const TEXT_TRIGGER_DEFAULTS = toTextTriggers(TEXT_TRANSLATION_DEFAULTS)
 
-const DEFAULT_TARGET: Language = { code: 'fr', name: 'French' }
 const TARGET_KEY = 'leksisTargetLang'
 
-function loadTargetLang(defaultCode?: string): Language {
-  try {
-    const r = localStorage.getItem(TARGET_KEY)
-    if (r) return JSON.parse(r)
-    if (defaultCode && defaultCode !== 'auto') {
-      const found = LANGUAGES.find(l => l.code === defaultCode)
-      if (found) return found
-    }
-  } catch { /* ignore */ }
-  return DEFAULT_TARGET
-}
+const loadTargetLang = (defaultCode?: string) => loadStoredLanguage(TARGET_KEY, defaultCode)
 
 interface Props {
   defaultSourceLang?: string
@@ -51,12 +43,13 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
   const [outputText, setOutputText]     = useState('')
   const [sourceLang, setSourceLang]     = useState<Language | null>(null)
   const [detectedLang, setDetectedLang] = useState<Language | null>(null)
-  const [targetLang, setTargetLang]     = useState<Language>(DEFAULT_TARGET)
+  const [targetLang, setTargetLang]     = useState<Language>(DEFAULT_TARGET_LANGUAGE)
   const [formality, setFormality]       = useState<Formality>(defaultFormality)
   // D'où vient le choix tu/vous affiché : lu dans le texte, réglage par défaut, ou clic de l'utilisateur
   const [formalityOrigin, setFormalityOrigin] = useState<'text' | 'default' | 'manual'>('default')
   const [isLoading, setIsLoading]       = useState(false)
-  const [error, setError]               = useState<string | null>(null)
+  // Erreur d'API gardée telle quelle et traduite à l'affichage (suit aussi un changement de langue)
+  const [error, setError]               = useState<string | ApiResponseError | null>(null)
   // La sortie affichée correspond à une version précédente du texte : atténuée jusqu'à la nouvelle
   const [isStale, setIsStale]           = useState(false)
   const [notice, setNotice]             = useState<SkipReason | null>(null)
@@ -65,7 +58,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
   const [scheduler] = useState(() => new TranslationScheduler(triggers, fetchTranslation, {
     onLoading: setIsLoading,
     onOutput:  setOutputText,
-    onError:   message => setError(message || null),
+    onError:   (message, err) => setError(err instanceof ApiResponseError ? err : (message || null)),
     onStale:   setIsStale,
     // Seul « même langue » s'affiche : les autres cas (texte identique, trop court) se voient d'eux-mêmes
     onSkip:    reason => setNotice(reason === 'same_language' ? reason : null),
@@ -76,15 +69,12 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
   const pasteRef  = useRef(false)
   const outputRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const el = outputRef.current
-    if (el && isLoading) el.scrollTop = el.scrollHeight
-  }, [outputText, isLoading])
+  useAutoScroll(outputRef, outputText, isLoading)
 
   useEffect(() => { setTargetLang(loadTargetLang(defaultTargetLang)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    try { localStorage.setItem(TARGET_KEY, JSON.stringify(targetLang)) } catch { /* ignore */ }
+    saveStoredLanguage(TARGET_KEY, targetLang)
   }, [targetLang])
 
   // Tu / vous : utile dès que la langue CIBLE distingue les deux formes (pas vers l'anglais), quelle que soit la source
@@ -316,7 +306,7 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
           <div ref={outputRef} className="flex-grow translation-text text-on-surface/90 overflow-y-auto">
             {error ? (
               <div className="flex items-center gap-3">
-                <span className="text-error text-sm">{error}</span>
+                <span className="text-error text-sm">{error instanceof ApiResponseError ? apiErrorMessage(t, error.body, error.status) : error}</span>
                 <button
                   onClick={() => runTranslation(sourceText, sourceLang, detectedLang, targetLang, formality, 'button')}
                   className="text-button text-xs shrink-0"
@@ -387,11 +377,13 @@ export function TextTranslationTab({ defaultTargetLang, maxTextChars = TEXT_MAX_
             <div className="boundaries">
               <button
                 onClick={() => handleFormality('Informal')}
+                aria-pressed={formality === 'Informal'}
                 className={`formal-btn ${formality === 'Informal' ? 'active' : ''}`}
                 disabled={!formalityActive}
               >{t.textTab.informal}</button>
               <button
                 onClick={() => handleFormality('Formal')}
+                aria-pressed={formality === 'Formal'}
                 className={`formal-btn ${formality === 'Formal' ? 'active' : ''}`}
                 disabled={!formalityActive}
               >{t.textTab.formal}</button>

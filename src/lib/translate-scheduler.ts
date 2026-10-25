@@ -10,6 +10,7 @@ import type { Formality } from '@/types/leksis'
 import type { UsageTrigger } from '@/lib/usage-schema'
 import type { TextTriggerConfig } from '@/lib/text-translation-config'
 import { sameBaseLanguage } from '@/lib/languages'
+import { ApiResponseError } from '@/lib/api-error'
 
 export interface TranslationInput {
   text:       string
@@ -41,7 +42,8 @@ export interface SchedulerCallbacks {
   onLoading: (loading: boolean) => void
   /** Texte accumulé de la traduction en cours */
   onOutput:  (text: string) => void
-  onError:   (message: string) => void
+  /** `error` : l'erreur d'origine (ApiResponseError pour une réponse HTTP en échec, traduite par l'onglet) */
+  onError:   (message: string, error?: unknown) => void
   /** true : la traduction affichée correspond à une version précédente du texte (en attente de la nouvelle) */
   onStale:   (stale: boolean) => void
   /** Rien n'est parti, et pourquoi (null : une traduction est repartie) */
@@ -214,7 +216,7 @@ export class TranslationScheduler {
       if (isCurrent()) this.shownKey = key
     } catch (err) {
       if (isCurrent()) this.shownKey = null
-      if (isCurrent() && !isAbortError(err)) this.cb.onError((err as Error).message || 'Error')
+      if (isCurrent() && !isAbortError(err)) this.cb.onError((err as Error).message || 'Error', err)
     } finally {
       if (isCurrent()) {
         this.controller = null
@@ -235,8 +237,7 @@ export async function* fetchTranslation(body: TranslationBody, signal: AbortSign
     signal,
   })
   if (!res.ok || !res.body) {
-    const data = await res.json().catch(() => ({}))
-    throw new Error((data as { error?: string }).error || `HTTP ${res.status}`)
+    throw await ApiResponseError.from(res)
   }
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()

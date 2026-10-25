@@ -70,6 +70,8 @@ export const messages = {
     retry:                  'Riprova',
   },
   imgTab: {
+    closePreview: 'Chiudi l’anteprima',
+    previewAlt: 'Anteprima dell’immagine',
     sourceImage:          'Immagine sorgente',
     clear:                'Cancella',
     dropHere:             'Trascina un\'immagine qui',
@@ -125,6 +127,7 @@ export const messages = {
     micPermissionDenied:'Impossibile accedere al microfono.',
   },
   langDropdown: {
+    listLabel:            'Lingua',
     autoDetect:           'Rilevamento auto',
     autoDetectWithLang:   'Rilevamento auto · {0}',
     searchPlaceholder:    'Cerca lingua…',
@@ -165,6 +168,9 @@ export const messages = {
     unsavedBadge: 'Modifiche non salvate',
   },
   adminSidebar: {
+    openMenu: 'Apri il menu',
+    closeMenu: 'Chiudi il menu',
+    dismiss: 'Chiudi',
     title:                  'Amministrazione',
     navLabel:               'Navigazione admin',
     navDashboard:           'Dashboard',
@@ -642,6 +648,7 @@ export const messages = {
     tabMonitoring:          'Monitoraggio',
   },
   dbForm: {
+    blockTablesName: 'Tabella',
     metricsTitle:              'Metriche live',
     metricsRefresh:            'Aggiorna',
     metricsLoading:            'Caricamento…',
@@ -661,6 +668,8 @@ export const messages = {
     blockTablesSize:           'Dimensione',
   },
   caddyForm: {
+    blockUpstreamAddress: 'Indirizzo',
+    blockUpstreamStatus: 'Stato',
     title:                  'Accesso e HTTPS',
     modeLabel:              'Come raggiungono Leksis gli utenti?',
     modeHttp:               'HTTP',
@@ -1027,6 +1036,7 @@ export const messages = {
     imageCount:          '{0} immagine/i',
   },
   helpModal: {
+    close:          'Chiudi',
     title: 'Guida & suggerimenti',
     feedbackPrompt: 'Non trova la risposta o ha un’idea?',
     tabs: {
@@ -1070,5 +1080,22 @@ export const messages = {
       tip1:        'Toni diversi producono risultati molto differenti \u2014 provane diversi per trovare quello giusto.',
       tip2:        'Usa \u00abSolo correggere\u00bb per la revisione senza alterare la voce del testo.',
     },
+  },
+  apiErrors: {
+    generic:             'Si è verificato un errore (errore {0}). Riprova.',
+    unauthorized:        'La sessione è scaduta. Accedi di nuovo.',
+    disabled:            'Questa funzione è stata disattivata dall’amministratore.',
+    maintenance:         'Il servizio è in manutenzione. Riprova più tardi.',
+    rateLimited:         'Troppe richieste. Attendi un momento e riprova.',
+    textRequired:        'Inserisci prima un testo.',
+    textTooLong:         'Il testo supera il limite di {0} caratteri.',
+    tooLarge:            'Il file supera il limite di {0} MB.',
+    unsupportedFormat:   'Questo formato di file non è supportato.',
+    pageLimit:           'Questo PDF scansionato ha {0} pagine; il limite è {1}.',
+    extractionFailed:    'Impossibile leggere il testo di questo file. Potrebbe essere danneggiato o protetto.',
+    docTooLong:          'Il documento ha {1} caratteri; il limite è {0}.',
+    translationFailed:   'La traduzione non è riuscita: il server di IA non ha restituito alcun risultato. Riprova.',
+    transcriptionFailed: 'Non è stato possibile trascrivere la dettatura. Riprova.',
+    aiUnavailable:       'Il server di IA non è raggiungibile. Riprova più tardi o contatta l’amministratore.',
   },
 } satisfies Messages

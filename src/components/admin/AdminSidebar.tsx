@@ -128,7 +128,7 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
             type="button"
             onClick={onClose}
             className="icon-btn md:hidden"
-            aria-label="Close menu"
+            aria-label={t.adminSidebar.closeMenu}
           >
             <span className="material-symbols-outlined text-[1.1rem] leading-none" aria-hidden="true">close</span>
           </button>

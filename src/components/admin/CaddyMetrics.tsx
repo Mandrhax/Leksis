@@ -136,9 +136,9 @@ export function CaddyMetrics() {
 
               <div className="flex flex-col gap-1">
                 <div className="grid grid-cols-[1fr_auto_auto] gap-4 pb-1.5 border-b border-outline-variant/20 text-xs font-medium text-on-surface-variant">
-                  <span>Address</span>
+                  <span>{cf.blockUpstreamAddress}</span>
                   <span className="text-right">{cf.blockUpstreamRequests}</span>
-                  <span className="text-right w-20">Status</span>
+                  <span className="text-right w-20">{cf.blockUpstreamStatus}</span>
                 </div>
 
                 {data.upstreams.map(u => (

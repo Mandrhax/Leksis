@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useId } from 'react'
 import { createPortal } from 'react-dom'
 import { LANGUAGES } from '@/lib/languages'
 import { useI18n } from '@/lib/i18n'
@@ -28,8 +28,11 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
   const [search, setSearch]       = useState('')
   const [favorites, setFavorites] = useState<string[]>([])
   const [dropPos, setDropPos]     = useState({ top: 0, left: 0 })
+  const [active, setActive]       = useState(0)   // option mise en évidence au clavier
   const triggerRef = useRef<HTMLDivElement>(null)
   const searchRef  = useRef<HTMLInputElement>(null)
+  const listRef    = useRef<HTMLUListElement>(null)
+  const uid        = useId()
 
   useEffect(() => { setFavorites(getFavorites()) }, [])
 
@@ -55,7 +58,7 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
   // Close on Escape
   useEffect(() => {
     if (!open) return
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); setSearch('') } }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); setSearch(''); triggerRef.current?.focus() } }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [open])
@@ -102,6 +105,7 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
     onChange(lang)
     setOpen(false)
     setSearch('')
+    triggerRef.current?.focus()   // le focus revient au déclencheur (clavier, lecteur d'écran)
   }
 
   const AUTO: Language = { code: 'auto', name: t.langDropdown.autoDetect }
@@ -113,6 +117,35 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
 
   const favoriteLanguages = allFiltered.filter(l => favorites.includes(l.code))
   const otherLanguages    = allFiltered.filter(l => !favorites.includes(l.code))
+
+  // Ordre de navigation au clavier = ordre affiché
+  const options: Language[] = [
+    ...(includeAutoDetect && !search ? [AUTO] : []),
+    ...(!search ? favoriteLanguages : []),
+    ...(search ? allFiltered : otherLanguages),
+  ]
+  const optionId = (i: number) => `${uid}-opt-${i}`
+  const indexOf = (l: Language) => options.indexOf(l)
+
+  // Nouvelle recherche ou ouverture : la langue choisie (ou la première) est mise en évidence
+  useEffect(() => {
+    if (!open) return
+    const current = options.findIndex(l => l.code === (value?.code ?? 'auto'))
+    setActive(search || current < 0 ? 0 : current)
+  }, [open, search]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (open) document.getElementById(optionId(active))?.scrollIntoView({ block: 'nearest' })
+  }, [active, open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onSearchKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(options.length - 1, a + 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => Math.max(0, a - 1)) }
+    else if (e.key === 'Home') { e.preventDefault(); setActive(0) }
+    else if (e.key === 'End') { e.preventDefault(); setActive(options.length - 1) }
+    else if (e.key === 'Enter') { e.preventDefault(); if (options[active]) handleSelect(options[active]) }
+    else if (e.key === 'Tab') { setOpen(false); setSearch('') }
+  }
 
   // A caller can pass a richer name for the auto-detect state (e.g. "Auto Detect · French") once
   // it knows what it detected — trust it instead of always showing the bare default.
@@ -130,8 +163,6 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
       id="leksis-lang-dropdown"
       style={{ position: 'fixed', top: dropPos.top, left: dropPos.left, zIndex: 200 }}
       className="w-56 bg-surface-container-lowest border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden"
-      role="listbox"
-      aria-label="Select language"
     >
       <div className="p-2 border-b border-outline-variant/10">
         <div className="flex items-center gap-2 bg-surface-container rounded-lg px-2.5 py-1.5">
@@ -142,15 +173,23 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
             placeholder={t.langDropdown.searchPlaceholder}
             value={search}
             onChange={e => setSearch(e.target.value)}
+            onKeyDown={onSearchKey}
+            role="combobox"
+            aria-expanded
+            aria-controls={`${uid}-list`}
+            aria-activedescendant={options[active] ? optionId(active) : undefined}
+            aria-label={t.langDropdown.searchPlaceholder}
             className="bg-transparent border-none outline-none text-sm text-on-surface placeholder:text-outline w-full p-0"
             autoComplete="off"
           />
         </div>
       </div>
 
-      <ul className="max-h-60 overflow-y-auto py-1" role="presentation">
+      <ul ref={listRef} id={`${uid}-list`} className="max-h-60 overflow-y-auto py-1" role="listbox" aria-label={t.langDropdown.listLabel}>
         {includeAutoDetect && !search && (
           <LangItem
+            id={optionId(0)}
+            active={active === 0}
             name={t.langDropdown.autoDetect}
             isSelected={!value || value.code === 'auto'}
             isFavorite={false}
@@ -168,6 +207,8 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
             {favoriteLanguages.map(l => (
               <LangItem
                 key={l.code}
+                id={optionId(indexOf(l))}
+                active={active === indexOf(l)}
                 name={l.name}
                 isSelected={value?.code === l.code}
                 isFavorite
@@ -181,9 +222,11 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
           </>
         )}
 
-        {otherLanguages.map(l => (
+        {(search ? allFiltered : otherLanguages).map(l => (
           <LangItem
             key={l.code}
+            id={optionId(indexOf(l))}
+            active={active === indexOf(l)}
             name={l.name}
             isSelected={value?.code === l.code}
             isFavorite={favorites.includes(l.code)}
@@ -212,7 +255,10 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
         aria-haspopup="listbox"
         aria-expanded={open}
         tabIndex={0}
-        onKeyDown={e => e.key === 'Enter' && handleOpen()}
+        aria-label={`${t.langDropdown.listLabel}: ${displayLabel}`}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ' || (e.key === 'ArrowDown' && !open)) { e.preventDefault(); handleOpen() }
+        }}
       >
         <span className={labelCls}>{displayLabel}</span>
         <span className="material-symbols-outlined text-outline text-sm" aria-hidden="true">expand_more</span>
@@ -223,6 +269,8 @@ export function LanguageDropdown({ value, onChange, includeAutoDetect = false, v
 }
 
 type LangItemProps = {
+  id: string
+  active: boolean
   name: string
   isSelected: boolean
   isFavorite: boolean
@@ -233,13 +281,14 @@ type LangItemProps = {
   onToggleFav: (e: React.MouseEvent) => void
 }
 
-function LangItem({ name, isSelected, isFavorite, showStar = true, removeLabel, addLabel, onSelect, onToggleFav }: LangItemProps) {
+function LangItem({ id, active, name, isSelected, isFavorite, showStar = true, removeLabel, addLabel, onSelect, onToggleFav }: LangItemProps) {
   return (
     <li
+      id={id}
       role="option"
       aria-selected={isSelected}
       onClick={onSelect}
-      className={`lang-row px-3 py-1.5 cursor-pointer text-sm transition-colors hover:bg-surface-container-low ${
+      className={`lang-row px-3 py-1.5 cursor-pointer text-sm transition-colors hover:bg-surface-container-low ${active ? 'bg-surface-container-low' : ''} ${
         isSelected ? 'text-primary font-medium' : 'text-on-surface'
       }`}
     >
@@ -247,6 +296,7 @@ function LangItem({ name, isSelected, isFavorite, showStar = true, removeLabel, 
       {showStar && (
         <button
           type="button"
+          tabIndex={-1}
           onClick={onToggleFav}
           aria-label={isFavorite ? removeLabel : addLabel}
           className={`star-btn material-symbols-outlined text-base ${isFavorite ? 'star-active' : ''}`}

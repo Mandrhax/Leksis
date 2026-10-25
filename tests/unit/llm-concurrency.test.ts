@@ -60,3 +60,44 @@ describe('withAiSlot', () => {
     release()
   })
 })
+
+describe('gateStream', () => {
+  const textStream = (text: string, onStart: () => void) => new ReadableStream<Uint8Array>({
+    start(c) { onStart(); c.enqueue(new TextEncoder().encode(text)); c.close() },
+  })
+  const drain = async (s: ReadableStream<Uint8Array>) => {
+    const r = s.getReader(); let out = ''
+    for (;;) { const { done, value } = await r.read(); if (done) return out; out += new TextDecoder().decode(value) }
+  }
+
+  it('does not start the engine call before a slot is free, and frees it at the end', async () => {
+    const { gateStream } = await import('@/lib/llm/concurrency')
+    const release1 = await acquireAiSlot(1)
+    let started = false
+    const gated = gateStream(1, undefined, () => textStream('hello', () => { started = true }))
+    const output = drain(gated)
+    await new Promise(r => setTimeout(r, 10))
+    expect(started).toBe(false)           // still queued: no request sent to the engine
+    release1()
+    expect(await output).toBe('hello')
+    expect(started).toBe(true)
+    // The slot came back: the next acquisition is immediate
+    const next = await Promise.race([acquireAiSlot(1), new Promise(r => setTimeout(() => r('blocked'), 20))])
+    expect(next).not.toBe('blocked')
+    if (typeof next === 'function') next()
+  })
+
+  it('a request cancelled while queued never reaches the engine', async () => {
+    const { gateStream } = await import('@/lib/llm/concurrency')
+    const release1 = await acquireAiSlot(1)
+    const controller = new AbortController()
+    let started = false
+    const gated = gateStream(1, controller.signal, () => textStream('x', () => { started = true }))
+    const output = drain(gated)
+    controller.abort()
+    await expect(output).rejects.toThrow(/abort/i)
+    release1()
+    await new Promise(r => setTimeout(r, 10))
+    expect(started).toBe(false)
+  })
+})

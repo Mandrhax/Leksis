@@ -162,7 +162,7 @@ export function DbMetrics() {
               <div className="flex flex-col gap-1">
                 {/* Header row */}
                 <div className="grid grid-cols-[1fr_auto_auto] gap-4 pb-1.5 border-b border-outline-variant/20 text-xs font-medium text-on-surface-variant">
-                  <span>Table</span>
+                  <span>{df.blockTablesName}</span>
                   <span className="text-right">{df.blockTablesRows}</span>
                   <span className="text-right w-16">{df.blockTablesSize}</span>
                 </div>

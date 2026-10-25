@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useI18n } from '@/lib/i18n'
 
 export type ToastState = { message: string; type: 'success' | 'warning' | 'error' } | null
 
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function AdminToast({ toast, onDismiss }: Props) {
+  const { t: messages } = useI18n()
   useEffect(() => {
     if (!toast) return
     const t = setTimeout(onDismiss, 3500)
@@ -39,7 +41,7 @@ export function AdminToast({ toast, onDismiss }: Props) {
       <button
         onClick={onDismiss}
         className="ml-2 text-on-surface-variant hover:text-on-surface transition-colors"
-        aria-label="Fermer"
+        aria-label={messages.adminSidebar.dismiss}
       >
         <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">close</span>
       </button>

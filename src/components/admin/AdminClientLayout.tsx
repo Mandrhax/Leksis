@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { I18nProvider } from '@/lib/i18n'
+import { I18nProvider, useI18n } from '@/lib/i18n'
 import { AdminDirtyProvider } from '@/lib/admin-dirty'
 import { UILanguageSwitcher } from '@/components/ui/UILanguageSwitcher'
 import { AccountMenu } from '@/components/ui/AccountMenu'
@@ -9,6 +9,7 @@ import { AdminSidebar } from '@/components/admin/AdminSidebar'
 
 function AdminShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { t } = useI18n()
 
   return (
     <div className="h-screen overflow-hidden flex flex-col md:flex-row relative" style={{ background: '#f7f9fb' }}>
@@ -18,11 +19,11 @@ function AdminShell({ children }: { children: React.ReactNode }) {
           type="button"
           onClick={() => setSidebarOpen(true)}
           className="icon-btn mr-3"
-          aria-label="Open menu"
+          aria-label={t.adminSidebar.openMenu}
         >
           <span className="material-symbols-outlined text-[1.3rem] leading-none" aria-hidden="true">menu</span>
         </button>
-        <span className="font-headline font-bold text-sm text-on-surface flex-1">Admin</span>
+        <span className="font-headline font-bold text-sm text-on-surface flex-1">{t.adminSidebar.title}</span>
         <div className="flex items-center gap-1">
           <UILanguageSwitcher />
           <AccountMenu />

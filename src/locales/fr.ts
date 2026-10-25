@@ -70,6 +70,8 @@ export const messages = {
     retry:                  'Réessayer',
   },
   imgTab: {
+    closePreview: 'Fermer l’aperçu',
+    previewAlt: 'Aperçu de l’image',
     sourceImage:          'Image source',
     clear:                'Effacer',
     dropHere:             'Déposez une image ici',
@@ -125,6 +127,7 @@ export const messages = {
     micPermissionDenied:'Impossible d\'accéder au microphone.',
   },
   langDropdown: {
+    listLabel:            'Langue',
     autoDetect:           'Détection auto',
     autoDetectWithLang:   'Détection auto · {0}',
     searchPlaceholder:    'Rechercher une langue…',
@@ -165,6 +168,9 @@ export const messages = {
     unsavedBadge: 'Modifications non enregistrées',
   },
   adminSidebar: {
+    openMenu: 'Ouvrir le menu',
+    closeMenu: 'Fermer le menu',
+    dismiss: 'Fermer',
     title:                  'Administration',
     navLabel:               'Navigation admin',
     navDashboard:           'Tableau de bord',
@@ -642,6 +648,7 @@ export const messages = {
     tabMonitoring:          'Monitoring',
   },
   dbForm: {
+    blockTablesName: 'Table',
     metricsTitle:              'Métriques en direct',
     metricsRefresh:            'Actualiser',
     metricsLoading:            'Chargement…',
@@ -661,6 +668,8 @@ export const messages = {
     blockTablesSize:           'Taille',
   },
   caddyForm: {
+    blockUpstreamAddress: 'Adresse',
+    blockUpstreamStatus: 'État',
     title:                  'Accès et HTTPS',
     modeLabel:              'Comment les utilisateurs accèdent-ils à Leksis ?',
     modeHttp:               'HTTP',
@@ -1027,6 +1036,7 @@ export const messages = {
     imageCount:          '{0} image(s)',
   },
   helpModal: {
+    close:          'Fermer',
     title: 'Aide & astuces',
     feedbackPrompt: 'Vous ne trouvez pas la réponse, ou vous avez une idée ?',
     tabs: {
@@ -1070,5 +1080,22 @@ export const messages = {
       tip1:        'Les différents tons produisent des résultats très variés \u2014 essayez-en plusieurs pour trouver le bon.',
       tip2:        'Utilisez \u00ab\u202fCorriger seulement\u202f\u00bb pour la relecture sans altérer la voix du texte.',
     },
+  },
+  apiErrors: {
+    generic:             'Une erreur est survenue (erreur {0}). Veuillez réessayer.',
+    unauthorized:        'Votre session a expiré. Reconnectez-vous.',
+    disabled:            'Cette fonction a été désactivée par l’administrateur.',
+    maintenance:         'Le service est en maintenance. Réessayez plus tard.',
+    rateLimited:         'Trop de demandes. Patientez un instant puis réessayez.',
+    textRequired:        'Saisissez d’abord un texte.',
+    textTooLong:         'Le texte dépasse la limite de {0} caractères.',
+    tooLarge:            'Le fichier dépasse la limite de {0} Mo.',
+    unsupportedFormat:   'Ce format de fichier n’est pas pris en charge.',
+    pageLimit:           'Ce PDF scanné compte {0} pages ; la limite est de {1}.',
+    extractionFailed:    'Impossible de lire le texte de ce fichier. Il est peut-être endommagé ou protégé.',
+    docTooLong:          'Le document compte {1} caractères ; la limite est de {0}.',
+    translationFailed:   'La traduction a échoué : le serveur d’IA n’a pas renvoyé de résultat. Veuillez réessayer.',
+    transcriptionFailed: 'La dictée n’a pas pu être transcrite. Veuillez réessayer.',
+    aiUnavailable:       'Le serveur d’IA est injoignable. Réessayez plus tard ou contactez votre administrateur.',
   },
 } satisfies Messages

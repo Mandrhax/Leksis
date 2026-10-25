@@ -15,13 +15,13 @@ export async function POST(req: NextRequest) {
   const { session } = guard
 
   if (!await isFeatureEnabled('image')) {
-    return NextResponse.json({ error: 'This feature is disabled.' }, { status: 403 })
+    return NextResponse.json({ error: 'This feature is disabled.', code: 'disabled' }, { status: 403 })
   }
 
   // Refus avant de lire le corps : évite de charger un fichier énorme en mémoire
   const { maxImageBytes } = await getDynamicLimits()
   if (requestTooLarge(req, maxImageBytes)) {
-    return NextResponse.json({ error: validateImageSize(Infinity, maxImageBytes) }, { status: 413 })
+    return NextResponse.json(validateImageSize(Infinity, maxImageBytes)!, { status: 413 })
   }
 
   let formData: FormData
@@ -36,11 +36,11 @@ export async function POST(req: NextRequest) {
 
   const supportedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
   if (!supportedTypes.includes(image.type)) {
-    return NextResponse.json({ error: `Unsupported image type: ${image.type}` }, { status: 400 })
+    return NextResponse.json({ error: `Unsupported image type: ${image.type}`, code: 'unsupported_format' }, { status: 400 })
   }
 
   const sizeError = validateImageSize(image.size, maxImageBytes)
-  if (sizeError) return NextResponse.json({ error: sizeError }, { status: 400 })
+  if (sizeError) return NextResponse.json(sizeError, { status: 400 })
 
   const arrayBuffer = await image.arrayBuffer()
   const base64 = Buffer.from(arrayBuffer).toString('base64')

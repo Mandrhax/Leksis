@@ -8,6 +8,7 @@ import {
   type FeedbackCategory,
 } from '@/lib/feedback-schema'
 import { prepareImage as prepareImageFor } from '@/lib/image-prepare'
+import { useDialogFocus } from '@/hooks/useDialogFocus'
 
 interface Props {
   open:       boolean
@@ -42,6 +43,8 @@ export function FeedbackModal({ open, onClose, activeTab, initialCategory }: Pro
   const [error, setError]         = useState<string | null>(null)
   const [dragOver, setDragOver]   = useState(false)
   const fileRef  = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(open, dialogRef)
   const nextId   = useRef(0)
   const imagesRef = useRef<Attached[]>([])
   useEffect(() => { imagesRef.current = images }, [images])
@@ -157,6 +160,7 @@ export function FeedbackModal({ open, onClose, activeTab, initialCategory }: Pro
       <div className="fixed inset-0 bg-black/40 z-[200]" onClick={close} aria-hidden="true" />
 
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={f.title}

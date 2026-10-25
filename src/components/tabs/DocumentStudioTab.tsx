@@ -2,30 +2,18 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
-import { LANGUAGES } from '@/lib/languages'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
 import type { Block, Language } from '@/types/leksis'
 import { ReportResultLink } from '@/components/ui/ReportResultLink'
 import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
 import type { FeedbackCategory } from '@/lib/feedback-schema'
+import { apiError, apiErrorMessage } from '@/lib/api-error'
+import { DEFAULT_TARGET_LANGUAGE, loadStoredLanguage, saveStoredLanguage } from '@/lib/stored-language'
 
-const DEFAULT_TARGET: Language = { code: 'fr', name: 'French' }
 const DOC_TARGET_KEY = 'leksisDocTargetLang'
 
-// Reads localStorage only — never call during the initial render, server and client would
-// disagree (no localStorage server-side) and React would flag a hydration mismatch.
-function loadDocTargetLang(defaultCode?: string): Language {
-  try {
-    const r = localStorage.getItem(DOC_TARGET_KEY)
-    if (r) return JSON.parse(r)
-    if (defaultCode && defaultCode !== 'auto') {
-      const found = LANGUAGES.find(l => l.code === defaultCode)
-      if (found) return found
-    }
-  } catch { /* ignore */ }
-  return DEFAULT_TARGET
-}
+const loadDocTargetLang = (defaultCode?: string) => loadStoredLanguage(DOC_TARGET_KEY, defaultCode)
 
 type Mode = 'extract' | 'translate'
 
@@ -89,7 +77,7 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
   const [file, setFile]             = useState<File | null>(null)
   const [mode, setMode]             = useState<Mode>('translate')
   const [sourceLang, setSourceLang] = useState<Language | null>(null)
-  const [targetLang, setTargetLang] = useState<Language>(DEFAULT_TARGET)
+  const [targetLang, setTargetLang] = useState<Language>(DEFAULT_TARGET_LANGUAGE)
   const [isLoading, setIsLoading]   = useState(false)
   const [step, setStep]             = useState<'extracting' | 'translating' | null>(null)
   const [progress, setProgress]     = useState<{ done: number; total: number } | null>(null)
@@ -144,8 +132,7 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
           signal: controller.signal,
         })
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}))
-          throw new Error((data as { error?: string }).error || `HTTP ${res.status}`)
+          throw await apiError(t, res)
         }
         const data = await res.json() as { blocks: Block[] }
         setOutputBlocks(data.blocks)
@@ -167,8 +154,7 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
           headers: { Accept: 'application/x-ndjson' },
         })
         if (!res.ok || !res.body) {
-          const data = await res.json().catch(() => ({}))
-          throw new Error((data as { error?: string }).error || `HTTP ${res.status}`)
+          throw await apiError(t, res)
         }
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
@@ -204,7 +190,7 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
 
   const handleTargetLangChange = (lang: Language) => {
     setTargetLang(lang)
-    try { localStorage.setItem(DOC_TARGET_KEY, JSON.stringify(lang)) } catch { /* ignore */ }
+    saveStoredLanguage(DOC_TARGET_KEY, lang)
   }
 
   const handleClearInput = () => { abort(); setFile(null); setOutputHtml(''); setOutputBlocks(null); setError(null) }
@@ -242,8 +228,7 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
         body: JSON.stringify({ blocks: outputBlocks, filename }),
       })
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setError((data as { error?: string }).error || `Export failed: HTTP ${res.status}`)
+        setError(apiErrorMessage(t, await res.json().catch(() => null), res.status))
         return
       }
       const blob = await res.blob()
@@ -257,7 +242,7 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
     } catch (err) {
       setError((err as Error).message)
     }
-  }, [outputBlocks, file, mode, targetLang])
+  }, [outputBlocks, file, mode, targetLang, t])
 
   const ext    = file?.name.split('.').pop()?.toLowerCase() ?? ''
 
@@ -422,24 +407,27 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
                 disabled={!outputBlocks}
                 className="p-2 hover:bg-surface-container-high rounded-md transition-colors disabled:opacity-30"
                 title={t.docTab.downloadTxt}
+                aria-label={t.docTab.downloadTxt}
               >
-                <span className="material-symbols-outlined text-on-surface-variant">download</span>
+                <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">download</span>
               </button>
               <button
                 onClick={handleDownloadDocx}
                 disabled={!outputBlocks}
                 className="p-2 hover:bg-surface-container-high rounded-md transition-colors disabled:opacity-30"
                 title={t.docTab.downloadDocx}
+                aria-label={t.docTab.downloadDocx}
               >
-                <span className="material-symbols-outlined text-on-surface-variant">description</span>
+                <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">description</span>
               </button>
               <button
                 onClick={handleCopy}
                 disabled={!outputHtml}
                 className="p-2 hover:bg-surface-container-high rounded-md transition-colors disabled:opacity-30"
                 title={t.docTab.copy}
+                aria-label={t.docTab.copy}
               >
-                <span className="material-symbols-outlined text-on-surface-variant">content_copy</span>
+                <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">content_copy</span>
               </button>
             </div>
           </div>
@@ -452,8 +440,8 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
           <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4">
             <span className="text-xs font-bold text-on-surface tracking-wider">{t.docTab.mode}</span>
             <div className="boundaries">
-              <button onClick={() => setMode('extract')}   className={`formal-btn ${mode === 'extract'   ? 'active' : ''}`}>{t.docTab.extractOnly}</button>
-              <button onClick={() => setMode('translate')} className={`formal-btn ${mode === 'translate' ? 'active' : ''}`}>{t.docTab.extractAndTranslate}</button>
+              <button type="button" aria-pressed={mode === 'extract'} onClick={() => setMode('extract')}   className={`formal-btn ${mode === 'extract'   ? 'active' : ''}`}>{t.docTab.extractOnly}</button>
+              <button type="button" aria-pressed={mode === 'translate'} onClick={() => setMode('translate')} className={`formal-btn ${mode === 'translate' ? 'active' : ''}`}>{t.docTab.extractAndTranslate}</button>
             </div>
             {mode === 'translate' && (
               <div className="flex items-center gap-2">

@@ -3,30 +3,20 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
-import { LANGUAGES, detectLanguage, sameBaseLanguage } from '@/lib/languages'
+import { detectLanguage, sameBaseLanguage } from '@/lib/languages'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
 import type { Language } from '@/types/leksis'
 import { ReportResultLink } from '@/components/ui/ReportResultLink'
 import type { FeedbackCategory } from '@/lib/feedback-schema'
 import { prepareOcrImage } from '@/lib/image-prepare'
+import { apiError } from '@/lib/api-error'
+import { DEFAULT_TARGET_LANGUAGE, loadStoredLanguage, saveStoredLanguage } from '@/lib/stored-language'
+import { useAutoScroll } from '@/hooks/useAutoScroll'
 
-const DEFAULT_TARGET: Language = { code: 'fr', name: 'French' }
 const IMG_TARGET_KEY = 'leksisImgTargetLang'
 
-// Reads localStorage only — never call during the initial render, server and client would
-// disagree (no localStorage server-side) and React would flag a hydration mismatch.
-function loadImgTargetLang(defaultCode?: string): Language {
-  try {
-    const r = localStorage.getItem(IMG_TARGET_KEY)
-    if (r) return JSON.parse(r)
-    if (defaultCode && defaultCode !== 'auto') {
-      const found = LANGUAGES.find(l => l.code === defaultCode)
-      if (found) return found
-    }
-  } catch { /* ignore */ }
-  return DEFAULT_TARGET
-}
+const loadImgTargetLang = (defaultCode?: string) => loadStoredLanguage(IMG_TARGET_KEY, defaultCode)
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -123,7 +113,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
   // Aperçu remplacé ou retiré : l'image précédente est libérée (sinon elle restait en mémoire jusqu'à la fermeture de l'onglet)
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
   const [mode, setMode]         = useState<Mode>('extract')
-  const [targetLang, setTargetLang] = useState<Language>(DEFAULT_TARGET)
+  const [targetLang, setTargetLang] = useState<Language>(DEFAULT_TARGET_LANGUAGE)
   const [outputText, setOutputText]     = useState('')
   const [detectedLang, setDetectedLang] = useState<string | null>(null)
   const [wordCount, setWordCount]       = useState<number | null>(null)
@@ -139,10 +129,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
 
   useEffect(() => { setTargetLang(loadImgTargetLang(defaultTargetLang)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    const el = outputRef.current
-    if (el && isLoading) el.scrollTop = el.scrollHeight
-  }, [outputText, isLoading])
+  useAutoScroll(outputRef, outputText, isLoading)
 
   useEffect(() => {
     if (!lightboxOpen) return
@@ -197,8 +184,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
 
       const res = await fetch('/api/ocr', { method: 'POST', body: formData, signal: controller.signal })
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error((data as { error?: string }).error || `HTTP ${res.status}`)
+        throw await apiError(t, res)
       }
 
       // Affiché au fil de l'eau, comme les autres onglets (l'auto-défilement suit)
@@ -236,8 +222,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
         })
 
         if (!transRes.ok) {
-          const data = await transRes.json().catch(() => ({}))
-          throw new Error((data as { error?: string }).error || `HTTP ${transRes.status}`)
+          throw await apiError(t, transRes)
         }
 
         const transReader  = transRes.body!.getReader()
@@ -257,7 +242,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
       setIsLoading(false)
       setStep(null)
     }
-  }, [file, mode, targetLang])
+  }, [file, mode, targetLang, t])
 
   const handleClearInput = () => {
     abort()
@@ -275,7 +260,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
 
   const handleTargetLangChange = (lang: Language) => {
     setTargetLang(lang)
-    try { localStorage.setItem(IMG_TARGET_KEY, JSON.stringify(lang)) } catch { /* ignore */ }
+    saveStoredLanguage(IMG_TARGET_KEY, lang)
   }
 
   const showStats = !!outputText && !isLoading
@@ -314,7 +299,7 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
             className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-outline-variant/30 rounded-lg hover:border-primary/50 hover:bg-primary/5 focus-visible:border-primary/50 focus-visible:bg-primary/5 focus-visible:outline-none transition-all cursor-pointer group mb-4 relative overflow-hidden"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            {preview && <img src={preview} alt="Preview" className="absolute inset-0 w-full h-full object-contain p-2" />}
+            {preview && <img src={preview} alt={t.imgTab.previewAlt} className="absolute inset-0 w-full h-full object-contain p-2" />}
             {preview && (
               <>
                 <button
@@ -349,14 +334,14 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
               aria-label={t.imgTab.sourceImage}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={preview} alt="Preview" className="max-w-full max-h-full object-contain" />
+              <img src={preview} alt={t.imgTab.previewAlt} className="max-w-full max-h-full object-contain" />
               <button
                 type="button"
                 onClick={() => setLightboxOpen(false)}
-                aria-label="Close"
+                aria-label={t.imgTab.closePreview}
                 className="absolute top-4 right-4 icon-btn bg-surface-container-lowest/90"
               >
-                <span className="material-symbols-outlined">close</span>
+                <span className="material-symbols-outlined" aria-hidden="true">close</span>
               </button>
             </div>,
             document.body,
@@ -483,8 +468,8 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
           <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4">
             <span className="text-xs font-bold text-on-surface tracking-wider">{t.imgTab.mode}</span>
             <div className="boundaries">
-              <button onClick={() => setMode('extract')}   className={`formal-btn ${mode === 'extract'    ? 'active' : ''}`}>{t.imgTab.extractOnly}</button>
-              <button onClick={() => setMode('translate')} className={`formal-btn ${mode === 'translate'  ? 'active' : ''}`}>{t.imgTab.extractAndTranslate}</button>
+              <button type="button" aria-pressed={mode === 'extract'} onClick={() => setMode('extract')}   className={`formal-btn ${mode === 'extract'    ? 'active' : ''}`}>{t.imgTab.extractOnly}</button>
+              <button type="button" aria-pressed={mode === 'translate'} onClick={() => setMode('translate')} className={`formal-btn ${mode === 'translate'  ? 'active' : ''}`}>{t.imgTab.extractAndTranslate}</button>
             </div>
             {mode === 'translate' && (
               <div className="flex items-center gap-2">

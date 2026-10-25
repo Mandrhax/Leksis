@@ -485,6 +485,21 @@ try {
   })
   check('an SVG logo is refused with a translatable error code', badLogo.status === 400 && badLogo.json.code === 'unsupported_format' && badLogo.json.formats?.includes('PNG'), JSON.stringify(badLogo))
 
+  // ── Language list usable with the keyboard only ─────────────────
+  await adminPage.goto(BASE + '/', { waitUntil: 'networkidle0' })
+  // The tabs stay mounted (hidden): only the selectors on screen count — the 2nd one is the Text tab target
+  const target = await adminPage.evaluateHandle(() =>
+    [...document.querySelectorAll('[aria-haspopup="listbox"]')].filter(el => el.offsetParent !== null)[1])
+  await target.focus()
+  await adminPage.keyboard.press('Enter')
+  const opened = await adminPage.waitForSelector('[role="combobox"]', { timeout: 5000 }).then(() => true, () => false)
+  await adminPage.waitForFunction(() => document.activeElement?.getAttribute('role') === 'combobox', { timeout: 5000 }).catch(() => {})
+  await adminPage.keyboard.type('germ')
+  await adminPage.keyboard.press('Enter')
+  const chosen = await adminPage.waitForFunction(el => /german/i.test(el.innerText), { timeout: 5000 }, target).then(() => true, () => false)
+  const focusBack = await adminPage.evaluate(el => document.activeElement === el, target)
+  check('a language can be chosen with the keyboard only, focus returns to the selector', opened && chosen && focusBack, JSON.stringify({ opened, chosen, focusBack }))
+
   // ── CSRF: an admin's cookie sent by another site is refused ─────
   const adminCookie = (await adminPage.cookies()).map(c => `${c.name}=${c.value}`).join('; ')
   const asAdmin = (path, origin, init = {}) => fetch(BASE + path, { ...init, headers: { ...init.headers, cookie: adminCookie, ...(origin ? { origin } : {}) } })
