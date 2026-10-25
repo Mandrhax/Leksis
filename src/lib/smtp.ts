@@ -55,6 +55,15 @@ export async function getSmtpPublicConfig(): Promise<SmtpPublicConfig> {
   }
 }
 
+/**
+ * Même serveur et même compte : seule condition pour réutiliser le mot de passe enregistré quand l'admin
+ * n'en tape pas un nouveau. Sinon, changer l'hôte suffirait à l'envoyer (AUTH) à un serveur choisi.
+ * Même logique que ai_config.apiKeyEnc et oidc_config.clientSecretEnc.
+ */
+export function sameSmtpTarget(a: Pick<SmtpConfig, 'host' | 'port' | 'user'>, b: Pick<SmtpConfig, 'host' | 'port' | 'user'>): boolean {
+  return a.host.trim().toLowerCase() === b.host.trim().toLowerCase() && a.port === b.port && a.user.trim() === b.user.trim()
+}
+
 /** Un relais SMTP est utilisable dès qu'un serveur et une adresse d'expédition sont renseignés. */
 export function isSmtpConfigured(cfg: Pick<SmtpConfig, 'host' | 'fromAddress'>): boolean {
   return cfg.host !== '' && cfg.fromAddress !== ''

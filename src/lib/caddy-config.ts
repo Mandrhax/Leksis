@@ -87,8 +87,10 @@ export function normalizeCaddyConfig(input: {
 
 /**
  * Caddyfile correspondant à la configuration.
- * Les proxys du réseau privé (+ ceux déclarés) sont de confiance : Caddy transmet alors
- * leurs en-têtes X-Forwarded-* à l'application, qui en déduit son adresse publique.
+ * Mode proxy seulement : les proxys du réseau privé (+ ceux déclarés) sont de confiance, Caddy transmet
+ * leurs en-têtes X-Forwarded-* et lit l'adresse du client de droite à gauche (strict). Dans les autres
+ * modes, aucun proxy n'est de confiance : sur un LAN, tout poste a une adresse privée et pourrait sinon
+ * choisir l'IP vue par les limites de débit. X-Real-IP = {client_ip}, l'adresse réelle du client.
  */
 export function generateCaddyfile(config: CaddyConfig): string {
   const trusted = ['private_ranges', config.trustedProxies].filter(Boolean).join(' ')
@@ -97,18 +99,14 @@ export function generateCaddyfile(config: CaddyConfig): string {
     '        max_size 50MB',
     '    }',
     '    reverse_proxy app:3000 {',
-    '        header_up X-Real-IP {remote_host}',
+    '        header_up X-Real-IP {client_ip}',
     '    }',
   ]
-  const lines = [
-    '{',
-    '  admin 0.0.0.0:2019',
-    '  servers {',
-    `    trusted_proxies static ${trusted}`,
-    '  }',
-    '}',
-    '',
-  ]
+  const lines = ['{', '  admin 0.0.0.0:2019']
+  if (config.mode === 'proxy') {
+    lines.push('  servers {', `    trusted_proxies static ${trusted}`, '    trusted_proxies_strict', '  }')
+  }
+  lines.push('}', '')
   if (config.mode === 'https') {
     // HSTS seulement sur le bloc HTTPS (un navigateur l'ignore de toute façon sur HTTP) : 1 an, sans
     // includeSubDomains ni preload — ni les sous-domaines ni la liste de préchargement ne sont à nous.

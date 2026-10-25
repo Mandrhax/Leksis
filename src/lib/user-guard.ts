@@ -1,6 +1,8 @@
 import 'server-only'
 import { auth } from '@/auth'
 import type { Session } from 'next-auth'
+import { headers } from 'next/headers'
+import { isCrossSiteRequest } from '@/lib/csrf'
 import { getSetting } from '@/lib/settings'
 import { getDynamicLimits } from '@/lib/limits'
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit'
@@ -18,6 +20,10 @@ const json = (body: object, status: number) =>
  *   const guard = await requireUser({ rateLimit: true }); if (guard.error) return guard.error
  */
 export async function requireUser(opts: { rateLimit?: boolean } = {}): Promise<Guard> {
+  // Requête envoyée par un autre site avec le cookie de l'utilisateur (CSRF, voir lib/csrf.ts)
+  if (isCrossSiteRequest(await headers())) {
+    return { error: json({ error: 'Cross-site request refused.', code: 'cross_site' }, 403) }
+  }
   const session = await auth()
   if (!session?.user?.id) return { error: json({ error: 'Unauthorized.' }, 401) }
 

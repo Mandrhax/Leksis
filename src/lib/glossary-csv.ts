@@ -133,3 +133,31 @@ export function buildGlossaryCsv(entries: Array<{
   ].join(','))
   return '﻿' + [header, ...rows].join('\r\n') + '\r\n'
 }
+
+/**
+ * Termes d'un glossaire lus dans une sauvegarde JSON (Admin → Backup), avec les mêmes contrôles que le CSV :
+ * longueur, langues ramenées aux codes de Leksis. Les termes invalides sont ignorés. `match_variants` absent
+ * (sauvegardes d'avant la 1.11) : activé, comme pour un terme ajouté dans l'interface.
+ */
+export function backupEntriesToRows(
+  entries: unknown,
+  resolveLang: (code: string) => string | null = c => c,
+): CsvRow[] {
+  if (!Array.isArray(entries)) return []
+  const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+  const rows: CsvRow[] = []
+  entries.forEach((raw, index) => {
+    if (!raw || typeof raw !== 'object') return
+    const e = raw as Record<string, unknown>
+    const source = text(e.source_term)
+    const target = text(e.target_term)
+    if (!source || !target || source.length > MAX_TERM_LENGTH || target.length > MAX_TERM_LENGTH) return
+    const rawSrc = text(e.source_lang)
+    const rawTgt = text(e.target_lang)
+    const sourceLang = rawSrc ? resolveLang(rawSrc) : null
+    const targetLang = rawTgt ? resolveLang(rawTgt) : null
+    if ((rawSrc && !sourceLang) || (rawTgt && !targetLang)) return
+    rows.push({ line: index + 1, source, target, sourceLang, targetLang, matchVariants: e.match_variants !== false })
+  })
+  return rows
+}

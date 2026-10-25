@@ -454,8 +454,21 @@ try {
   })
   check('an SVG logo is refused with a translatable error code', badLogo.status === 400 && badLogo.json.code === 'unsupported_format' && badLogo.json.formats?.includes('PNG'), JSON.stringify(badLogo))
 
+  // ── CSRF: an admin's cookie sent by another site is refused ─────
+  const adminCookie = (await adminPage.cookies()).map(c => `${c.name}=${c.value}`).join('; ')
+  const asAdmin = (path, origin, init = {}) => fetch(BASE + path, { ...init, headers: { ...init.headers, cookie: adminCookie, ...(origin ? { origin } : {}) } })
+  const csrfCreate = await asAdmin('/api/admin/users', 'http://intranet.evil.example', {
+    method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ email: 'csrf@e2e.test', role: 'admin' }),
+  })
+  const csrfUser = await db.query("SELECT 1 FROM users WHERE email = 'csrf@e2e.test'")
+  check('a request sent by another site with the admin cookie is refused (CSRF)', csrfCreate.status === 403 && csrfUser.rows.length === 0, String(csrfCreate.status))
+  const csrfUserRoute = await asAdmin('/api/translate', 'http://intranet.evil.example', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+  check('user API routes refuse a cross-site request too', csrfUserRoute.status === 403, String(csrfUserRoute.status))
+  const sameOrigin = await asAdmin('/api/admin/audit', new URL(BASE).origin)
+  check('the same cookie from the site itself still works', sameOrigin.status === 200, String(sameOrigin.status))
+
   // ── Reset to defaults ──────────────────────────────────────────
-  const reset = await adminPage.evaluate(() => fetch('/api/admin/settings/reset', { method: 'POST' }).then(r => r.status))
+  const reset =await adminPage.evaluate(() => fetch('/api/admin/settings/reset', { method: 'POST' }).then(r => r.status))
   check('an admin can reset the settings to their defaults', reset === 200, String(reset))
   const stored = Object.fromEntries((await db.query('SELECT key, value FROM site_settings')).rows.map(r => [r.key, r.value]))
   check('every setting was written with its default', stored.branding?.siteName === 'Leksis' && stored.general?.usageRetentionDays === 365

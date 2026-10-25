@@ -1,6 +1,6 @@
 import 'server-only'
 import { z } from 'zod'
-import { query, withTransaction } from '@/lib/db'
+import { query, withTransaction, type TxQuery } from '@/lib/db'
 import type { CsvRow } from '@/lib/glossary-csv'
 
 // Terme de glossaire, tel que l'admin le saisit (création et modification)
@@ -70,40 +70,44 @@ export async function importGlossaryRows(glossaryId: number, rows: CsvRow[]): Pr
   return withTransaction(async (q) => {
     const exists = await q('SELECT 1 FROM glossaries WHERE id = $1', [glossaryId])
     if (!exists.rows.length) return null
-
-    const key = (source: string, sl: string | null, tl: string | null) => `${source.toLowerCase()}\u0000${sl ?? ''}\u0000${tl ?? ''}`
-    const seen = new Set<string>()
-    const current = await q(
-      'SELECT source_term, source_lang, target_lang FROM glossary_entries WHERE glossary_id = $1',
-      [glossaryId],
-    )
-    for (const r of current.rows) seen.add(key(r.source_term as string, r.source_lang as string | null, r.target_lang as string | null))
-
-    const fresh: CsvRow[] = []
-    let duplicates = 0
-    for (const row of rows) {
-      const k = key(row.source, row.sourceLang, row.targetLang)
-      if (seen.has(k)) { duplicates++; continue }
-      seen.add(k)
-      fresh.push(row)
-    }
-
-    for (let i = 0; i < fresh.length; i += INSERT_CHUNK) {
-      const chunk = fresh.slice(i, i + INSERT_CHUNK)
-      await q(
-        `INSERT INTO glossary_entries (glossary_id, source_term, target_term, source_lang, target_lang, match_variants)
-         SELECT $1, s, t, sl, tl, mv
-         FROM unnest($2::text[], $3::text[], $4::text[], $5::text[], $6::boolean[]) AS x(s, t, sl, tl, mv)`,
-        [
-          glossaryId,
-          chunk.map(r => r.source), chunk.map(r => r.target),
-          chunk.map(r => r.sourceLang), chunk.map(r => r.targetLang),
-          chunk.map(r => r.matchVariants),
-        ],
-      )
-    }
-    return { imported: fresh.length, duplicates }
+    return insertGlossaryRows(q, glossaryId, rows)
   })
+}
+
+/** Insère des lignes validées dans un glossaire, dans la transaction de l'appelant (doublons ignorés et comptés). */
+export async function insertGlossaryRows(q: TxQuery, glossaryId: number, rows: CsvRow[]): Promise<ImportOutcome> {
+  const key = (source: string, sl: string | null, tl: string | null) => `${source.toLowerCase()}\u0000${sl ?? ''}\u0000${tl ?? ''}`
+  const seen = new Set<string>()
+  const current = await q(
+    'SELECT source_term, source_lang, target_lang FROM glossary_entries WHERE glossary_id = $1',
+    [glossaryId],
+  )
+  for (const r of current.rows) seen.add(key(r.source_term as string, r.source_lang as string | null, r.target_lang as string | null))
+
+  const fresh: CsvRow[] = []
+  let duplicates = 0
+  for (const row of rows) {
+    const k = key(row.source, row.sourceLang, row.targetLang)
+    if (seen.has(k)) { duplicates++; continue }
+    seen.add(k)
+    fresh.push(row)
+  }
+
+  for (let i = 0; i < fresh.length; i += INSERT_CHUNK) {
+    const chunk = fresh.slice(i, i + INSERT_CHUNK)
+    await q(
+      `INSERT INTO glossary_entries (glossary_id, source_term, target_term, source_lang, target_lang, match_variants)
+       SELECT $1, s, t, sl, tl, mv
+       FROM unnest($2::text[], $3::text[], $4::text[], $5::text[], $6::boolean[]) AS x(s, t, sl, tl, mv)`,
+      [
+        glossaryId,
+        chunk.map(r => r.source), chunk.map(r => r.target),
+        chunk.map(r => r.sourceLang), chunk.map(r => r.targetLang),
+        chunk.map(r => r.matchVariants),
+      ],
+    )
+  }
+  return { imported: fresh.length, duplicates }
 }
 
 /** Ce qu'on garde d'un terme dans le journal d'audit (ni identifiants internes ni dates). */

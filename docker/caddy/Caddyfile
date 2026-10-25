@@ -1,10 +1,8 @@
 {
     admin 0.0.0.0:2019
-    servers {
-        # Reverse proxies on a private network (NPM, Traefik…) are trusted: Caddy passes their
-        # X-Forwarded-* headers to the app, which detects its public address from them.
-        trusted_proxies static private_ranges
-    }
+    # No trusted proxy by default: on a LAN every client has a private address and could otherwise
+    # choose the IP seen by the rate limits. Behind a reverse proxy, pick "proxy" access mode
+    # (leksis config, or Admin → Services → Caddy).
 }
 
 {$CADDY_HOST} {
@@ -12,6 +10,6 @@
         max_size 50MB
     }
     reverse_proxy app:3000 {
-        header_up X-Real-IP {remote_host}
+        header_up X-Real-IP {client_ip}
     }
 }

@@ -3,7 +3,7 @@ import { getAdminSession } from '@/lib/admin-guard'
 import { logAudit } from '@/lib/audit'
 import { importGlossaryRows } from '@/lib/glossary-entries'
 import { parseGlossaryCsv, MAX_CSV_ROWS } from '@/lib/glossary-csv'
-import { LANGUAGES } from '@/lib/languages'
+import { resolveLanguageCode } from '@/lib/languages'
 import { requestTooLarge } from '@/lib/validators'
 
 export const dynamic = 'force-dynamic'
@@ -11,10 +11,6 @@ export const dynamic = 'force-dynamic'
 const IMPORT_MAX_BYTES = 2 * 1024 * 1024
 /** Lignes rejetées renvoyées à l'interface : le total est toujours donné, la liste est tronquée. */
 const MAX_REPORTED_ISSUES = 50
-
-// « FR-ch » → « fr-CH » ; null si la langue n'est pas proposée par Leksis
-const LANG_BY_LOWER = new Map(LANGUAGES.map(l => [l.code.toLowerCase(), l.code]))
-const resolveLang = (code: string) => LANG_BY_LOWER.get(code.toLowerCase()) ?? null
 
 // POST /api/admin/glossary/[id]/import — bulk import from CSV, all or nothing (one transaction)
 export async function POST(
@@ -37,7 +33,7 @@ export async function POST(
     return NextResponse.json({ error: 'File too large.', code: 'too_large' }, { status: 413 })
   }
 
-  const { rows, rejected } = parseGlossaryCsv(text, resolveLang)
+  const { rows, rejected } = parseGlossaryCsv(text, resolveLanguageCode)
   if (rows.length + rejected.length > MAX_CSV_ROWS) {
     return NextResponse.json({ error: 'Too many rows.', code: 'too_many_rows', max: MAX_CSV_ROWS }, { status: 400 })
   }

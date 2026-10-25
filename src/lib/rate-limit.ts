@@ -32,11 +32,16 @@ export function checkRateLimit(key: string, limit: number, windowMs = 60_000): R
   return { ok: true }
 }
 
-/** Adresse du client : Caddy transmet X-Forwarded-For (proxys de confiance uniquement). */
+/**
+ * Adresse du client : X-Real-IP, posé par Caddy ({client_ip}, proxys de confiance déjà résolus).
+ * Jamais le premier élément de X-Forwarded-For, que le client écrit lui-même : à défaut, le dernier,
+ * ajouté par le dernier saut.
+ */
 export function getClientIp(req: Request): string {
+  const real = req.headers.get('x-real-ip')?.trim()
+  if (real) return real
   const forwarded = req.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0].trim() || 'unknown'
-  return req.headers.get('x-real-ip')?.trim() || 'unknown'
+  return forwarded?.split(',').at(-1)?.trim() || 'unknown'
 }
 
 /**

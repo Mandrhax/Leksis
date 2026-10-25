@@ -78,7 +78,9 @@ export function SmtpForm({ initial, onToast, onDirtyChange }: Props) {
         }),
       })
       if (!res.ok) throw new Error()
-      setHasPassword(clearPassword ? false : password ? true : hasPassword)
+      // Le serveur efface le mot de passe enregistré quand l'hôte, le port ou l'utilisateur change
+      const saved = await res.json().catch(() => ({})) as { hasPassword?: boolean }
+      setHasPassword(saved.hasPassword ?? (clearPassword ? false : password ? true : hasPassword))
       setPassword('')
       setClearPassword(false)
       markSaved({ data, password: '', clearPassword: false })

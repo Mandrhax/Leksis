@@ -39,7 +39,7 @@ export async function query<T = Record<string, unknown>>(
   return getPool().query(text, params as any) as any
 }
 
-type TxQuery = <T = Record<string, unknown>>(
+export type TxQuery = <T = Record<string, unknown>>(
   text: string,
   params?: unknown[]
 ) => Promise<{ rows: T[]; rowCount: number | null }>

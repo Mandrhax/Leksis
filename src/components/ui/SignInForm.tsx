@@ -7,21 +7,13 @@ import { useI18n } from '@/lib/i18n'
 import type { Messages } from '@/locales/en'
 import { UILanguageSwitcher } from '@/components/ui/UILanguageSwitcher'
 import { LegalLinks } from '@/components/ui/LegalLinks'
+import { safeCallbackPath as safeCallbackPathFor } from '@/lib/safe-callback'
 
 type AuthMethod = 'otp_display' | 'otp_email' | 'password_admin_approval' | 'password_email_verify' | 'sso_oidc'
 type OtpStep = 'email' | 'otp'
 
-// Le proxy (middleware) construit callbackUrl avec l'adresse INTERNE du serveur Next (http://0.0.0.0:3000/…)
-// quand NEXTAUTH_URL n'est pas définie : on ne garde que le chemin, relatif à l'adresse réellement
-// utilisée par le navigateur (protège aussi contre une redirection vers un autre site).
-function safeCallbackPath(raw: string): string {
-  try {
-    const url = new URL(raw, window.location.origin)
-    return `${url.pathname}${url.search}${url.hash}`
-  } catch {
-    return '/'
-  }
-}
+// Seul le chemin de callbackUrl est suivi : voir lib/safe-callback.ts
+const safeCallbackPath = (raw: string) => safeCallbackPathFor(raw, window.location.origin)
 
 function OtpSignIn({ t }: { t: Messages }) {
   const [step, setStep]       = useState<OtpStep>('email')

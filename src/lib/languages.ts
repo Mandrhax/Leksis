@@ -127,3 +127,10 @@ export function sameBaseLanguage(a: string | null | undefined, b: string | null 
   if (baseA === 'zh') return a.toLowerCase() === b.toLowerCase()
   return true
 }
+
+const LANG_BY_LOWER = new Map(LANGUAGES.map(l => [l.code.toLowerCase(), l.code]))
+
+/** Code officiel d'une langue proposée par Leksis (« FR-ch » → « fr-CH »), ou null si elle est inconnue. */
+export function resolveLanguageCode(code: string): string | null {
+  return LANG_BY_LOWER.get(code.toLowerCase()) ?? null
+}

@@ -69,14 +69,23 @@ describe('generateCaddyfile', () => {
     const f = generateCaddyfile({ ...base, mode: 'http' })
     expect(f).toContain(':80 {')
     expect(f).toContain('encode gzip')
-    expect(f).toContain('trusted_proxies static private_ranges')
     expect(f).toContain('reverse_proxy app:3000')
     expect(f).toContain('max_size 50MB')
   })
-  it('proxy: no compression (the upstream proxy handles it), extra trusted proxies appended', () => {
+  it('http / https: no trusted proxy — a LAN client must not choose the address seen by the rate limits', () => {
+    expect(generateCaddyfile({ ...base, mode: 'http' })).not.toContain('trusted_proxies')
+    expect(generateCaddyfile({ ...base, mode: 'https', host: 'leksis.example.com' })).not.toContain('trusted_proxies')
+  })
+  it('passes the real client address as X-Real-IP', () => {
+    for (const mode of ['http', 'https', 'proxy'] as const) {
+      expect(generateCaddyfile({ ...base, mode, host: 'leksis.example.com' })).toContain('header_up X-Real-IP {client_ip}')
+    }
+  })
+  it('proxy: no compression (the upstream proxy handles it), extra trusted proxies appended, strict parsing', () => {
     const f = generateCaddyfile({ ...base, mode: 'proxy', trustedProxies: '203.0.113.7' })
     expect(f).not.toContain('encode gzip')
     expect(f).toContain('trusted_proxies static private_ranges 203.0.113.7')
+    expect(f).toContain('trusted_proxies_strict')
   })
   it('https: domain block, plus a :80 fallback unless disabled', () => {
     const cfg = { ...base, mode: 'https' as const, host: 'leksis.example.com' }

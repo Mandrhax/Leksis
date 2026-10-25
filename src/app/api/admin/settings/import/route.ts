@@ -6,6 +6,10 @@ import { withTransaction }            from '@/lib/db'
 import { LOGO, BACKGROUND, checkAsset, saveAsset, type AssetKind } from '@/lib/site-assets'
 import { requestTooLarge }           from '@/lib/validators'
 import { AiConfigImportSchema, isValidatedSettingKey, parseSetting, type ValidatedSettingKey } from '@/lib/settings-schema'
+import { getAiConfig }               from '@/lib/llm'
+import { insertGlossaryRows }        from '@/lib/glossary-entries'
+import { backupEntriesToRows }       from '@/lib/glossary-csv'
+import { resolveLanguageCode }       from '@/lib/languages'
 
 // Une config exportée embarque logo (2 Mo) et fond (5 Mo) en base64 : 15 Mo laissent de la marge
 const MAX_IMPORT_BYTES = 15 * 1024 * 1024
@@ -84,14 +88,18 @@ export async function POST(req: NextRequest) {
 
     if (key === 'ai_config') {
       // Jamais de clé API importée, et jamais d'autorisation « serveur externe » importée :
-      // les deux restent ceux de cette instance
+      // les deux restent ceux de cette instance. La clé enregistrée ne suit pas un changement de serveur
+      // (même règle que Services → AI) : sinon un fichier d'import l'enverrait à l'adresse de son choix.
       const existing = await getSetting<Record<string, unknown>>('ai_config')
       const checked = AiConfigImportSchema.safeParse(value)
       if (!checked.success) { skipped.push(key); continue }
       const safeValue: Record<string, unknown> = checked.data
+      const current = await getAiConfig()
+      const trimSlash = (u: string) => u.replace(/\/+$/, '')
+      const sameTarget = current.provider === checked.data.provider && trimSlash(current.baseUrl) === trimSlash(checked.data.baseUrl)
       const merged = {
         ...safeValue,
-        apiKeyEnc:     existing.apiKeyEnc ?? '',
+        apiKeyEnc:     sameTarget ? ((existing.apiKeyEnc as string | undefined) ?? '') : '',
         allowExternal: existing.allowExternal === true,
       }
       await updateSetting('ai_config', merged, session.user.id, session.user.email!, {
@@ -119,14 +127,8 @@ export async function POST(req: NextRequest) {
           [g.name, g.description ?? '']
         )
         const glossaryId = res.rows[0]?.id
-        if (!glossaryId || !Array.isArray(g.entries)) continue
-        for (const e of g.entries) {
-          if (typeof e.source_term !== 'string' || typeof e.target_term !== 'string' || !e.source_term || !e.target_term) continue
-          await tx(
-            'INSERT INTO glossary_entries (glossary_id, source_term, target_term, source_lang, target_lang) VALUES ($1, $2, $3, $4, $5)',
-            [glossaryId, e.source_term, e.target_term, e.source_lang ?? null, e.target_lang ?? null]
-          )
-        }
+        if (!glossaryId) continue
+        await insertGlossaryRows(tx, glossaryId, backupEntriesToRows(g.entries, resolveLanguageCode))
       }
     })
     await logAudit(session.user.id, session.user.email!, 'IMPORT_GLOSSARIES', 'glossaries:all', { count: body.glossaries.length })

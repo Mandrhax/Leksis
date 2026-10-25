@@ -1761,21 +1761,46 @@ is_domain_name() {
 
 # caddyfile_content MODE DOMAIN FALLBACK TRUSTED → the Caddyfile
 # ⚠️ Same output as generateCaddyfile() in src/lib/caddy-config.ts — keep both in sync.
+# Trusted proxies only in proxy mode: on a LAN every client has a private address and could otherwise
+# choose the IP seen by the rate limits (X-Forwarded-For).
 caddyfile_content() {
   local mode="$1" host="$2" fallback="$3" trusted="${4:-}" tp="private_ranges"
   [[ -n "$trusted" ]] && tp="private_ranges ${trusted}"
-  printf '{\n  admin 0.0.0.0:2019\n  servers {\n    trusted_proxies static %s\n  }\n}\n\n' "$tp"
+  if [[ "$mode" == "proxy" ]]; then
+    printf '{\n  admin 0.0.0.0:2019\n  servers {\n    trusted_proxies static %s\n    trusted_proxies_strict\n  }\n}\n\n' "$tp"
+  else
+    printf '{\n  admin 0.0.0.0:2019\n}\n\n'
+  fi
   case "$mode" in
     https)
-      printf '%s {\n    encode gzip\n    header Strict-Transport-Security "max-age=31536000"\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' "$host"
+      printf '%s {\n    encode gzip\n    header Strict-Transport-Security "max-age=31536000"\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {client_ip}\n    }\n}\n' "$host"
       if [[ "$fallback" == "true" ]]; then
-        printf '\n:80 {\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n'
+        printf '\n:80 {\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {client_ip}\n    }\n}\n'
       fi ;;
     proxy)
-      printf ':80 {\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' ;;
+      printf ':80 {\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {client_ip}\n    }\n}\n' ;;
     *)
-      printf ':80 {\n    encode gzip\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {remote_host}\n    }\n}\n' ;;
+      printf ':80 {\n    encode gzip\n    request_body {\n        max_size 50MB\n    }\n    reverse_proxy app:3000 {\n        header_up X-Real-IP {client_ip}\n    }\n}\n' ;;
   esac
+}
+
+# refresh_caddy_config — reloads Caddy with the Caddyfile of THIS script version, from the stored access
+# settings (Caddy runs with --resume: a changed Caddyfile template would otherwise never reach existing installs).
+# Best-effort, called by "migrate" (so by "update", which runs the new script's migrate).
+refresh_caddy_config() {
+  local ACCESS_MODE ACCESS_HOST ACCESS_FALLBACK ACCESS_TRUSTED content host=""
+  [[ -n "$(docker compose ps -q caddy 2>/dev/null || true)" ]] || return 0
+  current_access
+  [[ "$ACCESS_MODE" == "https" ]] && host="$ACCESS_HOST"
+  content=$(caddyfile_content "$ACCESS_MODE" "$host" "$ACCESS_FALLBACK" "$ACCESS_TRUSTED")
+  if printf '%s\n' "$content" | docker compose exec -T caddy sh -c \
+      'cat >/tmp/Caddyfile && caddy reload --config /tmp/Caddyfile --adapter caddyfile --address localhost:2019' \
+      >/dev/null 2>&1; then
+    p_ok "Caddy configuration refreshed: $(access_label)"
+  else
+    p_warn "Caddy configuration could not be refreshed — re-save it in Admin → Services → Caddy, or run: leksis config"
+  fi
+  return 0
 }
 
 # ask_access DEFAULT_MODE DEFAULT_DOMAIN — sets ACCESS_MODE / ACCESS_HOST / ACCESS_FALLBACK /
@@ -2402,6 +2427,7 @@ cmd_migrate() {
   p_header "Leksis v${VERSION} - Database migrations"
   migrate_db
   p_ok "Database is up to date."
+  refresh_caddy_config
 }
 
 # ── Mode: uninstall ───────────────────────────────────────────

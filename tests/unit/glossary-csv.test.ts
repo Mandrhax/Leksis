@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildGlossaryCsv, detectDelimiter, parseCsvRecords, parseGlossaryCsv } from '@/lib/glossary-csv'
+import { backupEntriesToRows, buildGlossaryCsv, detectDelimiter, parseCsvRecords, parseGlossaryCsv } from '@/lib/glossary-csv'
 
 const known = new Map([['fr', 'fr'], ['de', 'de'], ['fr-ch', 'fr-CH'], ['de-ch', 'de-CH']])
 const resolve = (c: string) => known.get(c.toLowerCase()) ?? null
@@ -108,5 +108,27 @@ describe('buildGlossaryCsv', () => {
       { source: 'Dupont, Jean', target: 'Jean "JD" Dupont', sourceLang: 'fr', targetLang: null, matchVariants: true },
       { source: 'Leksis', target: 'Leksis', sourceLang: null, targetLang: null, matchVariants: false },
     ])
+  })
+})
+
+describe('backupEntriesToRows', () => {
+  const resolve = (c: string) => (c.toLowerCase() === 'fr-ch' ? 'fr-CH' : c.toLowerCase() === 'en' ? 'en' : null)
+
+  it('keeps match_variants, defaults it to on for old backups', () => {
+    const rows = backupEntriesToRows([
+      { source_term: 'watch', target_term: 'montre', source_lang: 'en', target_lang: 'FR-ch', match_variants: false },
+      { source_term: 'dial', target_term: 'cadran', source_lang: null, target_lang: null },
+    ], resolve)
+    expect(rows.map(r => [r.source, r.targetLang, r.matchVariants])).toEqual([['watch', 'fr-CH', false], ['dial', null, true]])
+  })
+  it('drops invalid entries: missing term, too long, unknown language, junk', () => {
+    const rows = backupEntriesToRows([
+      { source_term: '', target_term: 'x' },
+      { source_term: 'a'.repeat(501), target_term: 'x' },
+      { source_term: 'a', target_term: 'b', source_lang: 'xx' },
+      null, 'junk',
+    ], resolve)
+    expect(rows).toEqual([])
+    expect(backupEntriesToRows('not an array')).toEqual([])
   })
 })

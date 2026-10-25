@@ -60,15 +60,20 @@ export async function GET() {
   }
 
   // Exporter les glossaires et leurs entrées
-  const glossariesRes = await query<{ id: number; name: string; description: string }>(
-    'SELECT id, name, description FROM glossaries ORDER BY id'
-  )
-  const glossaries = await Promise.all(glossariesRes.rows.map(async g => {
-    const entriesRes = await query<{ source_term: string; target_term: string; source_lang: string; target_lang: string }>(
-      'SELECT source_term, target_term, source_lang, target_lang FROM glossary_entries WHERE glossary_id = $1 ORDER BY id',
-      [g.id]
-    )
-    return { name: g.name, description: g.description ?? '', entries: entriesRes.rows }
+  // Deux requêtes en tout (pas une par glossaire) ; match_variants voyage avec chaque terme
+  type EntryRow = { glossary_id: number; source_term: string; target_term: string; source_lang: string | null; target_lang: string | null; match_variants: boolean }
+  const [glossariesRes, entriesRes] = await Promise.all([
+    query<{ id: number; name: string; description: string }>('SELECT id, name, description FROM glossaries ORDER BY id'),
+    query<EntryRow>('SELECT glossary_id, source_term, target_term, source_lang, target_lang, match_variants FROM glossary_entries ORDER BY id'),
+  ])
+  const entriesByGlossary = new Map<number, Omit<EntryRow, 'glossary_id'>[]>()
+  for (const { glossary_id, ...entry } of entriesRes.rows) {
+    const list = entriesByGlossary.get(glossary_id) ?? []
+    list.push(entry)
+    entriesByGlossary.set(glossary_id, list)
+  }
+  const glossaries = glossariesRes.rows.map(g => ({
+    name: g.name, description: g.description ?? '', entries: entriesByGlossary.get(g.id) ?? [],
   }))
 
   const date   = new Date().toISOString().slice(0, 10)

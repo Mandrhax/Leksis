@@ -6,7 +6,7 @@ import { encrypt } from '@/lib/crypto'
 import { generateCaddyfile, normalizeCaddyConfig, reloadCaddy } from '@/lib/caddy'
 import { getAiConfig, getAiPublicConfig, isExternalUrl } from '@/lib/llm'
 import { NUM_CTX_MAX, NUM_CTX_MIN, MAX_CONCURRENT_AI_REQUESTS_MAX } from '@/lib/llm/types'
-import { getSmtpConfig, getSmtpPublicConfig, isSmtpConfigured } from '@/lib/smtp'
+import { getSmtpConfig, getSmtpPublicConfig, isSmtpConfigured, sameSmtpTarget } from '@/lib/smtp'
 import { isValidEmail } from '@/lib/validators'
 import { AUTH_METHODS } from '@/lib/settings-schema'
 import { getOidcConfig, getOidcPublicConfig, isOidcConfigured } from '@/lib/auth-methods'
@@ -137,12 +137,13 @@ export async function PATCH(req: NextRequest) {
       hasApiKey:        apiKeyEnc !== '',
     })
   } else if (data.service === 'smtp') {
-    const existing = await getSetting<Record<string, unknown>>('smtp_config')
+    // Le mot de passe enregistré ne suit pas un changement de serveur ou de compte
+    const existing = await getSmtpConfig()
     const passEnc = data.clearPassword
       ? ''
       : data.password
         ? encrypt(data.password)
-        : ((existing.passEnc as string | undefined) ?? '')
+        : (sameSmtpTarget(existing, { host: data.host, port: data.port, user: data.user ?? '' }) ? existing.passEnc : '')
 
     const value = {
       host:        data.host,
@@ -158,6 +159,7 @@ export async function PATCH(req: NextRequest) {
       host: value.host, port: value.port, secure: value.secure, user: value.user,
       fromAddress: value.fromAddress, fromName: value.fromName, hasPassword: passEnc !== '',
     })
+    return NextResponse.json({ ok: true, hasPassword: passEnc !== '' })
   } else if (data.service === 'auth') {
     // Vérifications croisées qu'un simple schéma zod ne peut pas faire : basculer sur une méthode qui a
     // besoin de SMTP/OIDC sans que ce soit configuré verrouillerait l'instance (plus personne ne pourrait

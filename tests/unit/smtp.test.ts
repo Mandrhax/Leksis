@@ -7,7 +7,7 @@ vi.mock('@/lib/settings', () => ({
 
 vi.stubEnv('ENCRYPTION_KEY', 'a'.repeat(64))
 
-import { getSmtpConfig, getSmtpPublicConfig, isSmtpConfigured } from '@/lib/smtp'
+import { getSmtpConfig, getSmtpPublicConfig, isSmtpConfigured, sameSmtpTarget } from '@/lib/smtp'
 import { encrypt } from '@/lib/crypto'
 
 describe('isSmtpConfigured', () => {
@@ -45,5 +45,17 @@ describe('getSmtpConfig / getSmtpPublicConfig', () => {
     expect(pub.hasPassword).toBe(true)
     expect((pub as unknown as Record<string, unknown>).passEnc).toBeUndefined()
     expect((pub as unknown as Record<string, unknown>).password).toBeUndefined()
+  })
+})
+
+describe('sameSmtpTarget', () => {
+  const stored = { host: 'smtp.corp.local', port: 587, user: 'leksis' }
+  it('same server and account (host case and spaces ignored)', () => {
+    expect(sameSmtpTarget(stored, { host: ' SMTP.corp.local ', port: 587, user: 'leksis' })).toBe(true)
+  })
+  it('the stored password never follows another host, port or user', () => {
+    expect(sameSmtpTarget(stored, { ...stored, host: 'evil.example.com' })).toBe(false)
+    expect(sameSmtpTarget(stored, { ...stored, port: 2525 })).toBe(false)
+    expect(sameSmtpTarget(stored, { ...stored, user: 'other' })).toBe(false)
   })
 })

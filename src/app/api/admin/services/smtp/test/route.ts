@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAdminSession } from '@/lib/admin-guard'
 import { logAudit } from '@/lib/audit'
-import { getSmtpConfig, verifySmtpConnection, sendMail } from '@/lib/smtp'
+import { getSmtpConfig, sameSmtpTarget, verifySmtpConnection, sendMail } from '@/lib/smtp'
 import { isValidEmail } from '@/lib/validators'
 import { encrypt } from '@/lib/crypto'
 
@@ -37,14 +37,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: 'Invalid recipient address' })
   }
 
-  // Un mot de passe tapé pour ce test n'est jamais enregistré : on le passe directement au transport
+  // Un mot de passe tapé pour ce test n'est jamais enregistré : on le passe directement au transport.
+  // Le mot de passe enregistré ne part que vers le serveur et le compte pour lesquels il a été saisi.
   const stored = await getSmtpConfig()
+  const target = { host: data.host, port: data.port, user: data.user ?? '' }
   const cfg = {
-    host:        data.host,
-    port:        data.port,
+    ...target,
     secure:      data.secure ?? false,
-    user:        data.user ?? '',
-    passEnc:     data.password ? encrypt(data.password) : stored.passEnc,
+    passEnc:     data.password ? encrypt(data.password) : (sameSmtpTarget(stored, target) ? stored.passEnc : ''),
     fromAddress: data.fromAddress,
     fromName:    data.fromName ?? '',
   }
