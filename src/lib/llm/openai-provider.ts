@@ -1,5 +1,6 @@
 import 'server-only'
 import type { LlmModel, LlmProvider, LlmRequest } from './types'
+import { idleSignal, readAll } from './idle-timeout'
 
 /**
  * Base de l'API OpenAI-compatible : « http://host:8000 » devient « http://host:8000/v1 » ;
@@ -109,20 +110,24 @@ export function createOpenAiProvider(baseUrl: string, apiKey = ''): LlmProvider 
       const encoder = new TextEncoder()
       return new ReadableStream<Uint8Array>({
         async start(controller) {
+          // Coupé si le serveur n'envoie plus rien (idle-timeout.ts), ou si le client part (req.signal)
+          const idle = idleSignal(req.signal)
           let res: Response
           try {
             res = await fetch(`${base}/chat/completions`, {
               method: 'POST',
               headers: headers(),
               body: JSON.stringify({ model: req.model, messages: buildMessages(req), stream: true, max_tokens: estimateMaxTokens(req) }),
-              signal: req.signal,
+              signal: idle.signal,
             })
           } catch (err) {
+            idle.done()
             controller.error(err)
             return
           }
 
           if (!res.ok || !res.body) {
+            idle.done()
             controller.error(await httpError(res))
             return
           }
@@ -153,31 +158,39 @@ export function createOpenAiProvider(baseUrl: string, apiKey = ''): LlmProvider 
             while (true) {
               const { done, value } = await reader.read()
               if (done) break
+              idle.touch()
               buffer += decoder.decode(value, { stream: true })
               const lines = buffer.split('\n')
               buffer = lines.pop() ?? ''
               for (const line of lines) {
-                if (!handleLine(line)) return
+                if (!handleLine(line)) { idle.done(); return }
               }
             }
-            if (buffer && !handleLine(buffer)) return
+            if (buffer && !handleLine(buffer)) { idle.done(); return }
           } catch (err) {
+            idle.done()
             controller.error(err)
             return
           }
 
+          idle.done()
           controller.close()
         },
       })
     },
 
     async complete(req) {
+      // Texte et images en flux : sans flux, les en-têtes n'arrivent qu'à la fin de la génération, et Node abandonne
+      // au bout de 300 s sans en-têtes. L'audio (dictée, réponses courtes) reste sans flux : tous les serveurs
+      // compatibles n'acceptent pas `input_audio` en flux.
+      if (!req.audio) return readAll(this.stream(req))
+      const idle = idleSignal(req.signal)
       const res = await fetch(`${base}/chat/completions`, {
         method: 'POST',
         headers: headers(),
         body: JSON.stringify({ model: req.model, messages: buildMessages(req), stream: false, max_tokens: estimateMaxTokens(req) }),
-        signal: req.signal,
-      })
+        signal: idle.signal,
+      }).finally(idle.done)
       if (!res.ok) throw await httpError(res)
       const data = await res.json() as { choices?: { message?: { content?: string | null }; text?: string }[] }
       return data.choices?.[0]?.message?.content ?? data.choices?.[0]?.text ?? ''

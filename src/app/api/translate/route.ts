@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-export const maxDuration = 300 // 5 min — needed for large model cold-start + long texts
 import { getAiOrError, gateStream } from '@/lib/llm'
 import { buildTranslationPrompt, buildMarkdownTranslationPrompt } from '@/lib/prompts'
 import { validateTextInput, isValidLangName, isValidLangCode } from '@/lib/validators'

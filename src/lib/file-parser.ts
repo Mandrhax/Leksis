@@ -117,7 +117,46 @@ export async function parsePdf(buffer: Buffer): Promise<Block[]> {
   }
   const parser = new PDFParse({ data: buffer })
   const result = await parser.getText({ lineThreshold: 1, itemJoiner: ' ' })
-  return textToBlocks(result.text)
+  return textToBlocks(mergeWrappedLines(result.text))
+}
+
+const LIST_OR_TABLE_START = /^\s*([-•*–|#]|\d+[.)]\s)/
+
+/**
+ * Recolle les lignes d'un PDF en paragraphes. L'extraction rend une ligne par ligne VISUELLE : une phrase coupée en
+ * fin de ligne devenait deux segments traduits séparément (mauvaise traduction, plus de relances `|||`).
+ * Une ligne qui atteint presque la marge droite (≥ 75 % de la largeur courante du texte) continue sur la suivante ;
+ * une ligne plus courte termine son paragraphe (fin de paragraphe, titre). Mot coupé par un trait d'union : recollé.
+ * Les lignes vides, de liste ou de tableau ne sont jamais fusionnées.
+ */
+export function mergeWrappedLines(text: string): string {
+  const lines = text.split('\n')
+  const lengths = lines.map(l => l.trim().length).filter(n => n > 0).sort((a, b) => a - b)
+  if (lengths.length < 3) return text
+  // Largeur « pleine » du texte : 90ᵉ centile des longueurs de ligne (insensible à quelques lignes très longues)
+  const fullWidth = lengths[Math.floor((lengths.length - 1) * 0.9)]
+  const wraps = (line: string) => line.length >= fullWidth * 0.75
+
+  const out: string[] = []
+  let current = ''   // paragraphe en cours
+  let last = ''      // dernière ligne physique ajoutée : c'est elle qui dit si le texte continue
+  for (const raw of lines) {
+    const line = raw.trim()
+    const startsBlock = !line || LIST_OR_TABLE_START.test(line)
+    if (current && !startsBlock && wraps(last) && !current.startsWith('|')) {
+      current = /\p{L}-$/u.test(current) && /^\p{Ll}/u.test(line)
+        ? current.slice(0, -1) + line
+        : `${current} ${line}`
+      last = line
+      continue
+    }
+    if (current) out.push(current)
+    if (!line) { out.push(''); current = ''; last = ''; continue }
+    current = line
+    last = line
+  }
+  if (current) out.push(current)
+  return out.join('\n')
 }
 
 // ── DOCX ───────────────────────────────────────────────────────
@@ -210,9 +249,43 @@ function htmlToBlocks(html: string): Block[] {
   return blocks
 }
 
+/** Taille décompressée maximale d'un DOCX (toutes ses parties) : au-delà, c'est une bombe ZIP ou un fichier hors d'usage. */
+export const DOCX_MAX_UNCOMPRESSED_BYTES = 150 * 1024 * 1024
+
+/**
+ * Somme des tailles décompressées annoncées par le répertoire central d'un ZIP (DOCX), sans rien décompresser ;
+ * null si le fichier n'est pas un ZIP lisible. ZIP64 (taille 0xFFFFFFFF) compté comme démesuré.
+ */
+export function zipUncompressedSize(buf: Buffer): number | null {
+  // Fin du répertoire central : signature PK\x05\x06, dans les 65 557 derniers octets (commentaire ≤ 64 Ko)
+  let eocd = -1
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break }
+  }
+  if (eocd < 0) return null
+  const entries = buf.readUInt16LE(eocd + 10)
+  let offset = buf.readUInt32LE(eocd + 16)
+  let total = 0
+  for (let n = 0; n < entries; n++) {
+    if (offset + 46 > buf.length || buf.readUInt32LE(offset) !== 0x02014b50) return null
+    const size = buf.readUInt32LE(offset + 24)
+    if (size === 0xffffffff) return Number.POSITIVE_INFINITY
+    total += size
+    offset += 46 + buf.readUInt16LE(offset + 28) + buf.readUInt16LE(offset + 30) + buf.readUInt16LE(offset + 32)
+  }
+  return total
+}
+
 export async function parseDocx(buffer: Buffer): Promise<Block[]> {
+  // jszip (sous mammoth) décompresse en mémoire sans limite : on vérifie d'abord la taille annoncée
+  const size = zipUncompressedSize(buffer)
+  if (size === null) throw new Error('Not a valid DOCX (ZIP) file')
+  if (size > DOCX_MAX_UNCOMPRESSED_BYTES) throw new Error(`DOCX too large once uncompressed (${size} bytes)`)
+
   const mammoth = await import('mammoth')
-  const result = await mammoth.convertToHtml({ buffer })
+  // Images ignorées : par défaut mammoth les met en base64 dans le HTML (un DOCX de photos de 10 Mo devenait une
+  // chaîne de 13 Mo parcourue par les regex), alors que seul le texte est traduit
+  const result = await mammoth.convertToHtml({ buffer }, { convertImage: mammoth.images.imgElement(async () => ({ src: '' })) })
   return htmlToBlocks(result.value)
 }
 

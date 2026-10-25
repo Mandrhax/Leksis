@@ -43,6 +43,18 @@ export class PdfPageLimitError extends Error {
   }
 }
 
+/** Côté le plus long de l'image envoyée au modèle vision, en pixels. */
+export const OCR_MAX_PAGE_PX = 2000
+
+/**
+ * Échelle de rendu d'une page : ~150 DPI (1,5), réduite pour que le plus grand côté ne dépasse pas OCR_MAX_PAGE_PX.
+ * La taille de page vient du PDF lui-même : sans plafond, une page de 14 400 pt donnait un canvas de 1,8 Go.
+ */
+export function renderScale(page: { width: number; height: number }): number {
+  const longest = Math.max(page.width, page.height, 1)
+  return Math.min(1.5, OCR_MAX_PAGE_PX / longest)
+}
+
 export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, model: string, maxConcurrent: number, signal?: AbortSignal): Promise<Block[]> {
   // Import dynamique pour éviter les problèmes de bundling côté client
   const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as string) as typeof import('pdfjs-dist')
@@ -60,7 +72,7 @@ export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, 
 
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i)
-      const viewport = page.getViewport({ scale: 1.5 }) // ~150 DPI
+      const viewport = page.getViewport({ scale: renderScale(page.getViewport({ scale: 1 })) })
 
       const canvas = createCanvas(Math.round(viewport.width), Math.round(viewport.height))
       const ctx = canvas.getContext('2d')
@@ -68,7 +80,8 @@ export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await page.render({ canvasContext: ctx as any, viewport } as any).promise
 
-      const base64 = canvas.toBuffer('image/png').toString('base64')
+      // encode() asynchrone (hors du fil principal) : toBuffer() bloquait toutes les autres requêtes du serveur
+      const base64 = (await canvas.encode('png')).toString('base64')
       page.cleanup()
 
       const pageOutput = await withAiSlot(maxConcurrent, () => provider.complete({

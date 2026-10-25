@@ -7,7 +7,6 @@ import { isFeatureEnabled } from '@/lib/features-guard'
 import { requireUser } from '@/lib/user-guard'
 import { validateFileExtension, validateDocumentSize, requestTooLarge, DOCUMENT_MAX_BYTES } from '@/lib/validators'
 
-export const maxDuration = 300
 
 export async function POST(req: NextRequest) {
   const guard = await requireUser({ rateLimit: true })

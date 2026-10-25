@@ -5,8 +5,9 @@ import {
 import type { Block } from '@/types/leksis'
 import {
   applySegments, blocksToSegments, countBlockChars, isProbablyScanned,
-  parseDocx, parseFile, parseHtmlTable, parseTxt, stripInlineHtml, textToBlocks,
+  parseDocx, parseFile, parseHtmlTable, parseTxt, stripInlineHtml, textToBlocks, mergeWrappedLines, zipUncompressedSize, DOCX_MAX_UNCOMPRESSED_BYTES,
 } from '@/lib/file-parser'
+import { blocksToDocx } from '@/lib/docx-export'
 
 describe('textToBlocks', () => {
   it('makes one paragraph per non-empty line', () => {
@@ -152,5 +153,67 @@ describe('isProbablyScanned / countBlockChars', () => {
     const table: Block = { type: 'table', headers: ['a '.repeat(60)], rows: [['b '.repeat(60)]] }
     expect(isProbablyScanned([table])).toBe(false)
     expect(countBlockChars([{ type: 'paragraph', text: 'abc' }, { type: 'heading', level: 1, text: 'de' }, { type: 'page-break' }, { type: 'table', headers: ['f'], rows: [['gh']] }])).toBe(8)
+  })
+})
+
+describe('mergeWrappedLines (PDF)', () => {
+  const full = 'This sentence is long enough to reach the right margin of the page and'
+  it('joins lines that reach the margin into one paragraph', () => {
+    const text = [full, 'continues on the next line here.', '', full, 'ends here.'].join('\n')
+    expect(mergeWrappedLines(text).split('\n').filter(Boolean)).toEqual([
+      `${full} continues on the next line here.`,
+      `${full} ends here.`,
+    ])
+  })
+  it('a short line (title, end of paragraph) is never joined to the next one', () => {
+    const text = ['Introduction', full, 'last words.', 'Short end.', full].join('\n')
+    expect(mergeWrappedLines(text).split('\n')).toEqual(['Introduction', `${full} last words.`, 'Short end.', full])
+  })
+  it('rejoins a word split by a hyphen, keeps list items and tables apart', () => {
+    const text = [`${full} trans-`, 'lation work.', '- first item', '- second item', '| a | b |', full].join('\n')
+    expect(mergeWrappedLines(text).split('\n')).toEqual([`${full} translation work.`, '- first item', '- second item', '| a | b |', full])
+  })
+})
+
+describe('DOCX safety', () => {
+  it('reads the uncompressed size from the ZIP directory, without unpacking', async () => {
+    const doc = new Document({ sections: [{ children: [new Paragraph('Hello')] }] })
+    const buf = Buffer.from(await Packer.toBuffer(doc))
+    const size = zipUncompressedSize(buf)
+    expect(size).toBeGreaterThan(buf.length)
+    expect(size).toBeLessThan(DOCX_MAX_UNCOMPRESSED_BYTES)
+    expect(zipUncompressedSize(Buffer.from('not a zip at all, just some text bytes'))).toBeNull()
+  })
+
+  it('refuses a DOCX whose parts announce more than the limit once uncompressed (zip bomb)', async () => {
+    const doc = new Document({ sections: [{ children: [new Paragraph('Hello')] }] })
+    const buf = Buffer.from(await Packer.toBuffer(doc))
+    // Fake the size announced by the first central-directory entry
+    let eocd = buf.length - 22
+    while (buf.readUInt32LE(eocd) !== 0x06054b50) eocd--
+    const cd = buf.readUInt32LE(eocd + 16)
+    buf.writeUInt32LE(DOCX_MAX_UNCOMPRESSED_BYTES + 1, cd + 24)
+    await expect(parseDocx(buf)).rejects.toThrow(/too large/)
+  })
+})
+
+describe('blocksToDocx', () => {
+  it('a table without header row (the usual Word case) exports without an empty row and reads back', async () => {
+    const buf = await blocksToDocx([
+      { type: 'heading', level: 1, text: 'Title' },
+      { type: 'table', headers: [], rows: [['A', 'B'], ['1', '2']] },
+      { type: 'paragraph', text: 'After' },
+    ])
+    // Word refuses a row without any cell (mammoth does not mind, so the XML is checked directly)
+    const JSZip = (await import('jszip')).default
+    const xml = await (await JSZip.loadAsync(buf)).file('word/document.xml')!.async('string')
+    const rows = xml.match(/<w:tr[ >][\s\S]*?<\/w:tr>/g) ?? []
+    expect(rows).toHaveLength(2)
+    expect(rows.every(r => r.includes('<w:tc>') || r.includes('<w:tc '))).toBe(true)
+
+    const blocks = await parseDocx(buf)
+    const table = blocks.find(b => b.type === 'table') as Extract<Block, { type: 'table' }>
+    expect([...table.headers, ...table.rows.flat()]).toEqual(['A', 'B', '1', '2'])
+    expect(blocks.at(-1)).toEqual({ type: 'paragraph', text: 'After' })
   })
 })

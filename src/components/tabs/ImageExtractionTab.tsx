@@ -9,6 +9,7 @@ import { useI18n } from '@/lib/i18n'
 import type { Language } from '@/types/leksis'
 import { ReportResultLink } from '@/components/ui/ReportResultLink'
 import type { FeedbackCategory } from '@/lib/feedback-schema'
+import { prepareOcrImage } from '@/lib/image-prepare'
 
 const DEFAULT_TARGET: Language = { code: 'fr', name: 'French' }
 const IMG_TARGET_KEY = 'leksisImgTargetLang'
@@ -187,8 +188,10 @@ export function ImageExtractionTab({ defaultTargetLang, maxImageMB = 10, onRepor
     setStep('extracting')
 
     try {
+      // Photo de téléphone (12 Mpx) réduite avant l'envoi : moins à transférer, moins à lire pour le modèle
       const formData = new FormData()
-      formData.append('image', file)
+      const upload = await prepareOcrImage(file)
+      formData.append('image', upload, upload === file ? file.name : file.name.replace(/\.[^.]+$/, '') + (upload.type === 'image/png' ? '.png' : '.jpg'))
 
       const res = await fetch('/api/ocr', { method: 'POST', body: formData, signal: controller.signal })
       if (!res.ok) {

@@ -1,5 +1,6 @@
 import 'server-only'
 import { DEFAULT_NUM_CTX, type LlmModel, type LlmProvider, type LlmRequest } from './types'
+import { idleSignal, readAll } from './idle-timeout'
 
 /**
  * Fournisseur Ollama — API native /api/generate (NDJSON).
@@ -28,20 +29,24 @@ export function createOllamaProvider(baseUrl: string, numCtx = DEFAULT_NUM_CTX):
       const encoder = new TextEncoder()
       return new ReadableStream<Uint8Array>({
         async start(controller) {
+          // Coupé si Ollama n'envoie plus rien (idle-timeout.ts), ou si le client part (req.signal)
+          const idle = idleSignal(req.signal)
           let res: Response
           try {
             res = await fetch(`${base}/api/generate`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: payload(req, true),
-              signal: req.signal,
+              signal: idle.signal,
             })
           } catch (err) {
+            idle.done()
             controller.error(err)
             return
           }
 
           if (!res.ok || !res.body) {
+            idle.done()
             const text = await res.text().catch(() => '')
             controller.error(new Error(`Ollama HTTP ${res.status}${text ? ': ' + text : ''}`))
             return
@@ -55,6 +60,7 @@ export function createOllamaProvider(baseUrl: string, numCtx = DEFAULT_NUM_CTX):
             while (true) {
               const { done, value } = await reader.read()
               if (done) break
+              idle.touch()
               buffer += decoder.decode(value, { stream: true })
               const lines = buffer.split('\n')
               buffer = lines.pop() ?? ''
@@ -63,6 +69,7 @@ export function createOllamaProvider(baseUrl: string, numCtx = DEFAULT_NUM_CTX):
                 let obj: { response?: string; error?: string }
                 try { obj = JSON.parse(line) } catch { continue } // chunk malformé : ignoré
                 if (obj.error) {
+                  idle.done()
                   controller.error(new Error(`Ollama: ${obj.error}`))
                   reader.cancel().catch(() => {})
                   return
@@ -71,28 +78,21 @@ export function createOllamaProvider(baseUrl: string, numCtx = DEFAULT_NUM_CTX):
               }
             }
           } catch (err) {
+            idle.done()
             controller.error(err)
             return
           }
 
+          idle.done()
           controller.close()
         },
       })
     },
 
-    async complete(req) {
-      const res = await fetch(`${base}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload(req, false),
-        signal: req.signal,
-      })
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        throw new Error(`Ollama HTTP ${res.status}${text ? ': ' + text : ''}`)
-      }
-      const data = await res.json() as { response?: string }
-      return data.response ?? ''
+    // En flux, pas `stream: false` : sans flux, Ollama n'envoie les en-têtes qu'à la fin de la génération, et Node
+    // abandonne au bout de 300 s sans en-têtes (« fetch failed ») — un lot de document ou une page scannée lente échouait.
+    complete(req) {
+      return readAll(this.stream(req))
     },
 
     async listModels(signal) {

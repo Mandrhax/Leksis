@@ -7,6 +7,7 @@ import {
   FEEDBACK_CATEGORIES, FEEDBACK_IMAGE_MAX_BYTES, FEEDBACK_IMAGE_MAX_SIDE, FEEDBACK_MAX_CHARS, FEEDBACK_MAX_IMAGES,
   type FeedbackCategory,
 } from '@/lib/feedback-schema'
+import { prepareImage as prepareImageFor } from '@/lib/image-prepare'
 
 interface Props {
   open:       boolean
@@ -25,36 +26,8 @@ interface Attached {
 
 const MAX_MB = FEEDBACK_IMAGE_MAX_BYTES / (1024 * 1024)
 
-/**
- * Redessine l'image dans un canvas : applique l'orientation EXIF, réduit les très grandes images et retire toutes
- * les métadonnées (position GPS d'une photo prise au téléphone…). PNG reste PNG (captures d'écran : texte net),
- * le reste devient JPEG. Le serveur revérifie de toute façon format et taille.
- */
-async function prepareImage(file: Blob): Promise<Blob | 'format' | 'too_large'> {
-  let bitmap: ImageBitmap
-  try {
-    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
-  } catch {
-    return 'format'
-  }
-  const scale = Math.min(1, FEEDBACK_IMAGE_MAX_SIDE / Math.max(bitmap.width, bitmap.height))
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.max(1, Math.round(bitmap.width * scale))
-  canvas.height = Math.max(1, Math.round(bitmap.height * scale))
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return 'format'
-  ctx.fillStyle = '#ffffff' // fond blanc : la transparence devient noire en JPEG
-  if (file.type !== 'image/png') ctx.fillRect(0, 0, canvas.width, canvas.height)
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-  bitmap.close()
-
-  const encode = (type: string, quality?: number) =>
-    new Promise<Blob | null>(resolve => canvas.toBlob(resolve, type, quality))
-  let out = await encode(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.9)
-  if (out && out.size > FEEDBACK_IMAGE_MAX_BYTES) out = await encode('image/jpeg', 0.85)
-  if (!out) return 'format'
-  return out.size > FEEDBACK_IMAGE_MAX_BYTES ? 'too_large' : out
-}
+// Orientation EXIF appliquée, métadonnées (GPS…) retirées, taille réduite : voir lib/image-prepare.ts
+const prepareImage = (file: Blob) => prepareImageFor(file, { maxSide: FEEDBACK_IMAGE_MAX_SIDE, maxBytes: FEEDBACK_IMAGE_MAX_BYTES })
 
 export function FeedbackModal({ open, onClose, activeTab, initialCategory }: Props) {
   const { t, locale } = useI18n()

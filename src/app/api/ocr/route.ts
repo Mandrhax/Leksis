@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAiOrError, gateStream } from '@/lib/llm'
 import { buildOcrPrompt } from '@/lib/prompts'
 
-export const maxDuration = 300
 import { validateImageSize, requestTooLarge } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
 import { trackUsageStream, NO_LANG } from '@/lib/usage'

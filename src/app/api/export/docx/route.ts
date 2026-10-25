@@ -1,26 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  Document, Paragraph, Run, HeadingLevel, Packer, PageBreak,
-  Table, TableRow, TableCell, WidthType, BorderStyle,
-} from 'docx'
 import { z } from 'zod'
 import { requireUser } from '@/lib/user-guard'
 import { requestTooLarge } from '@/lib/validators'
-
-const borderDef = {
-  top:    { style: BorderStyle.SINGLE, size: 4, color: '999999' },
-  bottom: { style: BorderStyle.SINGLE, size: 4, color: '999999' },
-  left:   { style: BorderStyle.SINGLE, size: 4, color: '999999' },
-  right:  { style: BorderStyle.SINGLE, size: 4, color: '999999' },
-}
-
-function makeCell(text: string, isHeader: boolean): TableCell {
-  return new TableCell({
-    borders: borderDef,
-    shading: isHeader ? { fill: 'EEF1F6' } : undefined,
-    children: [new Paragraph({ children: [new Run({ text, bold: isHeader })] })],
-  })
-}
+import { blocksToDocx } from '@/lib/docx-export'
 
 const MAX_BODY_BYTES = 5 * 1024 * 1024
 const MAX_BLOCKS     = 20_000
@@ -72,38 +54,7 @@ export async function POST(req: NextRequest) {
   const { blocks } = parsed.data
   const filename = safeFilename(parsed.data.filename)
 
-  const children = blocks
-    .filter(b => b.type === 'page-break' || b.type === 'table' ||
-      ((b.type === 'paragraph' || b.type === 'heading') && b.text.trim()))
-    .map(block => {
-      if (block.type === 'page-break') {
-        return new Paragraph({ children: [new PageBreak()] })
-      }
-      if (block.type === 'heading') {
-        return new Paragraph({
-          text: block.text,
-          heading: block.level === 1 ? HeadingLevel.HEADING_1 : HeadingLevel.HEADING_2,
-        })
-      }
-      if (block.type === 'table') {
-        const headerRow = new TableRow({
-          tableHeader: true,
-          children: block.headers.map(h => makeCell(h, true)),
-        })
-        const dataRows = block.rows.map(row =>
-          new TableRow({ children: row.map(c => makeCell(c, false)) })
-        )
-        return new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          rows: [headerRow, ...dataRows],
-        })
-      }
-      // paragraph
-      return new Paragraph({ text: (block as { type: 'paragraph'; text: string }).text })
-    })
-
-  const doc = new Document({ sections: [{ children }] })
-  const buffer = await Packer.toBuffer(doc)
+  const buffer = await blocksToDocx(blocks)
 
   return new Response(new Uint8Array(buffer), {
     headers: {

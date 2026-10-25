@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAiOrError, withAiSlot } from '@/lib/llm'
 import { buildDocumentTranslationPrompt } from '@/lib/prompts'
 
-export const maxDuration = 300
 import { parseFile, parsePdf, isProbablyScanned, blocksToSegments, applySegments, countBlockChars } from '@/lib/file-parser'
 import { translateSegments } from '@/lib/doc-translate'
 import { fetchGlossaryCandidates, filterRelevantTerms, buildTranslationGlossaryClause } from '@/lib/glossary'

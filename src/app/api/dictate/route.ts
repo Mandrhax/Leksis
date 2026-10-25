@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAiOrError, withAiSlot } from '@/lib/llm'
 import { buildTranscribePrompt } from '@/lib/prompts'
 
-export const maxDuration = 300
 import { validateAudioSize, requestTooLarge } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
 import { logUsage, NO_LANG } from '@/lib/usage'

@@ -322,6 +322,7 @@ Trois cartes : **Ollama (ce serveur)**, **Ollama (autre serveur)**, **API compat
 
 - Les prompts (`src/lib/prompts.ts`) sont des chaînes libres envoyées comme message `user` : avec certains modèles servis par vLLM (ex. TranslateGemma, dont le chat template attend une structure de contenu), le résultat peut différer de celui d'Ollama — à valider par modèle
 - Pas d'équivalent à `keep_alive` / `num_ctx` pour `openai` (gérés côté serveur) ; l'OCR exige un modèle multimodal
+- **Tout passe en flux, même `complete()`** (sauf l'audio de la dictée côté `openai`) : sans flux, le moteur n'envoie les en-têtes qu'à la fin et Node abandonne au bout de 300 s (« fetch failed » sur un long lot de document ou une page scannée). **Délai d'inactivité** (`llm/idle-timeout.ts`, `LEKSIS_AI_IDLE_TIMEOUT_SEC`, défaut 180 s) : la requête est coupée quand plus rien n'arrive, jamais au bout d'une durée totale. Le faux Ollama de l'e2e reconnaît les lots de document à leur prompt, pas à `stream:false`. `maxDuration` (réglage Vercel, sans effet en standalone) a été retiré des routes IA
 - Aucun appel IA depuis le client, jamais (règle inchangée)
 
 ---
@@ -544,6 +545,9 @@ Priorité : robustesse, lisibilité, maintenabilité. **Messages de commit git e
 
 - Traduction par **lots de 3000 caractères** (`lib/doc-translate.ts`) : le nombre de segments renvoyé est vérifié, redemandé une fois, puis le lot est coupé en deux jusqu'à un segment isolé — jamais de décalage silencieux. Le prompt annonce le nombre de segments ; les segments vides ne partent pas au modèle ; un avertissement serveur est journalisé quand le modèle ne respecte pas les `|||`
 - Extraction : `blocksToSegments` / `applySegments` (`file-parser.ts`). Formats : PDF, DOCX, TXT, CSV (pas `.doc`). PDF scanné : OCR par le modèle vision, 20 pages max. Fichiers ≤ 10 Mo, limite de caractères réglable dans l'admin
+- PDF natif : `mergeWrappedLines` recolle les lignes visuelles en paragraphes (une ligne qui atteint ~la marge continue sur la suivante ; traits d'union recollés ; listes et tableaux jamais fusionnés). PDF scanné : page rendue avec le plus grand côté ≤ `OCR_MAX_PAGE_PX` (2000 px, `renderScale` — la taille de page vient du PDF, sans plafond un canvas pouvait faire 1,8 Go), encodée par `canvas.encode()` asynchrone
+- DOCX : taille décompressée lue dans le répertoire ZIP avant mammoth (`zipUncompressedSize`, > 150 Mo refusé — jszip décompresse en mémoire sans limite) ; images ignorées (`convertImage` vide, plus de base64 dans le HTML). Export DOCX : `lib/docx-export.ts` (`blocksToDocx`), sans ligne d'en-tête vide quand le tableau Word n'en a pas (`headers: []`, cas courant — une ligne sans cellule rend le fichier illisible pour Word)
+- Images OCR : réduites dans le navigateur au-delà de 2400 px (`prepareOcrImage`, `lib/image-prepare.ts`, partagé avec les retours des utilisateurs)
 
 ### Glossaire
 

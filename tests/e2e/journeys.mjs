@@ -87,12 +87,20 @@ const aiServer = createServer((req, res) => {
     }
     if (req.url !== '/api/generate') { res.statusCode = 404; return res.end('{}') }
     const { prompt, stream } = JSON.parse(body)
+    // Document batches (the app asks for them streamed too, like everything else since 1.11)
+    if (prompt.includes('The segments are separated by ||| tokens')) {
+      const joined = prompt.split('\n\n').pop()
+      const parts = joined.split(' ||| ')
+      aiCalls.push({ segments: parts.length, chars: joined.length, glossary: prompt.includes('Glossary —') })
+      const weak = joined.includes('MERGE') && parts.length > 2
+      const response = (weak ? parts.join(' ') : joined).toUpperCase()
+      if (stream !== true) return res.end(JSON.stringify({ response, done: true }))
+      res.setHeader('Content-Type', 'application/x-ndjson')
+      return res.end(JSON.stringify({ response, done: false }) + '\n' + JSON.stringify({ response: '', done: true }) + '\n')
+    }
     if (stream === true) return streamText(prompt, res)
-    const joined = prompt.split('\n\n').pop()
-    const parts = joined.split(' ||| ')
-    aiCalls.push({ segments: parts.length, chars: joined.length, glossary: prompt.includes('Glossary —') })
-    const weak = joined.includes('MERGE') && parts.length > 2
-    res.end(JSON.stringify({ response: (weak ? parts.join(' ') : joined).toUpperCase(), done: true }))
+    res.statusCode = 400
+    res.end(JSON.stringify({ error: 'unexpected non-streamed prompt' }))
   })
 })
 await new Promise(resolve => aiServer.listen(AI_PORT, '127.0.0.1', resolve))

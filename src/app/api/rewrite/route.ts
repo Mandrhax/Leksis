@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAiOrError, gateStream } from '@/lib/llm'
 import { buildRewritePrompt, buildCorrectPrompt, buildLangClause } from '@/lib/prompts'
 
-export const maxDuration = 300
 import { validateTextInput, isValidLangName } from '@/lib/validators'
 import { getDynamicLimits } from '@/lib/limits'
 import { trackUsageStream, NO_LANG } from '@/lib/usage'
