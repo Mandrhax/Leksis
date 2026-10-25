@@ -21,8 +21,11 @@ CREATE TABLE IF NOT EXISTS users (
   disabled      BOOLEAN NOT NULL DEFAULT FALSE,
   status        TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending_approval', 'pending_verification')),
   password_hash TEXT,
+  oidc_issuer   TEXT,   -- SSO: identity bound on first sign-in (issuer + subject), never re-matched by email
+  oidc_sub      TEXT,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE UNIQUE INDEX IF NOT EXISTS users_oidc_identity_idx ON users (oidc_issuer, oidc_sub) WHERE oidc_sub IS NOT NULL;
 
 -- ============================================================
 -- otp_tokens — short-lived OTP codes (10 min TTL)
@@ -30,9 +33,10 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS otp_tokens (
   id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   email      TEXT NOT NULL,
-  token      TEXT NOT NULL,
+  token      TEXT NOT NULL,              -- SHA-256 of the code, never the code itself
   expires_at TIMESTAMPTZ NOT NULL,
   used       BOOLEAN DEFAULT FALSE,
+  attempts   INT NOT NULL DEFAULT 0,     -- wrong guesses; the code is invalidated after 5
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS otp_tokens_email_idx ON otp_tokens(email);

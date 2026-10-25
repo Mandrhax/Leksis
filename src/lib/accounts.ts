@@ -29,21 +29,48 @@ export async function getAccountByEmail(email: string): Promise<Account | null> 
 }
 
 /**
- * Retourne le compte existant ou le crée (rôle/statut par défaut de colonne : 'user'/'active').
- * Utilisé pour l'auto-provisioning au premier login SSO — même logique que otp.ts::getOrCreateUser.
+ * Compte d'une identité SSO (OIDC). Le premier login lie le compte à `(issuer, sub)` — l'identifiant stable que
+ * l'IdP attribue à la personne ; ensuite, seul ce couple ouvre ce compte, plus jamais l'email seul. Sans ça, un
+ * IdP où l'utilisateur peut modifier son adresse (schéma « nOAuth ») permettait de prendre un compte existant,
+ * admin compris, en y écrivant son email.
+ *  - lien (issuer, sub) connu → ce compte, quel que soit l'email présenté aujourd'hui ;
+ *  - sinon compte trouvé par email : lié s'il ne l'est pas encore à un autre sujet du MÊME issuer (un compte lié
+ *    à un autre IdP — l'admin a changé de fournisseur — est relié au nouveau) ; déjà lié à quelqu'un d'autre → null ;
+ *  - sinon nouveau compte (sauf `create: false`, mode invitation seulement).
  */
-export async function getOrCreateAccount(email: string, name?: string | null): Promise<Account> {
-  const existing = await getAccountByEmail(email)
-  if (existing) return existing
-
-  // ON CONFLICT : deux demandes simultanées pour un nouvel email ne doivent pas s'écraser en erreur
-  const result = await query<Account>(
-    `INSERT INTO users (email, name) VALUES ($1, $2)
-     ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
-     RETURNING ${ACCOUNT_COLUMNS}`,
-    [email, name ?? null],
+export async function resolveOidcAccount(opts: {
+  issuer: string; sub: string; email: string; name?: string | null; create: boolean
+}): Promise<Account | null> {
+  const { issuer, sub, email } = opts
+  const linked = await query<Account>(
+    `SELECT ${ACCOUNT_COLUMNS} FROM users WHERE oidc_issuer = $1 AND oidc_sub = $2`, [issuer, sub],
   )
-  return result.rows[0]
+  if (linked.rowCount) return linked.rows[0]
+
+  const byEmail = await query<Account & { oidc_issuer: string | null; oidc_sub: string | null }>(
+    `SELECT ${ACCOUNT_COLUMNS}, oidc_issuer, oidc_sub FROM users WHERE email = $1`, [email],
+  )
+  const existing = byEmail.rows[0]
+  if (existing) {
+    if (existing.oidc_sub && existing.oidc_issuer === issuer) return null
+    await query('UPDATE users SET oidc_issuer = $2, oidc_sub = $3 WHERE id = $1', [existing.id, issuer, sub])
+    return existing
+  }
+  if (!opts.create) return null
+
+  const created = await query<Account>(
+    `INSERT INTO users (email, name, oidc_issuer, oidc_sub) VALUES ($1, $2, $3, $4)
+     ON CONFLICT (email) DO NOTHING
+     RETURNING ${ACCOUNT_COLUMNS}`,
+    [email, opts.name ?? null, issuer, sub],
+  )
+  return created.rows[0] ?? null
+}
+
+/** Compte déjà lié à une identité SSO (sans rien créer ni lier). */
+export async function getAccountByOidcIdentity(issuer: string, sub: string): Promise<Account | null> {
+  const r = await query<Account>(`SELECT ${ACCOUNT_COLUMNS} FROM users WHERE oidc_issuer = $1 AND oidc_sub = $2`, [issuer, sub])
+  return r.rowCount ? r.rows[0] : null
 }
 
 export type CreateOrAttachResult =
@@ -82,7 +109,18 @@ export async function createOrAttachPendingAccount(
   if (!existing.password_hash) return { outcome: 'already_active' }
 
   if (existing.status === 'active') return { outcome: 'already_active' }
-  if (existing.status === 'pending_verification') return { outcome: 'resend_verification', account: existing }
+  if (existing.status === 'pending_verification') {
+    // La dernière inscription l'emporte : si un inconnu s'est inscrit d'abord avec cette adresse, le vrai
+    // propriétaire qui s'inscrit à son tour remplace ce mot de passe. La confirmation exige ensuite le mot de
+    // passe (POST /api/auth/verify-email) : l'inconnu, qui ne reçoit pas l'email, ne peut rien confirmer.
+    const updated = await query<Account>(
+      `UPDATE users SET password_hash = $2, name = COALESCE($3, name)
+       WHERE id = $1 AND status = 'pending_verification'
+       RETURNING ${ACCOUNT_COLUMNS}`,
+      [existing.id, passwordHash, name],
+    )
+    return { outcome: 'resend_verification', account: updated.rows[0] ?? existing }
+  }
   return { outcome: 'already_pending' }
 }
 

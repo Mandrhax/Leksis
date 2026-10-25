@@ -14,7 +14,7 @@ vi.mock('@/lib/db', () => ({
 
 import {
   activateVerifiedAccount, consumeEmailToken, createEmailToken, createOrAttachPendingAccount,
-  getAccountByEmail, getOrCreateAccount, acceptInvitation, peekEmailToken,
+  getAccountByEmail, getAccountByOidcIdentity, resolveOidcAccount, acceptInvitation, peekEmailToken,
 } from '@/lib/accounts'
 
 const schema = readFileSync(new URL('../../docker/init-schema.sql', import.meta.url), 'utf8').replace(/CREATE EXTENSION[^\n]*\n/g, '')
@@ -37,22 +37,39 @@ describe('getAccountByEmail', () => {
   })
 })
 
-describe('getOrCreateAccount', () => {
-  it('creates a new active account on first call', async () => {
-    const acc = await getOrCreateAccount('new@x.ch', 'New')
-    expect(acc).toMatchObject({ email: 'new@x.ch', name: 'New', role: 'user', status: 'active' })
+describe('resolveOidcAccount', () => {
+  const idp = 'https://idp.example.com'
+  const sso = (sub: string, email: string, create = true) => resolveOidcAccount({ issuer: idp, sub, email, name: 'N', create })
+
+  it('creates a new active account bound to the identity on first sign-in', async () => {
+    const acc = await sso('sub-1', 'new@x.ch')
+    expect(acc).toMatchObject({ email: 'new@x.ch', role: 'user', status: 'active' })
+    expect(await getAccountByOidcIdentity(idp, 'sub-1')).toMatchObject({ id: acc!.id })
   })
 
-  it('is idempotent: returns the existing account on a second call', async () => {
-    const first = await getOrCreateAccount('new@x.ch')
-    const second = await getOrCreateAccount('new@x.ch')
-    expect(second.id).toBe(first.id)
+  it('links an existing account by email once, then finds it by subject even if the email claim changes', async () => {
+    await pg.db.query("INSERT INTO users (email, role) VALUES ('admin@x.ch', 'admin')")
+    const first = await sso('sub-admin', 'admin@x.ch')
+    const later = await sso('sub-admin', 'renamed@x.ch')
+    expect(later?.id).toBe(first?.id)
+    expect(later).toMatchObject({ email: 'admin@x.ch', role: 'admin' })
   })
 
-  it('does not overwrite an existing account role/status', async () => {
-    await pg.db.query("INSERT INTO users (email, role, status) VALUES ('admin@x.ch', 'admin', 'active')")
-    const acc = await getOrCreateAccount('admin@x.ch')
-    expect(acc).toMatchObject({ role: 'admin', status: 'active' })
+  it('refuses another subject presenting the email of an already linked account (nOAuth)', async () => {
+    await pg.db.query("INSERT INTO users (email, role) VALUES ('admin@x.ch', 'admin')")
+    await sso('sub-admin', 'admin@x.ch')
+    expect(await sso('sub-attacker', 'admin@x.ch')).toBeNull()
+  })
+
+  it('relinks an account bound to another identity provider (the admin switched providers)', async () => {
+    await pg.db.query("INSERT INTO users (email, oidc_issuer, oidc_sub) VALUES ('u@x.ch', 'https://old-idp', 'old-sub')")
+    expect(await sso('new-sub', 'u@x.ch')).toMatchObject({ email: 'u@x.ch' })
+    expect(await getAccountByOidcIdentity(idp, 'new-sub')).toMatchObject({ email: 'u@x.ch' })
+  })
+
+  it('invite-only: no account is created for an unknown identity', async () => {
+    expect(await sso('sub-x', 'stranger@x.ch', false)).toBeNull()
+    expect(await getAccountByEmail('stranger@x.ch')).toBeNull()
   })
 })
 
@@ -90,6 +107,13 @@ describe('createOrAttachPendingAccount', () => {
     const result = await createOrAttachPendingAccount('pv@x.ch', null, 'scrypt:new', 'pending_verification')
     expect(result.outcome).toBe('resend_verification')
     if (result.outcome === 'resend_verification') expect(result.account.email).toBe('pv@x.ch')
+  })
+
+  it('the latest sign-up replaces the password of an unverified account (pre-registration by someone else)', async () => {
+    await pg.db.query("INSERT INTO users (email, password_hash, status) VALUES ('pre@x.ch', 'scrypt:attacker', 'pending_verification')")
+    await createOrAttachPendingAccount('pre@x.ch', 'Owner', 'scrypt:owner', 'pending_verification')
+    const row = (await pg.db.query<{ password_hash: string; name: string }>("SELECT password_hash, name FROM users WHERE email = 'pre@x.ch'")).rows[0]
+    expect(row).toEqual({ password_hash: 'scrypt:owner', name: 'Owner' })
   })
 
   it('reports an already-pending admin-approval account without writing anything', async () => {

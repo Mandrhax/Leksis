@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit, getClientIp, getRequestOrigin, rateLimitResponse } from '@/lib/rate-limit'
-import { activateVerifiedAccount, consumeEmailToken } from '@/lib/accounts'
+import { activateVerifiedAccount, consumeEmailToken, getAccountByEmail, peekEmailToken } from '@/lib/accounts'
+import { verifyPassword } from '@/lib/password'
 
 const VERIFY_PER_IP_PER_MIN = 20
 
@@ -29,7 +30,21 @@ export async function POST(req: NextRequest) {
   const form = await req.formData().catch(() => null)
   const raw = form?.get('token')
   const token = typeof raw === 'string' ? raw : ''
-  const email = token ? await consumeEmailToken(token, 'verify_email') : null
+  const rawPassword = form?.get('password')
+  const password = typeof rawPassword === 'string' ? rawPassword : ''
+
+  // Anti pré-enregistrement : quiconque connaît une adresse peut s'y inscrire avec SON mot de passe ; si le
+  // vrai propriétaire cliquait seulement « confirmer », il activerait un compte dont l'inconnu connaît le mot
+  // de passe. La confirmation exige donc la boîte mail (le jeton) ET le mot de passe choisi à l'inscription.
+  // Mauvais mot de passe : le jeton n'est pas consommé, la personne peut réessayer.
+  const pending = token ? await peekEmailToken(token, 'verify_email') : null
+  if (pending) {
+    const account = await getAccountByEmail(pending)
+    if (!account?.password_hash || !password || !(await verifyPassword(account.password_hash, password))) {
+      return redirect(req, `/auth/signin?verify=confirm&error=password&token=${encodeURIComponent(token)}`, 303)
+    }
+  }
+  const email = pending ? await consumeEmailToken(token, 'verify_email') : null
 
   // Garde contre un token périmé réactivant un compte modifié depuis (désactivé, déjà actif autrement…)
   const activated = email ? await activateVerifiedAccount(email) : false

@@ -10,6 +10,7 @@ import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { randomBytes, scryptSync } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { PGlite } from '@electric-sql/pglite'
@@ -640,17 +641,26 @@ try {
     hijack.status === 409 && adminRow.status === 'active' && adminRow.password_hash === null, `${hijack.status} ${JSON.stringify(adminRow)}`)
 
   // Un GET sur le lien de vérification (scanner de messagerie) ne doit pas activer le compte
-  await db.query("INSERT INTO users (email, password_hash, status) VALUES ('pv@example.com', 'scrypt:x', 'pending_verification')")
+  // Same format as src/lib/password.ts
+  const scryptHash = pw => { const salt = randomBytes(16); return `scrypt:16384:8:1:${salt.toString('hex')}:${scryptSync(pw, salt, 64, { N: 16384, r: 8, p: 1 }).toString('hex')}` }
+  await db.query("INSERT INTO users (email, password_hash, status) VALUES ('pv@example.com', $1, 'pending_verification')", [scryptHash('owner password 123')])
   await db.query("INSERT INTO email_tokens (email, token, purpose, expires_at) VALUES ('pv@example.com', 'e2e-verify-token', 'verify_email', NOW() + INTERVAL '1 hour')")
   const prefetch = await fetch(BASE + '/api/auth/verify-email?token=e2e-verify-token', { redirect: 'manual' })
   const pvAfterGet = (await db.query("SELECT status FROM users WHERE email = 'pv@example.com'")).rows[0]
   check('opening the email link (GET) does not activate the account', prefetch.status >= 300 && prefetch.status < 400 && pvAfterGet.status === 'pending_verification', `${prefetch.status} ${pvAfterGet.status}`)
-  const confirm = await fetch(BASE + '/api/auth/verify-email', {
+  const confirmWith = password => fetch(BASE + '/api/auth/verify-email', {
     method: 'POST', redirect: 'manual',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'token=e2e-verify-token',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: 'e2e-verify-token', password }).toString(),
   })
+  // Pre-registration: whoever holds the email link must also know the password chosen at sign-up
+  const wrongPw = await confirmWith('someone else 123')
+  const pvAfterWrong = (await db.query("SELECT status FROM users WHERE email = 'pv@example.com'")).rows[0]
+  check('confirming without the sign-up password activates nothing and keeps the link usable',
+    wrongPw.status === 303 && (wrongPw.headers.get('location') ?? '').includes('error=password') && pvAfterWrong.status === 'pending_verification',
+    `${wrongPw.status} ${wrongPw.headers.get('location')} ${pvAfterWrong.status}`)
+  const confirm = await confirmWith('owner password 123')
   const pvAfterPost = (await db.query("SELECT status FROM users WHERE email = 'pv@example.com'")).rows[0]
-  check('confirming with a POST activates the account', confirm.status === 303 && pvAfterPost.status === 'active', `${confirm.status} ${pvAfterPost.status}`)
+  check('confirming with a POST and the sign-up password activates the account', confirm.status === 303 && pvAfterPost.status === 'active', `${confirm.status} ${pvAfterPost.status}`)
 
   await adminPage.goto(BASE + '/admin/users', { waitUntil: 'networkidle0' })
   await adminPage.type('input[type=search]', 'newbie')

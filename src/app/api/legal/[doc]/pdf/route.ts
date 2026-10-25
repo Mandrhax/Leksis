@@ -13,7 +13,7 @@ type DocId = keyof typeof DOCS
 const LOCALES: UILocale[] = ['en', 'de', 'fr', 'it']
 
 function isDocId(v: string): v is DocId {
-  return v in DOCS
+  return Object.hasOwn(DOCS, v)
 }
 
 function isLocale(v: string): v is UILocale {

@@ -14,7 +14,7 @@ type DocId = keyof typeof DOCS
 const LOCALES: UILocale[] = ['en', 'de', 'fr', 'it']
 
 function isDocId(v: string): v is DocId {
-  return v in DOCS
+  return Object.hasOwn(DOCS, v)
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ doc: string }> }): Promise<Metadata> {

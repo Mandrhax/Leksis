@@ -180,7 +180,7 @@ export const SETTING_SCHEMAS = {
 export type ValidatedSettingKey = keyof typeof SETTING_SCHEMAS
 
 export function isValidatedSettingKey(k: string): k is ValidatedSettingKey {
-  return k in SETTING_SCHEMAS
+  return Object.hasOwn(SETTING_SCHEMAS, k)
 }
 
 /** Valide `value` pour `key` : renvoie la valeur nettoyée (clés inconnues retirées) ou l'erreur. */

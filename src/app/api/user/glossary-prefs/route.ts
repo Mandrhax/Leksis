@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { requireUser } from '@/lib/user-guard'
 import { query } from '@/lib/db'
 import { z } from 'zod'
 
@@ -9,8 +9,9 @@ export const dynamic = 'force-dynamic'
 // Returns all glossaries with enabled state for the current user
 // Absence of a row in user_glossary_prefs means enabled = true (default)
 export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const guard = await requireUser()
+  if (guard.error) return guard.error
+  const { session } = guard
 
   const userId = session.user.id
 
@@ -43,11 +44,12 @@ const patchSchema = z.object({
 // Toggle a glossary on/off for the current user
 // Convention: only store rows when enabled = false
 export async function PATCH(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const guard = await requireUser()
+  if (guard.error) return guard.error
+  const { session } = guard
 
   const userId = session.user.id
-  const body = await req.json()
+  const body = await req.json().catch(() => null)
   const parsed = patchSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
 

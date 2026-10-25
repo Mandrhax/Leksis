@@ -1,7 +1,12 @@
-import { randomInt } from 'node:crypto'
+import { createHash, randomInt } from 'node:crypto'
 import { query } from './db'
 
 const OTP_TTL_MINUTES = 10
+/** Mauvais essais tolérés sur un même code avant qu'il soit invalidé (il faut alors en redemander un). */
+export const OTP_MAX_ATTEMPTS = 5
+
+// Seule l'empreinte du code est en base : une copie de la base (sauvegarde, dump) ne livre aucun code valable
+const hashCode = (code: string) => createHash('sha256').update(code).digest('hex')
 
 export interface LeksissUser {
   id: string
@@ -26,15 +31,17 @@ export async function generateOtp(email: string): Promise<string> {
 
   await query(
     `INSERT INTO otp_tokens (email, token, expires_at) VALUES ($1, $2, $3)`,
-    [email, code, expiresAt]
+    [email, hashCode(code), expiresAt]
   )
 
   return code
 }
 
 /**
- * Vérifie un OTP : doit être non expiré, non utilisé.
+ * Vérifie un OTP : doit être non expiré, non utilisé, et avoir subi moins de OTP_MAX_ATTEMPTS mauvais essais.
  * Un seul UPDATE ... RETURNING : deux connexions simultanées avec le même code ne peuvent pas réussir toutes les deux.
+ * Un mauvais code compte un essai sur le code en cours ; au 5ᵉ, il est invalidé. Sans ça, 10 essais par minute
+ * pendant les 10 minutes de validité, renouvelables à chaque nouveau code, finissaient par deviner 6 chiffres.
  */
 export async function verifyOtp(email: string, token: string): Promise<boolean> {
   const result = await query(
@@ -43,11 +50,20 @@ export async function verifyOtp(email: string, token: string): Promise<boolean> 
      WHERE email = $1
        AND token = $2
        AND used = FALSE
+       AND attempts < $3
        AND expires_at > NOW()
      RETURNING id`,
-    [email, token]
+    [email, hashCode(token.trim()), OTP_MAX_ATTEMPTS]
   )
-  return (result.rowCount ?? 0) > 0
+  if ((result.rowCount ?? 0) > 0) return true
+
+  await query(
+    `UPDATE otp_tokens
+     SET attempts = attempts + 1, used = (attempts + 1 >= $2)
+     WHERE email = $1 AND used = FALSE AND expires_at > NOW()`,
+    [email, OTP_MAX_ATTEMPTS]
+  )
+  return false
 }
 
 /** Retourne l'utilisateur par email, ou null s'il n'existe pas. */

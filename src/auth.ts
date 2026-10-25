@@ -2,7 +2,7 @@ import NextAuth, { CredentialsSignin } from 'next-auth'
 import type { NextAuthConfig } from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import { verifyOtp, getUserByEmail } from '@/lib/otp'
-import { getAccountByEmail, getOrCreateAccount } from '@/lib/accounts'
+import { getAccountByEmail, getAccountByOidcIdentity, resolveOidcAccount } from '@/lib/accounts'
 import { verifyPassword } from '@/lib/password'
 import { getUserRole } from '@/lib/users'
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
@@ -42,13 +42,16 @@ async function buildProviders(): Promise<NextAuthConfig['providers']> {
           email: { label: 'Email', type: 'email' },
           otp:   { label: 'Code OTP', type: 'text' },
         },
-        async authorize(credentials) {
+        async authorize(credentials, request) {
           const email = credentials?.email as string | undefined
           const otp   = credentials?.otp   as string | undefined
 
           if (!email || !otp) return null
 
-          // Freine les essais de codes à répétition sur un même email
+          // Freine les essais de codes à répétition : par adresse IP (plusieurs comptes visés) et par email.
+          // Le code lui-même est invalidé après OTP_MAX_ATTEMPTS mauvais essais (lib/otp.ts).
+          const ip = getClientIp(request)
+          if (ip !== 'unknown' && !checkRateLimit(`otp-verify-ip:${ip}`, 30).ok) return null
           if (!checkRateLimit(`otp-verify:${email.toLowerCase()}`, 10).ok) return null
 
           const valid = await verifyOtp(email, otp)
@@ -143,21 +146,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
         emailVerified: typeof profile?.email_verified === 'boolean' ? profile.email_verified : undefined,
         allowedDomains,
       })) return false
+      // Compte lié à (issuer, sub) au premier login, puis retrouvé par ce lien seulement (lib/accounts.ts).
       // Invitation seulement : l'identité SSO doit déjà avoir un compte (pas d'auto-création au premier login)
-      const acct = (await getInviteOnly())
-        ? await getAccountByEmail(user.email)
-        : await getOrCreateAccount(user.email, user.name)
+      if (!account.providerAccountId) return false
+      const acct = await resolveOidcAccount({
+        issuer: (await getOidcConfig()).issuer,
+        sub:    account.providerAccountId,
+        email:  user.email,
+        name:   user.name,
+        create: !(await getInviteOnly()),
+      })
       if (!acct) return false
       return !acct.disabled
     },
     async jwt({ token, user, account }) {
       if (user) {
         // L'id renvoyé par le fournisseur OIDC est le `sub` de l'IdP, pas notre id de ligne — on résout
-        // le vrai compte via l'email (signIn() vient de le créer/retrouver juste avant).
+        // le vrai compte par le lien (issuer, sub) que signIn() vient de poser, jamais par l'email.
         let id = user.id, email = user.email, name = user.name
-        if (account?.provider === 'oidc' && user.email) {
-          const acct = await getAccountByEmail(user.email)
-          if (acct) { id = acct.id; email = acct.email; name = acct.name }
+        if (account?.provider === 'oidc') {
+          const acct = await getAccountByOidcIdentity((await getOidcConfig()).issuer, account.providerAccountId)
+          if (!acct) return null
+          id = acct.id; email = acct.email; name = acct.name
         }
         token.id    = id
         token.email = email

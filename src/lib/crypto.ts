@@ -42,7 +42,9 @@ export function decrypt(ciphertext: string): string {
   const iv       = Buffer.from(ivHex, 'hex')
   const tag      = Buffer.from(tagHex, 'hex')
   const enc      = Buffer.from(encHex, 'hex')
-  const decipher = createDecipheriv(ALGO, key, iv)
+  // Node accepte un tag GCM de 4 à 16 octets : un tag tronqué affaiblirait l'authentification d'une valeur forgée
+  if (iv.length !== 12 || tag.length !== 16) throw new Error('Invalid ciphertext format')
+  const decipher = createDecipheriv(ALGO, key, iv, { authTagLength: 16 })
   decipher.setAuthTag(tag)
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8')
 }

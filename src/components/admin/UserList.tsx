@@ -348,6 +348,8 @@ export function UserList({ initial, currentUserId, passwordMode }: Props) {
                         {isSelf && <span className="text-xs text-primary">{t.userList.you}</span>}
                         {user.disabled && <span className="text-xs text-error">{t.userList.disabledBadge}</span>}
                         {user.status === 'pending_approval' && <span className="text-xs text-primary">{t.userList.pendingApprovalBadge}</span>}
+                        {/* L'adresse n'a pas été vérifiée : n'importe qui a pu s'inscrire avec l'email d'un collègue */}
+                        {user.status === 'pending_approval' && <p className="text-xs text-on-surface-variant">{t.userList.unverifiedEmailHint}</p>}
                         {user.status === 'pending_verification' && <span className="text-xs text-primary">{t.userList.pendingVerificationBadge}</span>}
                       </div>
                     </div>

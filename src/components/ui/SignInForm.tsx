@@ -316,6 +316,7 @@ export function SignInForm({ siteName, method, ssoButtonLabel, inviteOnly = fals
   const { t } = useI18n()
   const [verifyBanner, setVerifyBanner] = useState<'ok' | 'invalid' | null>(null)
   const [confirmToken, setConfirmToken] = useState<string | null>(null)
+  const [confirmBadPassword, setConfirmBadPassword] = useState(false)
 
   // Lu après le montage (pas useSearchParams) : même raison que callbackUrl plus bas, évite une frontière
   // Suspense qui retarderait l'hydratation.
@@ -327,6 +328,7 @@ export function SignInForm({ siteName, method, ssoButtonLabel, inviteOnly = fals
     // il faut cliquer ce bouton, qui envoie le jeton en POST.
     const token = params.get('token')
     if (v === 'confirm' && token) setConfirmToken(token)
+    if (v === 'confirm' && params.get('error') === 'password') setConfirmBadPassword(true)
   }, [])
 
   const isPassword = method === 'password_admin_approval' || method === 'password_email_verify'
@@ -366,6 +368,15 @@ export function SignInForm({ siteName, method, ssoButtonLabel, inviteOnly = fals
           <form method="POST" action="/api/auth/verify-email" className="mb-4 rounded-lg border border-primary/20 bg-primary-container/30 p-4 text-center">
             <input type="hidden" name="token" value={confirmToken} />
             <p className="mb-3 text-xs text-on-surface">{t.signIn.verifyConfirmText}</p>
+            <label htmlFor="verify-password" className="sr-only">{t.signIn.verifyPasswordLabel}</label>
+            <input
+              id="verify-password" name="password" type="password" required autoComplete="current-password"
+              placeholder={t.signIn.verifyPasswordLabel}
+              className="mb-3 w-full px-3 py-2.5 text-sm rounded-lg border border-outline-variant/40 bg-background
+                         text-on-surface placeholder:text-on-surface-variant/50
+                         focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60"
+            />
+            {confirmBadPassword && <p className="mb-3 text-xs text-error" role="alert">{t.signIn.verifyBadPassword}</p>}
             <button type="submit" className="action-btn">{t.signIn.verifyConfirmButton}</button>
           </form>
         )}
