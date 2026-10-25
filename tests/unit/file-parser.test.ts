@@ -5,7 +5,7 @@ import {
 import type { Block } from '@/types/leksis'
 import {
   applySegments, blocksToSegments, countBlockChars, isProbablyScanned,
-  parseDocx, parseFile, parseHtmlTable, parseTxt, stripInlineHtml, textToBlocks, mergeWrappedLines, zipUncompressedSize, DOCX_MAX_UNCOMPRESSED_BYTES,
+  parseDocx, parseFile, parseHtmlTable, parseTxt, stripInlineHtml, textToBlocks, mergeWrappedLines, parsePdf, pdfItemsToLines, zipUncompressedSize, DOCX_MAX_UNCOMPRESSED_BYTES,
 } from '@/lib/file-parser'
 import { blocksToDocx } from '@/lib/docx-export'
 
@@ -215,5 +215,30 @@ describe('blocksToDocx', () => {
     const table = blocks.find(b => b.type === 'table') as Extract<Block, { type: 'table' }>
     expect([...table.headers, ...table.rows.flat()]).toEqual(['A', 'B', '1', '2'])
     expect(blocks.at(-1)).toEqual({ type: 'paragraph', text: 'After' })
+  })
+})
+
+describe('parsePdf (pdfjs-dist)', () => {
+  it('reads the text of a real PDF, one paragraph per block, pages kept in order', async () => {
+    const { PDFDocument, StandardFonts } = await import('pdf-lib')
+    const pdf = await PDFDocument.create()
+    const font = await pdf.embedFont(StandardFonts.Helvetica)
+    const p1 = pdf.addPage([595, 842])
+    p1.drawText('Contract title', { x: 50, y: 780, size: 14, font })
+    p1.drawText('The parties agree to the following terms.', { x: 50, y: 740, size: 11, font })
+    const p2 = pdf.addPage([595, 842])
+    p2.drawText('Second page text.', { x: 50, y: 780, size: 11, font })
+    const blocks = await parsePdf(Buffer.from(await pdf.save()))
+    expect(blocks).toEqual([
+      { type: 'paragraph', text: 'Contract title' },
+      { type: 'paragraph', text: 'The parties agree to the following terms.' },
+      { type: 'paragraph', text: 'Second page text.' },
+    ])
+  })
+
+  it('groups pdfjs text items into lines by height and end-of-line marks', () => {
+    const at = (str: string, y: number, hasEOL = false) => ({ str, transform: [1, 0, 0, 1, 0, y], hasEOL })
+    expect(pdfItemsToLines([at('Hello', 700), at('world', 700, true), at('Next', 680), at('line', 680.4), at('Third', 660)]))
+      .toEqual(['Hello world', 'Next line', 'Third'])
   })
 })

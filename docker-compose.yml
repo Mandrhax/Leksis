@@ -56,6 +56,8 @@ services:
       dockerfile: Dockerfile
     container_name: leksis-app
     restart: unless-stopped
+    # Small init as PID 1: forwards stop signals to Node and reaps child processes
+    init: true
     depends_on:
       postgres:
         condition: service_healthy
@@ -108,7 +110,8 @@ services:
       # Persistent uploads (logo, background) — survives container restarts and updates
       - leksis_uploads:/data/uploads
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
+      # /api/health: 503 when the database is unreachable (the app answering '/' only proved that Node was up)
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
       interval: 30s
       timeout: 10s
       retries: 3

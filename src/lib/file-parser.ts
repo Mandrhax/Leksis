@@ -60,7 +60,7 @@ export function textToBlocks(text: string): Block[] {
 
     // Each non-empty line becomes its own paragraph block.
     // This is the most reliable approach across all sources:
-    // pdf-parse v2 (one text element per line), OCR output, TXT files.
+    // PDF text extraction (one line per visual line, see parsePdf), OCR output, TXT files.
     blocks.push({ type: 'paragraph', text: rawLines[i].trim() })
     i++
   }
@@ -106,18 +106,51 @@ export function applySegments(blocks: Block[], segments: string[]): Block[] {
 
 // ── PDF ────────────────────────────────────────────────────────
 
-export async function parsePdf(buffer: Buffer): Promise<Block[]> {
-  // pdf-parse v2 class-based API.
-  // lineThreshold: 1 — detect line breaks for any line spacing (default 4.6 misses tight PDFs).
-  // itemJoiner: ' ' — separate text items within a line with a space instead of empty string.
-  const { PDFParse } = await import('pdf-parse') as {
-    PDFParse: new (opts: { data: Buffer }) => {
-      getText(params?: { lineThreshold?: number; itemJoiner?: string }): Promise<{ text: string }>
-    }
+/** Morceau de texte d'une page tel que pdfjs le rend (seuls les champs utilisés). */
+export type PdfTextItem = { str: string; transform: number[]; hasEOL?: boolean }
+
+/**
+ * Lignes d'une page à partir des morceaux de texte de pdfjs : un changement de hauteur (transform[5]) ou une fin de
+ * ligne signalée (hasEOL) ouvre une nouvelle ligne ; les morceaux d'une même ligne sont séparés par une espace.
+ */
+export function pdfItemsToLines(items: PdfTextItem[]): string[] {
+  const lines: string[] = []
+  let line = ''
+  let lastY: number | null = null
+  const flush = () => {
+    const clean = line.replace(/\s+/g, ' ').trim()
+    if (clean) lines.push(clean)
+    line = ''
   }
-  const parser = new PDFParse({ data: buffer })
-  const result = await parser.getText({ lineThreshold: 1, itemJoiner: ' ' })
-  return textToBlocks(mergeWrappedLines(result.text))
+  for (const item of items) {
+    const y = item.transform[5]
+    if (lastY !== null && Math.abs(y - lastY) > 1) flush()
+    line += (line ? ' ' : '') + item.str
+    lastY = y
+    if (item.hasEOL) { flush(); lastY = null }
+  }
+  flush()
+  return lines
+}
+
+export async function parsePdf(buffer: Buffer): Promise<Block[]> {
+  // pdfjs-dist directement (déjà chargé pour l'OCR des PDF scannés) : pdf-parse en embarquait une 2ᵉ copie
+  // (pdfjs + canvas, ~70 Mo) et ne libérait pas sa mémoire
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as string) as typeof import('pdfjs-dist')
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+  try {
+    const pdf = await loadingTask.promise
+    const pages: string[] = []
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const content = await page.getTextContent()
+      pages.push(pdfItemsToLines(content.items.filter((it): it is typeof it & PdfTextItem => 'str' in it)).join('\n'))
+      page.cleanup()
+    }
+    return textToBlocks(mergeWrappedLines(pages.join('\n\n')))
+  } finally {
+    await loadingTask.destroy().catch(() => {})
+  }
 }
 
 const LIST_OR_TABLE_START = /^\s*([-•*–|#]|\d+[.)]\s)/
@@ -135,6 +168,8 @@ export function mergeWrappedLines(text: string): string {
   if (lengths.length < 3) return text
   // Largeur « pleine » du texte : 90ᵉ centile des longueurs de ligne (insensible à quelques lignes très longues)
   const fullWidth = lengths[Math.floor((lengths.length - 1) * 0.9)]
+  // Lignes courtes partout (titres, tableau, document de quelques lignes) : pas de texte coupé à la marge
+  if (fullWidth < 40) return text
   const wraps = (line: string) => line.length >= fullWidth * 0.75
 
   const out: string[] = []

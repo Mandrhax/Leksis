@@ -427,7 +427,8 @@ run_with_bar() {
   while IFS= read -r line; do
     printf '%s\n' "$line" >>"$tmp"
     if [[ "$mode" == "layers" ]]; then
-      if [[ "$line" =~ ([0-9a-f]{12})[[:space:]]+(Pulling\ fs\ layer|Already\ exists|Pull\ complete) ]]; then
+      # `docker compose pull` prints "abc… Pull complete", `docker pull` "abc…: Pull complete"
+      if [[ "$line" =~ ([0-9a-f]{12}):?[[:space:]]+(Pulling\ fs\ layer|Already\ exists|Pull\ complete) ]]; then
         id="${BASH_REMATCH[1]}"; st="${BASH_REMATCH[2]}"
         if [[ -z "${layer[$id]:-}" ]]; then layer[$id]=1; total_n=$((total_n + 1)); fi
         if [[ "$st" != "Pulling fs layer" && "${layer[$id]}" != 2 ]]; then
@@ -2186,8 +2187,8 @@ cmd_install() {
   p_header "Building and Starting Containers"
   run_with_bar "Downloading images" layers docker compose pull --ignore-buildable \
     || die "Image download failed — see ${LOG_FILE:-the output above}."
-  p_info "Building the application (several minutes on a first install)..."
-  run_with_bar "Building the application" steps docker compose build app \
+  p_info "Preparing the application (a ready-built image when available, otherwise several minutes of build)..."
+  build_app_image \
     || die "Application build failed — see ${LOG_FILE:-the output above}."
   p_spin "Starting the containers" docker compose up -d \
     || die "docker compose up failed — see ${LOG_FILE:-the output above}."
@@ -2276,13 +2277,34 @@ install_launcher() {
   return 0
 }
 
+# build_app_image [--pull] — the application image of the checked-out release. Downloaded ready-built from GHCR
+# when the release has one (seconds instead of minutes, no npm registry needed), built from sources otherwise
+# (no image published, other architecture, no access to ghcr.io, or LEKSIS_BUILD_LOCAL=1).
+# The image is tagged with the name Compose gives a built image (<project>-app): `up` then uses it as is.
+build_app_image() {
+  local pull_flag="${1:-}" tag img
+  if [[ "${LEKSIS_BUILD_LOCAL:-0}" != "1" && "$(uname -m)" == "x86_64" ]] \
+     && tag=$(git describe --tags --exact-match HEAD 2>/dev/null); then
+    img="${LEKSIS_IMAGE_REPO:-ghcr.io/mandrhax/leksis}:${tag}"
+    if timeout 30 docker manifest inspect "$img" >/dev/null 2>&1 \
+       && run_with_bar "Downloading the application image ${tag}" layers docker pull "$img" \
+       && docker tag "$img" "$(compose_project)-app"; then
+      docker rmi "$img" >/dev/null 2>&1 || true   # removes only the extra name, the image stays
+      return 0
+    fi
+    p_info "No ready-built image for ${tag} — building from sources."
+  fi
+  # shellcheck disable=SC2086  # empty or --pull
+  run_with_bar "Building the application" steps docker compose build $pull_flag app
+}
+
 # rollback_app SHA — puts the sources back and rebuilds the app container
 rollback_app() {
   local sha="$1"
   p_warn "Rolling back the application to ${sha:0:12}..."
   git -c advice.detachedHead=false checkout "$sha" >/dev/null 2>&1 \
     || { p_err "Could not restore the previous sources — restore manually: git checkout ${sha}"; return 1; }
-  run_with_bar "Rebuilding the application" steps docker compose build app || return 1
+  build_app_image || return 1
   p_spin "Restarting app" docker compose up -d app || return 1
   wait_healthy app 180
 }
@@ -2324,7 +2346,7 @@ cmd_update() {
   fi
 
   # Component selection
-  local -a opts=("app|Application (rebuild from sources)" "caddy|Caddy reverse proxy (pull image)"
+  local -a opts=("app|Application (ready-built image, or rebuild from sources)" "caddy|Caddy reverse proxy (pull image)"
                  "postgres|PostgreSQL (pull minor updates)")
   ollama_local_enabled && opts+=("ollama|Ollama container (pull image)")
   if [[ "$AI_MODE" == "openai" ]]; then opts+=("models|AI models (check they are served by the API)")
@@ -2375,7 +2397,7 @@ cmd_update() {
     [[ " $components " == *" $c "* ]] || continue
     case "$c" in
       app)
-        run_with_bar "Rebuilding the application" steps docker compose build --pull app || failed=true
+        build_app_image --pull || failed=true
         if ! $failed; then
           p_spin "Restarting app" docker compose up -d app || failed=true
           $failed || wait_healthy app 180 || failed=true

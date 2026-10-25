@@ -13,8 +13,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Install all dependencies — devDeps are needed by next build
-# (TypeScript, PostCSS, Tailwind v4, etc.)
-RUN npm ci
+# (TypeScript, PostCSS, Tailwind v4, etc.). The npm cache survives between builds (BuildKit cache mount):
+# `leksis update` rebuilds on the customer server, re-downloading every package each time was slow.
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 
 # ── Stage 2: Build the Next.js application ───────────────────
@@ -39,7 +40,8 @@ ENV AUTH_SECRET=build-placeholder-not-used-in-production
 ENV ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000
 ENV NEXTAUTH_URL=http://localhost:3000
 
-RUN npm run build
+# Next.js build cache kept between builds (BuildKit cache mount) — faster rebuilds on update
+RUN --mount=type=cache,target=/app/.next/cache npm run build
 
 # Ensure public dir exists (Next.js doesn't require it but COPY would fail without it)
 RUN mkdir -p /app/public
@@ -60,9 +62,9 @@ RUN groupadd --system --gid 1001 nodejs \
 # Copy the standalone server output (includes server.js + minimal node_modules)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 
-# pdfjs-dist dynamically loads pdf.worker.mjs — NFT misses it.
-# Copy the full legacy build explicitly from builder node_modules.
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pdfjs-dist/legacy/build/ ./node_modules/pdfjs-dist/legacy/build/
+# pdfjs-dist is loaded dynamically (pdf.mjs, which loads pdf.worker.mjs) — NFT misses both.
+# Only these two files: the rest of legacy/build (source maps, minified copies, sandbox) is ~10 MB unused.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pdfjs-dist/legacy/build/pdf.mjs /app/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs ./node_modules/pdfjs-dist/legacy/build/
 
 # Copy static assets (CSS, JS chunks — not included in standalone output)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static

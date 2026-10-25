@@ -31,7 +31,10 @@ const securityHeaders = [
 const nextConfig = {
   output: 'standalone',
   poweredByHeader: false,
-  serverExternalPackages: ['@napi-rs/canvas', 'pdfjs-dist', 'pdf-parse'],
+  serverExternalPackages: ['@napi-rs/canvas', 'pdfjs-dist'],
+  // next/image n'est pas utilisé : sans ça, sharp (et libvips) partaient dans l'image Docker pour rien
+  images: { unoptimized: true },
+  outputFileTracingExcludes: { '*': ['node_modules/sharp/**', 'node_modules/@img/**'] },
   async headers() {
     return [
       // /api/site-assets et les images jointes aux retours (/api/admin/feedback/attachments) posent leurs propres

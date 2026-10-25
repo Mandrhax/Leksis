@@ -37,9 +37,7 @@ describe('generateLegalPdf', () => {
   })
 
   it('renders accented characters correctly (round-trip through a real PDF text extraction)', async () => {
-    const { PDFParse } = await import('pdf-parse') as {
-      PDFParse: new (opts: { data: Buffer }) => { getText(): Promise<{ text: string }> }
-    }
+    const { parsePdf } = await import('@/lib/file-parser')
     const checks: Record<typeof LOCALES[number], string> = {
       en: 'Federal Data Protection and Information Commissioner',
       fr: 'Préposé fédéral à la protection des données',
@@ -49,8 +47,7 @@ describe('generateLegalPdf', () => {
     for (const locale of LOCALES) {
       const doc = buildPrivacyPolicy(ctx, locale)
       const bytes = await generateLegalPdf(doc, { siteName: ctx.siteName, version: '2026-09-28', locale })
-      const parser = new PDFParse({ data: Buffer.from(bytes) })
-      const { text } = await parser.getText()
+      const text = (await parsePdf(Buffer.from(bytes))).map(b => ('text' in b ? b.text : '')).join(' ')
       // Le texte enveloppe sur plusieurs lignes dans le PDF : on compare sans tenir compte des retours à la ligne.
       expect(text.replace(/\s+/g, ' ')).toContain(checks[locale])
     }

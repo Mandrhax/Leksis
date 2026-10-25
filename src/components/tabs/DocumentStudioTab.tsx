@@ -7,6 +7,7 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useI18n } from '@/lib/i18n'
 import type { Block, Language } from '@/types/leksis'
 import { ReportResultLink } from '@/components/ui/ReportResultLink'
+import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
 import type { FeedbackCategory } from '@/lib/feedback-schema'
 
 const DEFAULT_TARGET: Language = { code: 'fr', name: 'French' }
@@ -67,14 +68,6 @@ function blocksToText(blocks: Block[]): string {
     }
     return ''
   }).filter(Boolean).join('\n\n')
-}
-
-// File type icons using Bootstrap Icons class names (matching Leksis_old)
-const FILE_ICONS: Record<string, string> = {
-  pdf: 'bi-file-earmark-pdf-fill', docx: 'bi-file-earmark-word-fill',
-  txt: 'bi-file-earmark-text-fill', csv: 'bi-file-earmark-spreadsheet-fill',
-  png: 'bi-file-earmark-image-fill', jpg: 'bi-file-earmark-image-fill',
-  jpeg: 'bi-file-earmark-image-fill', webp: 'bi-file-earmark-image-fill',
 }
 
 function formatFileSize(bytes: number) {
@@ -244,7 +237,6 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
   }, [outputBlocks, file, mode, targetLang])
 
   const ext    = file?.name.split('.').pop()?.toLowerCase() ?? ''
-  const biIcon = FILE_ICONS[ext] ?? 'bi-file-earmark-fill'
 
   // Progress toaster — steps are conditional on mode
   const progressSteps = mode === 'extract'
@@ -311,7 +303,7 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
               title={t.docTab.clickToChange}
               className="flex-grow flex flex-col items-center justify-center border-2 border-primary/30 bg-primary/5 rounded-lg mb-4 cursor-pointer hover:border-primary/60 focus-visible:border-primary/60 focus-visible:outline-none transition-all"
             >
-              <i className={`bi ${biIcon} text-6xl text-primary/60 mb-3`} />
+              <FileTypeIcon ext={ext} className="w-16 h-16 text-primary/60 mb-3" />
               <p className="text-sm font-semibold text-on-surface text-center px-4 truncate max-w-full">{file.name}</p>
               <p className="text-xs text-on-surface-variant mt-1">{formatFileSize(file.size)}</p>
               <p className="text-xs text-primary/60 mt-3">{t.docTab.clickToChange}</p>

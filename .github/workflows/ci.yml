@@ -47,3 +47,26 @@ jobs:
         run: npm run test:e2e
         env:
           CHROME_PATH: /usr/bin/google-chrome
+
+  # The Dockerfile is what customers actually run: build it on every push (not pushed anywhere)
+  docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # install.sh runs as root on customer servers: syntax and shellcheck errors (warnings are not blocking)
+  install-script:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash -n install.sh
+      - run: shellcheck --severity=error install.sh
