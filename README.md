@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.10.0-beta.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.10.0/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,17 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.10.0
+**Faster text translation with far fewer AI calls, automatic formal / informal, update notices — and security updates (update now).** One small **database migration** (`006-usage-log-tracking`, adds five columns to the usage log): `leksis update` takes a backup first and applies it. Between the app restart and the migration, usage log entries fail to be written (requests are not affected).
+- **Security**: zod 4.6.7 (GHSA-mrhx-c7xc-m3w5, high: memory exhaustion on oversized input), nodemailer 10.2.1 (three address-parser flaws, used for SMTP), Next.js 16.4.3. `leksis update` now **refreshes the Caddy, PostgreSQL and Ollama images by default** — until now only the application was selected, so their security fixes (Caddy 2.11.x, PostgreSQL 18.4, Ollama CVE-2026-7482) never arrived unless ticked. Run `leksis update` and keep them selected
+- **Translates when you pause**: typing waits for a pause (1 s by default); pasting, dictation, the Translate button, the new **Ctrl+Enter** shortcut and a language or tone change translate at once. A new edit cancels the translation in progress immediately; the previous result stays on screen, dimmed, until the new one arrives
+- **Only changed paragraphs go to the model**: a text with several paragraphs is translated paragraph by paragraph (each with the previous one as context), and each finished paragraph is kept. Editing one paragraph, or typing while a long text is being translated, only re-sends what changed — finished paragraphs appear instantly. Recent translations are kept in the server's memory, per user, for 30 minutes (never on disk)
+- **Nothing useless is sent**: not the same text again, not under 3 characters, not under 20 characters while typing with auto-detect, not into the same language (French → French (Switzerland)) — a message is shown instead
+- **Formal / informal for every source language, chosen automatically**: the toggle works whenever the target language makes the distinction (greyed out towards English). It follows your text — "tu" / "vous", "du" / "Sie", "tu" / "Lei", "tú" / "usted", "jij" / "u" — shown as "Detected in the text"; a click overrides it until you start a new text. Otherwise the admin default applies
+- **"New version available" on the admin dashboard** (Leksis card), with the command to run and a link to the release notes, following your channel (stable or beta). The server reads the public list of Leksis releases on GitHub once a day; nothing about your installation is sent. Switch: Settings → General; the privacy policy mentions it while it is on
+- **All thresholds in Settings → Features & limits** (pause, minimum lengths, cache duration and size, context on/off)
+- **More useful usage log**: what started each request (typing, paste, button…), how it ended (completed, cancelled, cache hit, skipped, error), characters really sent to the model, duration, and which requests belong to the same input. Languages are always codes (`fr`, `de-CH`), `n/a` where they do not apply. New columns at the end of the CSV export
 
 ### v1.10.0-beta.2
 **Long texts no longer restart at every pause, and the dashboard tells you about new versions (beta).** No new database migration (beta.1's `006` is enough).
