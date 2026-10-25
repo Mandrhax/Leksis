@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.10.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.11.0-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,37 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.11.0-beta.1
+**Security hardening, Word documents translated with their layout, faster documents.** Two small **database migrations** (`007-auth-hardening`, `008-glossary-term-index`): `leksis update` takes a backup first and applies them. Between the app restart and the migration, signing in with a code fails for a few seconds; sign-in codes requested before the update are no longer valid (request a new one).
+- **Security** (update recommended):
+  - On a local network, any computer could choose the address seen by the rate limits (sign-in codes, password attempts). Caddy now trusts forwarded headers only in "behind a reverse proxy" mode. `leksis update` reloads Caddy with the new configuration. If Leksis sits behind Nginx Proxy Manager or Traefik, make sure the access mode is "proxy" (Admin → Services → Caddy)
+  - Requests sent by another site with a signed-in user's cookie (another intranet application, for example) are refused
+  - The sign-in page could redirect to another site after signing in
+  - The stored SMTP password no longer follows a change of server or account, and importing a configuration file no longer keeps the AI key for another server
+  - Sign-in codes: stored as a hash, invalidated after 5 wrong guesses, attempts also limited per address
+  - Email verification now asks for the password chosen at sign-up, so someone else cannot register your address with their password. Admin approval shows that the address was not verified
+  - Single sign-on: an account is bound to its identity provider account on first sign-in, then never matched by email again
+- **Word documents keep their layout**: a translated DOCX is the original file with the text replaced (styles, fonts, colours, images, tables, headers and footers). Bold or italic words in the middle of a sentence take the formatting of the start of their paragraph
+- **Documents**:
+  - Translated in parallel, with live progress ("Translating — 3 of 7 parts")
+  - PDF lines rejoined into paragraphs before translation (better sentences)
+  - CSV files translated cell by cell and downloaded as CSV
+  - Numbers, dates and amounts are no longer sent to the model
+  - Formal / informal choice ("As in the original" by default), also for "Extract & translate"
+  - The detected source language is shown and used
+- **No more failures after 5 minutes** on long documents or slow scanned pages; an AI engine that stops answering is abandoned after 3 minutes without output (`LEKSIS_AI_IDLE_TIMEOUT_SEC`)
+- **Text tab**: the finished translation can be edited before copying; the next paragraph of a long text is translated while the current one is shown
+- **Interface**:
+  - Error messages are now in your language
+  - The language list works with the keyboard only
+  - Help and feedback windows keep the keyboard focus
+  - Pages open directly in your language (no English flash) and load less JavaScript
+- **Lighter and faster updates**:
+  - Smaller application image (duplicate PDF libraries removed)
+  - Docker build cache kept between updates
+  - When a ready-built image is published for a release, `leksis update` downloads it instead of building on the server (falls back to building otherwise)
+- **Memory safety**: oversized PDF pages and "zip bomb" Word files are refused instead of exhausting the server's memory
 
 ### v1.10.0
 **Faster text translation with far fewer AI calls, automatic formal / informal, update notices — and security updates (update now).** One small **database migration** (`006-usage-log-tracking`, adds five columns to the usage log): `leksis update` takes a backup first and applies it. Between the app restart and the migration, usage log entries fail to be written (requests are not affected).
