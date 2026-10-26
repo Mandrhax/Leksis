@@ -5,7 +5,7 @@ import { resolveCaddyConfig } from '@/lib/caddy-config'
 import type { AccessMode } from '@/lib/caddy-config'
 import { checkCertificate } from '@/lib/caddy-tls'
 import type { TlsInfo } from '@/lib/caddy-tls'
-import { CADDY_ADMIN_ORIGIN } from '@/lib/caddy'
+import { CADDY_ADMIN_ORIGIN, CADDY_VERSION } from '@/lib/caddy'
 
 export interface CaddyUpstream {
   address: string
@@ -41,21 +41,7 @@ export async function GET() {
     if (infoRes.status === 'fulfilled') {
       // Any HTTP response (including 404) means the admin API is reachable
       result.reachable = true
-
-      // Try to read version from the Server header on the proxy port
-      try {
-        const headRes = await fetch('http://caddy:80/', {
-          method: 'HEAD',
-          signal: AbortSignal.timeout(2000),
-        }).catch(() => null)
-        const serverHeader = headRes?.headers.get('server') ?? ''
-        // Header is "Caddy/2.8.4" or just "Caddy"
-        const match = serverHeader.match(/Caddy\/?([\d.]+)/i)
-        if (match) result.version = match[1]
-        else if (serverHeader.toLowerCase().includes('caddy')) result.version = 'Caddy'
-      } catch {
-        // version stays undefined — not critical
-      }
+      result.version = CADDY_VERSION
     }
 
     if (upstreamsRes.status === 'fulfilled' && upstreamsRes.value.ok) {

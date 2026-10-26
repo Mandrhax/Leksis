@@ -15,6 +15,12 @@ export type { CaddyConfig, AccessMode, CaddyConfigError } from './caddy-config'
 // client sans en-têtes `Sec-Fetch-*` (curl, install.sh) passerait, Node non. On fournit l'Origin nous-mêmes.
 export const CADDY_ADMIN_ORIGIN = 'http://caddy:2019'
 
+// Caddy no longer exposes its version in the `Server` header (hidden by default, including on the
+// reverse-proxied responses this app serves — there's no code path left that would see it), and the
+// compose file pins the floating `caddy:2-alpine` tag, not an exact version. Hardcoded, bump by hand
+// after checking the running container (`docker exec leksis-caddy caddy version`) when it changes.
+export const CADDY_VERSION = '2.11.7'
+
 /** Recharge Caddy à chaud via son API d'administration (réseau Docker interne uniquement). */
 export async function reloadCaddy(content: string): Promise<void> {
   const res = await fetch('http://caddy:2019/load', {
