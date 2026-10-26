@@ -5,6 +5,7 @@ import { resolveCaddyConfig } from '@/lib/caddy-config'
 import type { AccessMode } from '@/lib/caddy-config'
 import { checkCertificate } from '@/lib/caddy-tls'
 import type { TlsInfo } from '@/lib/caddy-tls'
+import { CADDY_ADMIN_ORIGIN } from '@/lib/caddy'
 
 export interface CaddyUpstream {
   address: string
@@ -31,9 +32,10 @@ export async function GET() {
   const result: CaddyMetricsResult = { reachable: false }
 
   try {
+    const adminHeaders = { Origin: CADDY_ADMIN_ORIGIN }
     const [infoRes, upstreamsRes] = await Promise.allSettled([
-      fetch('http://caddy:2019/config/', { signal: AbortSignal.timeout(3000) }),
-      fetch('http://caddy:2019/reverse_proxy/upstreams', { signal: AbortSignal.timeout(3000) }),
+      fetch('http://caddy:2019/config/', { headers: adminHeaders, signal: AbortSignal.timeout(3000) }),
+      fetch('http://caddy:2019/reverse_proxy/upstreams', { headers: adminHeaders, signal: AbortSignal.timeout(3000) }),
     ])
 
     if (infoRes.status === 'fulfilled') {

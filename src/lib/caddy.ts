@@ -10,11 +10,16 @@ export {
 } from './caddy-config'
 export type { CaddyConfig, AccessMode, CaddyConfigError } from './caddy-config'
 
+// Node envoie `Sec-Fetch-Mode: cors` sans `Origin` sur un fetch() nu, ce que la protection anti-CSRF de
+// l'API admin de Caddy refuse d'emblée (même avec cette adresse déclarée dans ses `origins`) — un simple
+// client sans en-têtes `Sec-Fetch-*` (curl, install.sh) passerait, Node non. On fournit l'Origin nous-mêmes.
+export const CADDY_ADMIN_ORIGIN = 'http://caddy:2019'
+
 /** Recharge Caddy à chaud via son API d'administration (réseau Docker interne uniquement). */
 export async function reloadCaddy(content: string): Promise<void> {
   const res = await fetch('http://caddy:2019/load', {
     method: 'POST',
-    headers: { 'Content-Type': 'text/caddyfile' },
+    headers: { 'Content-Type': 'text/caddyfile', Origin: CADDY_ADMIN_ORIGIN },
     body: content,
     signal: AbortSignal.timeout(5000),
   })
