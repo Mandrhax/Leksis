@@ -63,7 +63,7 @@ export async function GET() {
   // Deux requêtes en tout (pas une par glossaire) ; match_variants voyage avec chaque terme
   type EntryRow = { glossary_id: number; source_term: string; target_term: string; source_lang: string | null; target_lang: string | null; match_variants: boolean }
   const [glossariesRes, entriesRes] = await Promise.all([
-    query<{ id: number; name: string; description: string }>('SELECT id, name, description FROM glossaries ORDER BY id'),
+    query<{ id: number; name: string; description: string; group_name: string | null }>('SELECT id, name, description, group_name FROM glossaries ORDER BY id'),
     query<EntryRow>('SELECT glossary_id, source_term, target_term, source_lang, target_lang, match_variants FROM glossary_entries ORDER BY id'),
   ])
   const entriesByGlossary = new Map<number, Omit<EntryRow, 'glossary_id'>[]>()
@@ -73,12 +73,12 @@ export async function GET() {
     entriesByGlossary.set(glossary_id, list)
   }
   const glossaries = glossariesRes.rows.map(g => ({
-    name: g.name, description: g.description ?? '', entries: entriesByGlossary.get(g.id) ?? [],
+    name: g.name, description: g.description ?? '', groupName: g.group_name, entries: entriesByGlossary.get(g.id) ?? [],
   }))
 
   const date   = new Date().toISOString().slice(0, 10)
   const backup = {
-    version:    '1.2',
+    version:    '1.3',
     exportedAt: new Date().toISOString(),
     settings,
     assets: {

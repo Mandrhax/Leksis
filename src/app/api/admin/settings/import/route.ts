@@ -123,9 +123,10 @@ export async function POST(req: NextRequest) {
       await tx('DELETE FROM glossaries')
       for (const g of body.glossaries) {
         if (!g.name || typeof g.name !== 'string') continue
+        const groupName = typeof g.groupName === 'string' && g.groupName.trim() ? g.groupName.trim().slice(0, 100) : null
         const res = await tx<{ id: number }>(
-          'INSERT INTO glossaries (name, description) VALUES ($1, $2) RETURNING id',
-          [g.name, g.description ?? '']
+          'INSERT INTO glossaries (name, description, group_name) VALUES ($1, $2, $3) RETURNING id',
+          [g.name, g.description ?? '', groupName]
         )
         const glossaryId = res.rows[0]?.id
         if (!glossaryId) continue

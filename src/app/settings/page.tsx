@@ -5,11 +5,13 @@ import { signOutToSignIn } from '@/lib/sign-out'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import { I18nProvider, useI18n } from '@/lib/i18n'
+import { groupGlossariesForDisplay } from '@/lib/glossary-groups'
 
 type GlossaryPref = {
   glossaryId: number
   name: string
   description: string | null
+  groupName: string | null
   enabled: boolean
 }
 
@@ -17,7 +19,8 @@ function GlossaryPreferences() {
   const { t } = useI18n()
   const [prefs, setPrefs] = useState<GlossaryPref[]>([])
   const [loading, setLoading] = useState(true)
-  const [toggling, setToggling] = useState<number | null>(null)
+  // Toggling a group means several PATCH calls in flight at once: track by glossaryId, not a single value
+  const [toggling, setToggling] = useState<Set<number>>(new Set())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -31,23 +34,30 @@ function GlossaryPreferences() {
 
   useEffect(() => { load() }, [load])
 
-  const toggle = async (glossaryId: number, currentEnabled: boolean) => {
-    setToggling(glossaryId)
+  // One row can be several glossaries sharing a group name: toggling it flips every member together
+  const toggleIds = async (glossaryIds: number[], nextEnabled: boolean) => {
+    setToggling((prev) => new Set([...prev, ...glossaryIds]))
     try {
-      const res = await fetch('/api/user/glossary-prefs', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ glossaryId, enabled: !currentEnabled }),
-      })
-      if (res.ok) {
-        setPrefs((prev) =>
-          prev.map((p) => p.glossaryId === glossaryId ? { ...p, enabled: !currentEnabled } : p),
-        )
-      }
+      await Promise.all(glossaryIds.map((glossaryId) =>
+        fetch('/api/user/glossary-prefs', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ glossaryId, enabled: nextEnabled }),
+        }),
+      ))
+      setPrefs((prev) =>
+        prev.map((p) => glossaryIds.includes(p.glossaryId) ? { ...p, enabled: nextEnabled } : p),
+      )
     } finally {
-      setToggling(null)
+      setToggling((prev) => {
+        const next = new Set(prev)
+        for (const id of glossaryIds) next.delete(id)
+        return next
+      })
     }
   }
+
+  const rows = groupGlossariesForDisplay(prefs)
 
   return (
     <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-6">
@@ -62,38 +72,45 @@ function GlossaryPreferences() {
             progress_activity
           </span>
         </div>
-      ) : prefs.length === 0 ? (
+      ) : rows.length === 0 ? (
         <p className="text-sm text-on-surface-variant">{t.settingsPage.glossaryNoItems}</p>
       ) : (
         <div className="space-y-2">
-          {prefs.map((pref) => (
-            <div
-              key={pref.glossaryId}
-              className="flex items-center justify-between gap-4 py-2 border-b border-outline-variant/10 last:border-0"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-on-surface truncate">{pref.name}</p>
-                {pref.description && (
-                  <p className="text-xs text-on-surface-variant truncate">{pref.description}</p>
-                )}
-              </div>
-              <button
-                onClick={() => toggle(pref.glossaryId, pref.enabled)}
-                disabled={toggling === pref.glossaryId}
-                aria-label={pref.enabled ? 'Disable glossary' : 'Enable glossary'}
-                className="relative w-10 h-5.5 rounded-full transition-colors flex-shrink-0 focus:outline-none"
-                style={{
-                  backgroundColor: pref.enabled ? 'var(--color-primary)' : 'var(--color-outline-variant)',
-                  opacity: toggling === pref.glossaryId ? 0.6 : 1,
-                }}
+          {rows.map((row) => {
+            const ids = row.members.map((m) => m.glossaryId)
+            const enabled = row.members.every((m) => m.enabled)
+            const isToggling = ids.some((id) => toggling.has(id))
+            // Grouped: no single description fits — show nothing rather than a misleading one
+            const description = row.isGroup ? null : row.members[0].description
+            return (
+              <div
+                key={row.isGroup ? `group:${row.label}` : `single:${ids[0]}`}
+                className="flex items-center justify-between gap-4 py-2 border-b border-outline-variant/10 last:border-0"
               >
-                <span
-                  className="absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-white shadow transition-transform"
-                  style={{ transform: pref.enabled ? 'translateX(1.375rem)' : 'translateX(0)' }}
-                />
-              </button>
-            </div>
-          ))}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-on-surface truncate">{row.label}</p>
+                  {description && (
+                    <p className="text-xs text-on-surface-variant truncate">{description}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => toggleIds(ids, !enabled)}
+                  disabled={isToggling}
+                  aria-label={enabled ? 'Disable glossary' : 'Enable glossary'}
+                  className="relative w-10 h-5.5 rounded-full transition-colors flex-shrink-0 focus:outline-none"
+                  style={{
+                    backgroundColor: enabled ? 'var(--color-primary)' : 'var(--color-outline-variant)',
+                    opacity: isToggling ? 0.6 : 1,
+                  }}
+                >
+                  <span
+                    className="absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-white shadow transition-transform"
+                    style={{ transform: enabled ? 'translateX(1.375rem)' : 'translateX(0)' }}
+                  />
+                </button>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

@@ -17,7 +17,7 @@ export async function GET() {
   const userId = session.user.id
 
   const result = await query(
-    `SELECT g.id, g.name, g.description,
+    `SELECT g.id, g.name, g.description, g.group_name,
             COALESCE(ugp.enabled, TRUE) AS enabled
      FROM glossaries g
      LEFT JOIN user_glossary_prefs ugp
@@ -30,6 +30,7 @@ export async function GET() {
     glossaryId: r.id,
     name: r.name,
     description: r.description,
+    groupName: r.group_name,
     enabled: r.enabled,
   }))
 

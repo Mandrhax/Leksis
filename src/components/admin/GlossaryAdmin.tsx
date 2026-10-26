@@ -6,6 +6,7 @@ import type { Glossary, GlossaryEntry } from '@/types/leksis'
 import { AdminToast, type ToastState } from '@/components/admin/AdminToast'
 import { LANGUAGES } from '@/lib/languages'
 import { buildGlossaryCsv, type CsvIssue, type CsvRejectReason } from '@/lib/glossary-csv'
+import { groupGlossariesForDisplay } from '@/lib/glossary-groups'
 
 // ---------------------------------------------------------------------------
 // CSV export helper
@@ -546,48 +547,55 @@ function GlossaryEntries({
 }
 
 // ---------------------------------------------------------------------------
-// New glossary modal
+// Glossary form modal — create (no `glossary` prop) or edit (name/description/group only, not terms)
 // ---------------------------------------------------------------------------
-function NewGlossaryModal({
+const GROUP_DATALIST_ID = 'glossary-group-names'
+
+function GlossaryFormModal({
+  glossary,
+  existingGroups,
   onClose,
-  onCreate,
+  onSave,
 }: {
+  glossary?: Glossary
+  existingGroups: string[]
   onClose: () => void
-  onCreate: (g: Glossary) => void
+  onSave: (g: Glossary) => void
 }) {
   const { t } = useI18n()
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
+  const [name, setName] = useState(glossary?.name ?? '')
+  const [description, setDescription] = useState(glossary?.description ?? '')
+  const [groupName, setGroupName] = useState(glossary?.groupName ?? '')
   const [saving, setSaving] = useState(false)
 
   const submit = async () => {
     if (!name.trim()) return
     setSaving(true)
     try {
-      const res = await fetch('/api/admin/glossary', {
-        method: 'POST',
+      const res = await fetch(glossary ? `/api/admin/glossary/${glossary.id}` : '/api/admin/glossary', {
+        method: glossary ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), description: description.trim() || undefined }),
+        body: JSON.stringify({ name: name.trim(), description: description.trim() || undefined, groupName: groupName.trim() || undefined }),
       })
-      if (res.ok) {
-        onCreate(await res.json())
-      }
+      if (res.ok) onSave(await res.json())
     } finally {
       setSaving(false)
     }
   }
 
+  const title = glossary ? t.glossaryAdmin.editGlossary : t.glossaryAdmin.newGlossary
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={t.glossaryAdmin.newGlossary}
+      aria-label={title}
       className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 shadow-xl w-full max-w-md p-6">
         <h3 className="adm-section-title mb-4">
-          {t.glossaryAdmin.newGlossary}
+          {title}
         </h3>
 
         <div className="space-y-3 mb-6">
@@ -617,6 +625,25 @@ function NewGlossaryModal({
               className="adm-input resize-none"
             />
           </div>
+          <div>
+            <label className="adm-label">
+              {t.glossaryAdmin.group}
+            </label>
+            <input
+              type="text"
+              list={GROUP_DATALIST_ID}
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+              placeholder={t.glossaryAdmin.groupPlaceholder}
+              maxLength={100}
+              className="adm-input"
+            />
+            <datalist id={GROUP_DATALIST_ID}>
+              {existingGroups.map((name) => <option key={name} value={name} />)}
+            </datalist>
+            <p className="adm-hint mt-1">{t.glossaryAdmin.groupHint}</p>
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-3">
@@ -630,9 +657,7 @@ function NewGlossaryModal({
           >
             {saving ? (
               <span className="material-symbols-outlined text-base leading-none animate-spin">progress_activity</span>
-            ) : (
-              t.glossaryAdmin.create
-            )}
+            ) : glossary ? t.glossaryAdmin.save : t.glossaryAdmin.create}
           </button>
         </div>
       </div>
@@ -648,7 +673,8 @@ export function GlossaryAdmin() {
   const [glossaries, setGlossaries] = useState<Glossary[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<number | null>(null)
-  const [showModal, setShowModal] = useState(false)
+  // 'new' = create modal, a Glossary = editing that one, null = closed
+  const [formTarget, setFormTarget] = useState<'new' | Glossary | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [toast, setToast] = useState<ToastState>(null)
 
@@ -668,11 +694,19 @@ export function GlossaryAdmin() {
 
   useEffect(() => { load() }, [load])
 
-  const handleCreate = (glossary: Glossary) => {
-    setGlossaries((prev) => [...prev, glossary])
-    setExpandedId(glossary.id)
-    setShowModal(false)
-    showToast(t.glossaryAdmin.created, 'success')
+  const handleSave = (saved: Glossary) => {
+    if (formTarget === 'new') {
+      setGlossaries((prev) => [...prev, saved])
+      setExpandedId(saved.id)
+      showToast(t.glossaryAdmin.created, 'success')
+    } else {
+      // The edit route only returns name/description/groupName — entryCount/createdAt stay as they were
+      setGlossaries((prev) => prev.map((g) =>
+        g.id === saved.id ? { ...g, name: saved.name, description: saved.description, groupName: saved.groupName } : g,
+      ))
+      showToast(t.glossaryAdmin.updated, 'success')
+    }
+    setFormTarget(null)
   }
 
   const handleDelete = async (id: number) => {
@@ -715,6 +749,9 @@ export function GlossaryAdmin() {
     )
   }
 
+  const existingGroups = [...new Set(glossaries.map((g) => g.groupName?.trim()).filter((n): n is string => !!n))].sort()
+  const rows = groupGlossariesForDisplay(glossaries)
+
   return (
     <>
       {/* Header action */}
@@ -725,7 +762,7 @@ export function GlossaryAdmin() {
             : t.glossaryAdmin.count.replace('{0}', String(glossaries.length))}
         </p>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => setFormTarget('new')}
           className="btn btn-primary"
         >
           <span className="material-symbols-outlined text-base leading-none">add</span>
@@ -733,92 +770,121 @@ export function GlossaryAdmin() {
         </button>
       </div>
 
-      {/* Glossary list */}
-      <div className="space-y-3">
-        {glossaries.map((g) => (
-          <div
-            key={g.id}
-            className="bg-surface-container-lowest rounded-xl border border-outline-variant/20"
-          >
-            {/* Glossary row header */}
-            <div className="flex items-center gap-4 p-5">
-              {/* Expand toggle */}
-              <button
-                onClick={() => setExpandedId(expandedId === g.id ? null : g.id)}
-                className="icon-btn flex-shrink-0"
-                aria-label={expandedId === g.id ? 'Collapse' : 'Expand'}
-              >
-                <span className="material-symbols-outlined text-lg leading-none text-on-surface-variant transition-transform"
-                  style={{ transform: expandedId === g.id ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-                  chevron_right
-                </span>
-              </button>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base leading-none text-primary">menu_book</span>
-                  <h3 className="font-headline text-sm font-semibold text-on-surface truncate">{g.name}</h3>
-                </div>
-                {g.description && (
-                  <p className="text-xs text-on-surface-variant mt-0.5 truncate">{g.description}</p>
-                )}
-              </div>
-
-              {/* Entry count badge */}
-              <span className="text-xs text-on-surface-variant bg-surface-container px-2.5 py-1 rounded-full flex-shrink-0">
-                {t.glossaryAdmin.entryCount.replace('{0}', String(g.entryCount))}
-              </span>
-
-              {/* Delete */}
-              {confirmDeleteId === g.id ? (
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-xs text-on-surface-variant">{t.glossaryAdmin.confirmDelete}</span>
-                  <button
-                    onClick={() => handleDelete(g.id)}
-                    className="text-xs font-medium text-error hover:text-error/80 transition-colors"
-                  >
-                    {t.glossaryAdmin.yes}
-                  </button>
-                  <button
-                    onClick={() => setConfirmDeleteId(null)}
-                    className="text-xs font-medium text-on-surface-variant hover:text-on-surface transition-colors"
-                  >
-                    {t.glossaryAdmin.no}
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setConfirmDeleteId(g.id)}
-                  className="icon-btn flex-shrink-0"
-                  aria-label={t.glossaryAdmin.deleteGlossary}
-                >
-                  <span className="material-symbols-outlined text-base leading-none text-on-surface-variant hover:text-error transition-colors">
-                    delete
-                  </span>
-                </button>
-              )}
-            </div>
-
-            {/* Expanded entries */}
-            {expandedId === g.id && (
-              <div className="px-5 pb-5">
-                <GlossaryEntries
-                  glossary={g}
-                  onEntryAdded={() => updateCount(g.id, 1)}
-                  onEntryDeleted={() => updateCount(g.id, -1)}
-                  onImported={() => refreshCount(g.id)}
-                  showToast={showToast}
-                />
+      {/* Glossary list — grouped rows show a header, then each member glossary beneath */}
+      <div className="space-y-5">
+        {rows.map((row) => (
+          <div key={row.isGroup ? `group:${row.label}` : `single:${row.members[0].id}`}>
+            {row.isGroup && (
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <span className="material-symbols-outlined text-base leading-none text-on-surface-variant">folder</span>
+                <h3 className="adm-eyebrow">{row.label}</h3>
               </div>
             )}
+            <div className={row.isGroup ? 'space-y-3 pl-2 border-l-2 border-outline-variant/20' : 'space-y-3'}>
+              {row.members.map((g) => (
+                <div
+                  key={g.id}
+                  className="bg-surface-container-lowest rounded-xl border border-outline-variant/20"
+                >
+                  {/* Glossary row header */}
+                  <div className="flex items-center gap-4 p-5">
+                    {/* Expand toggle */}
+                    <button
+                      onClick={() => setExpandedId(expandedId === g.id ? null : g.id)}
+                      className="icon-btn flex-shrink-0"
+                      aria-label={expandedId === g.id ? 'Collapse' : 'Expand'}
+                    >
+                      <span className="material-symbols-outlined text-lg leading-none text-on-surface-variant transition-transform"
+                        style={{ transform: expandedId === g.id ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+                        chevron_right
+                      </span>
+                    </button>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-base leading-none text-primary">menu_book</span>
+                        <h3 className="font-headline text-sm font-semibold text-on-surface truncate">{g.name}</h3>
+                      </div>
+                      {g.description && (
+                        <p className="text-xs text-on-surface-variant mt-0.5 truncate">{g.description}</p>
+                      )}
+                    </div>
+
+                    {/* Entry count badge */}
+                    <span className="text-xs text-on-surface-variant bg-surface-container px-2.5 py-1 rounded-full flex-shrink-0">
+                      {t.glossaryAdmin.entryCount.replace('{0}', String(g.entryCount))}
+                    </span>
+
+                    {/* Edit */}
+                    <button
+                      onClick={() => setFormTarget(g)}
+                      className="icon-btn flex-shrink-0"
+                      aria-label={t.glossaryAdmin.editGlossary}
+                      title={t.glossaryAdmin.editGlossary}
+                    >
+                      <span className="material-symbols-outlined text-base leading-none text-on-surface-variant hover:text-primary transition-colors">
+                        edit
+                      </span>
+                    </button>
+
+                    {/* Delete */}
+                    {confirmDeleteId === g.id ? (
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-xs text-on-surface-variant">{t.glossaryAdmin.confirmDelete}</span>
+                        <button
+                          onClick={() => handleDelete(g.id)}
+                          className="text-xs font-medium text-error hover:text-error/80 transition-colors"
+                        >
+                          {t.glossaryAdmin.yes}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="text-xs font-medium text-on-surface-variant hover:text-on-surface transition-colors"
+                        >
+                          {t.glossaryAdmin.no}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(g.id)}
+                        className="icon-btn flex-shrink-0"
+                        aria-label={t.glossaryAdmin.deleteGlossary}
+                      >
+                        <span className="material-symbols-outlined text-base leading-none text-on-surface-variant hover:text-error transition-colors">
+                          delete
+                        </span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Expanded entries */}
+                  {expandedId === g.id && (
+                    <div className="px-5 pb-5">
+                      <GlossaryEntries
+                        glossary={g}
+                        onEntryAdded={() => updateCount(g.id, 1)}
+                        onEntryDeleted={() => updateCount(g.id, -1)}
+                        onImported={() => refreshCount(g.id)}
+                        showToast={showToast}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* New glossary modal */}
-      {showModal && (
-        <NewGlossaryModal onClose={() => setShowModal(false)} onCreate={handleCreate} />
+      {/* Create / edit modal */}
+      {formTarget && (
+        <GlossaryFormModal
+          glossary={formTarget === 'new' ? undefined : formTarget}
+          existingGroups={existingGroups}
+          onClose={() => setFormTarget(null)}
+          onSave={handleSave}
+        />
       )}
 
       <AdminToast toast={toast} onDismiss={() => setToast(null)} />

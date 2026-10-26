@@ -944,13 +944,30 @@ try {
   await translateWithGlossary(false)
   check('without language codes the document is still translated, just without the glossary', aiCalls.length === 1 && aiCalls[0].glossary === false, JSON.stringify(aiCalls))
 
+  // Groups: several glossaries sharing a group name are bundled into one toggle for the user
+  const glossary2Created = await glossaryApi('/api/admin/glossary', jsonInit('POST', { name: 'E2E glossary 2', groupName: 'E2E group' }))
+  const gid2 = glossary2Created.json?.id
+  check('a glossary can be created directly inside a group', glossary2Created.status === 200 && glossary2Created.json.groupName === 'E2E group', JSON.stringify(glossary2Created))
+
+  const regrouped = await glossaryApi('/api/admin/glossary/' + gid, jsonInit('PATCH', { name: 'E2E glossary', groupName: 'E2E group' }))
+  check('an existing glossary can be moved into a group', regrouped.status === 200 && regrouped.json.groupName === 'E2E group', JSON.stringify(regrouped))
+
+  const adminList = (await glossaryApi('/api/admin/glossary', { method: 'GET' })).json
+  check('the admin list reports the group for both glossaries',
+    [gid, gid2].every(id => adminList.find(g => g.id === id)?.groupName === 'E2E group'), JSON.stringify(adminList))
+
+  const userPrefs = (await glossaryApi('/api/user/glossary-prefs', { method: 'GET' })).json
+  check('the user-facing prefs also carry the group name',
+    [gid, gid2].every(id => userPrefs.find(p => p.glossaryId === id)?.groupName === 'E2E group'), JSON.stringify(userPrefs))
+
   const glossaryAudit = (await adminPage.evaluate(() => fetch('/api/admin/audit').then(r => r.json()))).rows
   const glossaryActions = glossaryAudit.filter(r => r.resource === 'glossary:' + gid).map(r => r.action)
   check('glossary changes are audited and show the glossary name',
-    ['CREATE_GLOSSARY', 'IMPORT_GLOSSARY_CSV', 'UPDATE_GLOSSARY_TERM'].every(a => glossaryActions.includes(a))
+    ['CREATE_GLOSSARY', 'IMPORT_GLOSSARY_CSV', 'UPDATE_GLOSSARY_TERM', 'UPDATE_GLOSSARY'].every(a => glossaryActions.includes(a))
       && glossaryAudit.some(r => r.resource === 'glossary:' + gid && r.resource_label === 'glossary:E2E glossary'),
     JSON.stringify(glossaryActions))
 
+  await glossaryApi('/api/admin/glossary/' + gid2, { method: 'DELETE' })
   await glossaryApi('/api/admin/glossary/' + gid, { method: 'DELETE' })
   const gone = (await db.query('SELECT 1 FROM glossary_entries WHERE glossary_id = $1', [gid])).rowCount === 0
   check('deleting a glossary removes its terms', gone)

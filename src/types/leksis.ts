@@ -37,6 +37,7 @@ export type Glossary = {
   id: number
   name: string
   description: string | null
+  groupName: string | null  // bundles several glossaries under one name shown to users
   entryCount: number
   createdAt: string
 }

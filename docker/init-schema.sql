@@ -115,6 +115,7 @@ CREATE TABLE IF NOT EXISTS glossaries (
   id          SERIAL PRIMARY KEY,
   name        VARCHAR(100) NOT NULL,
   description TEXT,
+  group_name  VARCHAR(100),  -- optional: bundles several glossaries under one name shown to users
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
