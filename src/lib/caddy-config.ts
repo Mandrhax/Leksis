@@ -102,7 +102,10 @@ export function generateCaddyfile(config: CaddyConfig): string {
     '        header_up X-Real-IP {client_ip}',
     '    }',
   ]
-  const lines = ['{', '  admin 0.0.0.0:2019']
+  // Origines explicites : sans elles, Caddy dérive la liste autorisée de l'adresse d'écoute (0.0.0.0:2019),
+  // à laquelle personne ne se connecte jamais littéralement — l'appli (`caddy:2019`) et `install.sh`
+  // (`localhost:2019` / `127.0.0.1:2019`) se faisaient alors refuser l'API admin avec un 403.
+  const lines = ['{', '  admin 0.0.0.0:2019 {', '    origins localhost:2019 127.0.0.1:2019 caddy:2019', '  }']
   if (config.mode === 'proxy') {
     lines.push('  servers {', `    trusted_proxies static ${trusted}`, '    trusted_proxies_strict', '  }')
   }

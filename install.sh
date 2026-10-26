@@ -1767,10 +1767,13 @@ is_domain_name() {
 caddyfile_content() {
   local mode="$1" host="$2" fallback="$3" trusted="${4:-}" tp="private_ranges"
   [[ -n "$trusted" ]] && tp="private_ranges ${trusted}"
+  # Origines explicites : sans elles, Caddy dérive la liste autorisée de l'adresse d'écoute (0.0.0.0:2019),
+  # à laquelle personne ne se connecte jamais littéralement — l'appli (caddy:2019) et ce script lui-même
+  # (localhost:2019 / 127.0.0.1:2019) se faisaient alors refuser l'API admin avec un 403.
   if [[ "$mode" == "proxy" ]]; then
-    printf '{\n  admin 0.0.0.0:2019\n  servers {\n    trusted_proxies static %s\n    trusted_proxies_strict\n  }\n}\n\n' "$tp"
+    printf '{\n  admin 0.0.0.0:2019 {\n    origins localhost:2019 127.0.0.1:2019 caddy:2019\n  }\n  servers {\n    trusted_proxies static %s\n    trusted_proxies_strict\n  }\n}\n\n' "$tp"
   else
-    printf '{\n  admin 0.0.0.0:2019\n}\n\n'
+    printf '{\n  admin 0.0.0.0:2019 {\n    origins localhost:2019 127.0.0.1:2019 caddy:2019\n  }\n}\n\n'
   fi
   case "$mode" in
     https)

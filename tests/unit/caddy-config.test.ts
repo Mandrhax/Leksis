@@ -106,4 +106,11 @@ describe('generateCaddyfile', () => {
   it('never emits the empty X-Forwarded-* override', () => {
     expect(generateCaddyfile({ ...base, mode: 'http' })).not.toContain('X-Forwarded')
   })
+  it('declares explicit admin origins (regression: a bare 0.0.0.0:2019 listener derives an allow-list nobody actually connects from, locking out both the app and install.sh with a 403)', () => {
+    for (const mode of ['http', 'https', 'proxy'] as const) {
+      const f = generateCaddyfile({ ...base, mode, host: 'leksis.example.com' })
+      expect(f).toContain('admin 0.0.0.0:2019 {')
+      expect(f).toContain('origins localhost:2019 127.0.0.1:2019 caddy:2019')
+    }
+  })
 })

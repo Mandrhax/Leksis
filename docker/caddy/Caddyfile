@@ -1,5 +1,10 @@
 {
-    admin 0.0.0.0:2019
+    # Explicit origins: without them Caddy derives the allowed list from the listen address (0.0.0.0:2019),
+    # which nobody ever literally connects to — the app (caddy:2019) and install.sh (localhost:2019 /
+    # 127.0.0.1:2019) would then get a 403 from the admin API.
+    admin 0.0.0.0:2019 {
+        origins localhost:2019 127.0.0.1:2019 caddy:2019
+    }
     # No trusted proxy by default: on a LAN every client has a private address and could otherwise
     # choose the IP seen by the rate limits. Behind a reverse proxy, pick "proxy" access mode
     # (leksis config, or Admin → Services → Caddy).
