@@ -1094,6 +1094,7 @@ export const messages = {
     unsupportedFormat:   'This file format is not supported.',
     pageLimit:           'This scanned PDF has {0} pages; the limit is {1}.',
     extractionFailed:    'The text could not be read from this file. It may be damaged or protected.',
+    ocrFailed:           'This PDF is a scan (images, no text): reading it needs an AI model that can read images (OCR), and the AI server could not read it. Ask your administrator to check the OCR model.',
     docTooLong:          'The document has {1} characters; the limit is {0}.',
     translationFailed:   'The translation failed: the AI server did not return a result. Please try again.',
     transcriptionFailed: 'The dictation could not be transcribed. Please try again.',

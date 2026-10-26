@@ -52,6 +52,11 @@ if (!existsSync(standalone)) throw new Error('.next/standalone not found — run
 mkdirSync(join(root, '.next', 'standalone', '.next'), { recursive: true })
 cpSync(join(root, '.next', 'static'), join(root, '.next', 'standalone', '.next', 'static'), { recursive: true })
 if (existsSync(join(root, 'public'))) cpSync(join(root, 'public'), join(root, '.next', 'standalone', 'public'), { recursive: true })
+// The same pdfjs files as the Dockerfile (server.js runs from its own folder, like /app in the container)
+const pdfjsSrc = join(root, 'node_modules', 'pdfjs-dist')
+const pdfjsDst = join(root, '.next', 'standalone', 'node_modules', 'pdfjs-dist')
+for (const f of ['pdf.mjs', 'pdf.worker.mjs']) cpSync(join(pdfjsSrc, 'legacy', 'build', f), join(pdfjsDst, 'legacy', 'build', f))
+for (const d of ['standard_fonts', 'cmaps', 'wasm', 'iccs']) cpSync(join(pdfjsSrc, d), join(pdfjsDst, d), { recursive: true })
 
 // ── Database ────────────────────────────────────────────────────
 const db = new PGlite()
@@ -86,7 +91,9 @@ const aiServer = createServer((req, res) => {
       ]))
     }
     if (req.url !== '/api/generate') { res.statusCode = 404; return res.end('{}') }
-    const { prompt, stream } = JSON.parse(body)
+    const { prompt, stream, images } = JSON.parse(body)
+    // Like a text-only model: images are refused (the OCR paths must report it clearly)
+    if (images?.length) { res.statusCode = 400; return res.end(JSON.stringify({ error: 'this model does not support images' })) }
     // Document batches (the app asks for them streamed too, like everything else since 1.11)
     if (prompt.includes('The segments are separated by ||| tokens')) {
       const joined = prompt.split('\n\n').pop()
@@ -309,6 +316,30 @@ try {
     const r = await fetch('/api/translate/document', { method: 'POST', body: form, headers: { Accept: 'application/x-ndjson' } })
     return { type: r.headers.get('content-type'), events: (await r.text()).trim().split(String.fromCharCode(10)).map(l => JSON.parse(l)) }
   }, longLines.join(String.fromCharCode(10)))
+  // A native PDF is read (text layer, no OCR)
+  const { PDFDocument, StandardFonts } = await import('pdf-lib')
+  const pdfDoc = await PDFDocument.create()
+  const helv = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  // (over 100 characters: below that, a PDF counts as scanned and goes to OCR)
+  const pdfPage = pdfDoc.addPage([595, 842])
+  pdfPage.drawText('Delivery contract for the watch straps.', { x: 50, y: 780, size: 12, font: helv })
+  pdfPage.drawText('The supplier delivers the goods within thirty days, with the invoice and the certificate.', { x: 50, y: 760, size: 12, font: helv })
+  const extractPdf = (b64, name) => adminPage.evaluate(async (b64, name) => {
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+    const form = new FormData()
+    form.append('file', new File([bytes], name, { type: 'application/pdf' }))
+    const r = await fetch('/api/extract/document', { method: 'POST', body: form })
+    return { status: r.status, json: await r.json() }
+  }, b64, name)
+  const pdfResult = await extractPdf(Buffer.from(await pdfDoc.save()).toString('base64'), 'contract.pdf')
+  check('a native PDF is read without OCR', pdfResult.status === 200 && JSON.stringify(pdfResult.json.blocks ?? []).includes('Delivery contract for the watch straps.'),
+    JSON.stringify(pdfResult.json).slice(0, 300))
+  // A scan (no text layer) with a model that cannot read images: a clear message, not "damaged file"
+  const scanDoc = await PDFDocument.create()
+  scanDoc.addPage([595, 842]).drawRectangle({ x: 50, y: 600, width: 300, height: 120 })
+  const scanResult = await extractPdf(Buffer.from(await scanDoc.save()).toString('base64'), 'scan.pdf')
+  check('a scanned PDF the AI model cannot read reports ocr_failed', scanResult.status === 422 && scanResult.json.code === 'ocr_failed', JSON.stringify(scanResult))
+
   // A Word document is translated inside the original file: formatting and header kept
   const { Document: DocxDocument, Header: DocxHeader, Packer: DocxPacker, Paragraph: DocxParagraph, TextRun: DocxRun } = await import('docx')
   const wordFile = await DocxPacker.toBuffer(new DocxDocument({ sections: [{

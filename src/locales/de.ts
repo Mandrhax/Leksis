@@ -1096,6 +1096,7 @@ export const messages = {
     unsupportedFormat:   'Dieses Dateiformat wird nicht unterstützt.',
     pageLimit:           'Dieses gescannte PDF hat {0} Seiten; die Grenze liegt bei {1}.',
     extractionFailed:    'Der Text dieser Datei konnte nicht gelesen werden. Sie ist möglicherweise beschädigt oder geschützt.',
+    ocrFailed:           'Dieses PDF ist ein Scan (Bilder, kein Text): Zum Lesen braucht es ein KI-Modell, das Bilder lesen kann (OCR), und der KI-Server konnte es nicht lesen. Bitten Sie Ihren Administrator, das OCR-Modell zu prüfen.',
     docTooLong:          'Das Dokument hat {1} Zeichen; die Grenze liegt bei {0}.',
     translationFailed:   'Die Übersetzung ist fehlgeschlagen: Der KI-Server hat kein Ergebnis geliefert. Bitte versuchen Sie es erneut.',
     transcriptionFailed: 'Das Diktat konnte nicht transkribiert werden. Bitte versuchen Sie es erneut.',

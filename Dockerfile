@@ -65,6 +65,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 # pdfjs-dist is loaded dynamically (pdf.mjs, which loads pdf.worker.mjs) — NFT misses both.
 # Only these two files: the rest of legacy/build (source maps, minified copies, sandbox) is ~10 MB unused.
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pdfjs-dist/legacy/build/pdf.mjs /app/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs ./node_modules/pdfjs-dist/legacy/build/
+# pdfjs data files, passed explicitly by src/lib/pdfjs.ts: standard fonts (without them reading any PDF failed),
+# CJK cmaps, JBIG2 / JPEG 2000 decoders (scanned PDFs), ICC profiles (~4 MB)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pdfjs-dist/standard_fonts/ ./node_modules/pdfjs-dist/standard_fonts/
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pdfjs-dist/cmaps/ ./node_modules/pdfjs-dist/cmaps/
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pdfjs-dist/wasm/ ./node_modules/pdfjs-dist/wasm/
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pdfjs-dist/iccs/ ./node_modules/pdfjs-dist/iccs/
 
 # Copy static assets (CSS, JS chunks — not included in standalone output)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static

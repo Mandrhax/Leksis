@@ -21,6 +21,7 @@ export function apiErrorMessage(t: Messages, body: unknown, status: number): str
     case 'unsupported_format':   return m.unsupportedFormat
     case 'page_limit':           return m.pageLimit.replace('{0}', n(e.pages)).replace('{1}', n(e.limit))
     case 'extraction_failed':    return m.extractionFailed
+    case 'ocr_failed':           return m.ocrFailed
     case 'doc_too_long':         return m.docTooLong.replace('{0}', n(e.limit)).replace('{1}', n(e.count))
     case 'translation_failed':   return m.translationFailed
     case 'transcription_failed': return m.transcriptionFailed

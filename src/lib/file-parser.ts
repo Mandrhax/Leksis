@@ -4,6 +4,7 @@ import 'server-only'
 import type { Block } from '@/types/leksis'
 import { detectDelimiter, parseCsvRecords } from '@/lib/glossary-csv'
 import { readDocx, docxBlocks, docxSegments, type DocxContent } from '@/lib/docx-inplace'
+import { openPdf } from '@/lib/pdfjs'
 
 // ── Parsing markdown tables (port de doc-studio.js) ────────────
 
@@ -137,9 +138,8 @@ export function pdfItemsToLines(items: PdfTextItem[]): string[] {
 
 export async function parsePdf(buffer: Buffer): Promise<Block[]> {
   // pdfjs-dist directement (déjà chargé pour l'OCR des PDF scannés) : pdf-parse en embarquait une 2ᵉ copie
-  // (pdfjs + canvas, ~70 Mo) et ne libérait pas sa mémoire
-  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as string) as typeof import('pdfjs-dist')
-  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+  // (pdfjs + canvas, ~70 Mo) et ne libérait pas sa mémoire. Données de pdfjs (polices, décodeurs) : lib/pdfjs.ts
+  const loadingTask = await openPdf(buffer)
   try {
     const pdf = await loadingTask.promise
     const pages: string[] = []

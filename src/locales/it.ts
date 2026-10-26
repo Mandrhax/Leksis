@@ -1096,6 +1096,7 @@ export const messages = {
     unsupportedFormat:   'Questo formato di file non è supportato.',
     pageLimit:           'Questo PDF scansionato ha {0} pagine; il limite è {1}.',
     extractionFailed:    'Impossibile leggere il testo di questo file. Potrebbe essere danneggiato o protetto.',
+    ocrFailed:           'Questo PDF è una scansione (immagini, senza testo): per leggerlo serve un modello di IA in grado di leggere le immagini (OCR) e il server di IA non è riuscito a leggerlo. Chiedi all’amministratore di verificare il modello OCR.',
     docTooLong:          'Il documento ha {1} caratteri; il limite è {0}.',
     translationFailed:   'La traduzione non è riuscita: il server di IA non ha restituito alcun risultato. Riprova.',
     transcriptionFailed: 'Non è stato possibile trascrivere la dettatura. Riprova.',

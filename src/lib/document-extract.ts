@@ -25,7 +25,15 @@ export async function extractDocumentBlocks(buffer: Buffer, ext: string, filenam
         const ai = await getAiOrError()
         if (ai.error) return { error: ai.error, status: ai.error.status }
         const { provider, cfg } = ai.ai
-        blocks = await parsePdfWithVision(buffer, provider, cfg.ocrModel, cfg.maxConcurrentAiRequests, signal)
+        try {
+          blocks = await parsePdfWithVision(buffer, provider, cfg.ocrModel, cfg.maxConcurrentAiRequests, signal)
+        } catch (err) {
+          if (err instanceof PdfPageLimitError) throw err
+          // PDF scanné (des images, pas de texte) : seul le modèle OCR pouvait le lire. Le plus souvent, ce modèle ne
+          // sait pas lire les images (modèle texte seulement) — dire « fichier endommagé » égarait l'utilisateur.
+          console.error(`[${logTag}] OCR of a scanned PDF failed (model ${cfg.ocrModel}):`, err)
+          return { status: 422, error: { error: 'This PDF is a scan: reading it needs an AI model that can read images (OCR), and the AI server could not read it.', code: 'ocr_failed' } }
+        }
       }
     } else if (ext === 'docx') {
       const parsed = await parseDocxDocument(buffer)

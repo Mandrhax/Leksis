@@ -4,6 +4,7 @@
 
 import type { LlmProvider } from '@/lib/llm/types'
 import { withAiSlot } from '@/lib/llm/concurrency'
+import { openPdf } from '@/lib/pdfjs'
 import { buildOcrPrompt } from '@/lib/prompts'
 import { textToBlocks, parseHtmlTable } from '@/lib/file-parser'
 import { OCR_MAX_PDF_PAGES } from '@/lib/validators'
@@ -59,12 +60,11 @@ export function renderScale(page: { width: number; height: number }): number {
 }
 
 export async function parsePdfWithVision(buffer: Buffer, provider: LlmProvider, model: string, maxConcurrent: number, signal?: AbortSignal): Promise<Block[]> {
-  // Import dynamique pour éviter les problèmes de bundling côté client
-  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as string) as typeof import('pdfjs-dist')
   const { createCanvas } = await import('@napi-rs/canvas')
 
-  // pdfjs-dist v6 : destroy() est sur la tâche de chargement, plus sur le document résolu
-  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+  // pdfjs-dist v6 : destroy() est sur la tâche de chargement, plus sur le document résolu.
+  // Décodeurs JBIG2 / JPEG 2000 des pages scannées, polices standard : lib/pdfjs.ts
+  const loadingTask = await openPdf(buffer, { forRendering: true })
   const pdf = await loadingTask.promise
 
   try {

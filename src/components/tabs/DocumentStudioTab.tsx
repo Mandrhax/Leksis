@@ -440,20 +440,22 @@ export function DocumentStudioTab({ defaultTargetLang, maxDocChars = 12000, onRe
               <button
                 onClick={handleDownloadTxt}
                 disabled={!outputBlocks}
-                className="p-2 hover:bg-surface-container-high rounded-md transition-colors disabled:opacity-30"
+                className="flex items-center gap-1 px-2 py-1.5 hover:bg-surface-container-high rounded-md transition-colors disabled:opacity-30 text-xs font-semibold text-on-surface-variant"
                 title={isCsvSource ? t.docTab.downloadCsv : t.docTab.downloadTxt}
                 aria-label={isCsvSource ? t.docTab.downloadCsv : t.docTab.downloadTxt}
               >
                 <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">download</span>
+                <span aria-hidden="true">{isCsvSource ? 'CSV' : 'TXT'}</span>
               </button>
               <button
                 onClick={handleDownloadDocx}
                 disabled={!outputBlocks}
-                className="p-2 hover:bg-surface-container-high rounded-md transition-colors disabled:opacity-30"
+                className="flex items-center gap-1 px-2 py-1.5 hover:bg-surface-container-high rounded-md transition-colors disabled:opacity-30 text-xs font-semibold text-on-surface-variant"
                 title={t.docTab.downloadDocx}
                 aria-label={t.docTab.downloadDocx}
               >
                 <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">description</span>
+                <span aria-hidden="true">DOCX</span>
               </button>
               <button
                 onClick={handleCopy}
