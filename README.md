@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.11.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.11.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,9 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.11.1
+**Hotfix: slow translations on large glossaries.** A glossary term's matching pattern was recompiled on every single translation, document or rewrite request instead of once. With a few thousand terms, this could add several seconds of delay per request. Update recommended for any installation with a large glossary.
 
 ### v1.11.0
 **Security hardening (update recommended), Word documents translated with their layout, faster documents.** Two small **database migrations** (`007-auth-hardening`, `008-glossary-term-index`): `leksis update` takes a backup first and applies them. Between the app restart and the migration, signing in with a code fails for a few seconds; sign-in codes requested before the update are no longer valid (request a new one).
