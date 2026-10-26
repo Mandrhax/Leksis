@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.11.0-beta.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.11.0-beta.2/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,15 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.11.0-beta.2
+**PDF fixes found while testing beta.1.** No database migration.
+- **PDF reading**: the application image now contains pdfjs's font data and its decoders for scanner images (JBIG2, JPEG 2000). Without them, reading some PDFs failed in the container
+- **Scanned PDFs** (images, no text) need an AI model that can read images for OCR (for example `gemma3:12b` or `qwen2.5vl:7b` as the OCR model). When the model cannot read them, the message now says so, instead of "the file may be damaged or protected"
+- **Document tab**: the download buttons show the format (TXT / CSV, DOCX) next to the icon
+- **Tips**:
+  - Behind a reverse proxy that is itself behind Cloudflare (Cloudflare → Nginx Proxy Manager → Leksis), add [Cloudflare's IP ranges](https://www.cloudflare.com/ips/) to "Proxy address" (Admin → Services → Caddy) so the rate limits see the real visitor address
+  - With Ollama, `OLLAMA_NUM_PARALLEL` on the Ollama server lets several requests run at once (documents are translated 3 parts at a time)
 
 ### v1.11.0-beta.1
 **Security hardening, Word documents translated with their layout, faster documents.** Two small **database migrations** (`007-auth-hardening`, `008-glossary-term-index`): `leksis update` takes a backup first and applies them. Between the app restart and the migration, signing in with a code fails for a few seconds; sign-in codes requested before the update are no longer valid (request a new one).
