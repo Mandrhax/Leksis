@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.11.0-beta.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.11.0/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,30 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.11.0
+**Security hardening (update recommended), Word documents translated with their layout, faster documents.** Two small **database migrations** (`007-auth-hardening`, `008-glossary-term-index`): `leksis update` takes a backup first and applies them. Between the app restart and the migration, signing in with a code fails for a few seconds; sign-in codes requested before the update are no longer valid (request a new one).
+- **Security**:
+  - On a local network, any computer could choose the address seen by the rate limits (sign-in codes, password attempts). Caddy now trusts forwarded headers only in "behind a reverse proxy" mode, and `leksis update` reloads it with the new configuration. Behind Nginx Proxy Manager or Traefik, make sure the access mode is "proxy" (Admin → Services → Caddy); if Cloudflare is in front of that proxy, also add [Cloudflare's IP ranges](https://www.cloudflare.com/ips/) to "Proxy address"
+  - Requests sent by another site with a signed-in user's cookie (another intranet application, for example) are refused
+  - The sign-in page could redirect to another site after signing in
+  - The stored SMTP password no longer follows a change of server or account; importing a configuration file no longer keeps the AI key for another server
+  - Sign-in codes are stored as a hash, invalidated after 5 wrong guesses, and limited per address too
+  - Email verification asks for the password chosen at sign-up, so someone else cannot register your address with their password; admin approval shows that the address was not verified
+  - Single sign-on: an account is bound to its identity provider account on first sign-in, then never matched by email again
+  - Oversized PDF pages and "zip bomb" Word files are refused instead of exhausting the server's memory
+- **Word documents keep their layout**: a translated DOCX is the original file with the text replaced — styles, fonts, colours, images, tables, headers and footers. Bold or italic words in the middle of a sentence take the formatting of the start of their paragraph
+- **Documents**:
+  - Translated several parts at a time, with live progress ("Translating — 3 of 7 parts"). With Ollama, set `OLLAMA_NUM_PARALLEL` on the Ollama server so it actually serves them at once
+  - PDF lines rejoined into paragraphs before translation; PDF reading fixed in the container (fonts and scanner image decoders JBIG2 / JPEG 2000 were missing)
+  - CSV files translated cell by cell and downloaded as CSV; numbers, dates and amounts are never sent to the model
+  - Formal / informal choice ("As in the original" by default), also for "Extract & translate", which now uses the glossary too
+  - The detected source language is shown and used; download buttons show the format (TXT / CSV, DOCX)
+  - A scanned PDF that the OCR model cannot read gets a clear message instead of "the file may be damaged"
+- **No more failures after 5 minutes** on long documents or slow scanned pages; an AI engine that stops answering is abandoned after 3 minutes without output (`LEKSIS_AI_IDLE_TIMEOUT_SEC`)
+- **Text tab**: the finished translation can be edited before copying; the next paragraph of a long text is translated while the current one is shown
+- **Interface**: error messages in your language; the language list works with the keyboard; help and feedback windows keep the keyboard focus; pages open directly in your language and load less JavaScript; OCR results appear as they are read
+- **Lighter and faster updates**: smaller application image, Docker build cache kept between updates, and a ready-built image downloaded for each release when available (from the next update on — the first update to 1.11.0 still builds on the server)
 
 ### v1.11.0-beta.2
 **PDF fixes found while testing beta.1.** No database migration.
