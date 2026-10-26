@@ -77,7 +77,7 @@ Rewrite or proofread any text in its original language. Choose between **Rewrite
 ### Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.11.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Mandrhax/Leksis/v1.12.0-beta.1/install.sh)
 ```
 
 > ⚠️ Use `bash <(curl ...)` — **not** `curl ... | bash`. The installer is interactive.
@@ -319,6 +319,9 @@ Users switch the UI language instantly with the language selector — the prefer
 ---
 
 ## 🎉 What's new
+
+### v1.12.0-beta.1
+**Beta: optional glossary groups.** Several glossaries (typically one per language pair) can now share a group name, e.g. "Watch industry". Users see and toggle one entry per group in Settings instead of every individual glossary; the admin glossary list still manages each one (and its terms) individually, shown under the group. Edit an existing glossary's name, description or group from Admin → Glossary.
 
 ### v1.11.2
 **Fixes Caddy admin API errors seen after every update.** `admin 0.0.0.0:2019` had no explicit `origins`, so Caddy derived its allow-list from the listen address itself — which nothing ever connects to. This caused "Caddy configuration could not be refreshed" on every `leksis update`, and silent 403s on the app's own Services → Caddy → Monitoring calls. Both are fixed; the Caddy version shown on that page is now a hardcoded value (Caddy hides it from clients by default) instead of a sniff that never found anything. An already-running instance keeps its locked-down Caddy admin state across restarts (Caddy's `--resume`) and needs a one-time manual unstick; a fresh install or new deploy is unaffected.
