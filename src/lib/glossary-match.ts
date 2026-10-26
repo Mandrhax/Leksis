@@ -20,15 +20,31 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+// Compiler une regex Unicode (`u`, `\p{L}`/`\p{N}`) coûte bien plus qu'un simple test : avec quelques milliers de
+// termes candidats, la recompiler à chaque requête de traduction sature un cœur (~3 s mesurés en production
+// avec ~2800 termes). Mise en cache par terme + variantes, bornée par la taille du glossaire, jamais purgée
+// (un terme modifié en base prend simplement une nouvelle clé, l'ancienne reste inerte).
+const compiledRegexCache = new Map<string, RegExp>()
+
+function compileTermRegex(foldedTerm: string, matchVariants: boolean): RegExp {
+  const key = (matchVariants ? 'v:' : 'f:') + foldedTerm
+  let re = compiledRegexCache.get(key)
+  if (!re) {
+    const pattern = foldedTerm.split(/\s+/).map(escapeRegExp).join('\\s+')
+    const tail = matchVariants ? `\\p{L}{0,${VARIANT_SUFFIX_MAX}}` : ''
+    re = new RegExp(`(?<![\\p{L}\\p{N}])${pattern}${tail}(?![\\p{L}\\p{N}])`, 'u')
+    compiledRegexCache.set(key, re)
+  }
+  return re
+}
+
 function matchFolded(entry: Pick<GlossaryEntry, 'source' | 'matchVariants'>, folded: string, plain: string): boolean {
   const term = entry.source.trim()
   if (!term) return false
 
   if (UNSPACED_SCRIPTS.test(term)) return plain.includes(term.normalize('NFC').toLowerCase())
 
-  const pattern = fold(term).split(/\s+/).map(escapeRegExp).join('\\s+')
-  const tail = entry.matchVariants ? `\\p{L}{0,${VARIANT_SUFFIX_MAX}}` : ''
-  return new RegExp(`(?<![\\p{L}\\p{N}])${pattern}${tail}(?![\\p{L}\\p{N}])`, 'u').test(folded)
+  return compileTermRegex(fold(term), !!entry.matchVariants).test(folded)
 }
 
 /** Le terme apparaît-il dans le texte ? Mot entier, sans tenir compte de la casse ni des accents. */

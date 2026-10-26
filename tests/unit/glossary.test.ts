@@ -89,6 +89,26 @@ describe('filterRelevantTerms', () => {
     const text = terms.map(t => t.source).join(' ')
     expect(filterRelevantTerms(terms, text)).toHaveLength(MAX_PROMPT_TERMS)
   })
+
+  it('compiles each term\'s regex only once, not on every call (regression: a large glossary recompiled thousands of regexes per translation request)', () => {
+    const terms = Array.from({ length: 50 }, (_, i) => entry(`uniqueterm${i}`, i % 2 === 0, i))
+    const text = 'Le texte source contient uniqueterm3 et uniqueterm7 seulement.'
+    filterRelevantTerms(terms, text) // warms the cache: the only call allowed to compile these terms' regexes
+
+    const OriginalRegExp = globalThis.RegExp
+    let constructed = 0
+    // @ts-expect-error -- intercepting the global constructor to count compilations, not to replace its behavior
+    globalThis.RegExp = function (...args: ConstructorParameters<typeof RegExp>) {
+      constructed++
+      return new OriginalRegExp(...args)
+    }
+    try {
+      for (let i = 0; i < 20; i++) filterRelevantTerms(terms, text)
+    } finally {
+      globalThis.RegExp = OriginalRegExp
+    }
+    expect(constructed).toBe(0)
+  })
 })
 
 describe('langMatches', () => {
